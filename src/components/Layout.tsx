@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { signOut } from "@/lib/supabase";
 import { useNavigate, Link } from "react-router-dom";
-import { LogOut, Clock, Users, FileText, Settings } from "lucide-react";
+import { LogOut, Clock, Users, FileText, Settings, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface LayoutProps {
@@ -50,6 +50,7 @@ export function Layout({ children }: LayoutProps) {
         { to: "/users", icon: Users, label: "Users" },
         { to: "/departments", icon: Users, label: "Departments" },
         { to: "/reports", icon: FileText, label: "Reports" },
+        { to: "/bulk-import", icon: Upload, label: "Bulk Import" },
         { to: "/settings", icon: Settings, label: "Settings" }
       );
     }

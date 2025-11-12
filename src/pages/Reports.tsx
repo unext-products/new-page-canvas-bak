@@ -7,14 +7,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { Download, Filter } from "lucide-react";
+import { Download, Filter, ChevronDown } from "lucide-react";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { DepartmentSelect } from "@/components/DepartmentSelect";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/StatusBadge";
-import { exportToCSV, formatDuration } from "@/lib/exportUtils";
-import { format } from "date-fns";
+import { exportToCSVWithMetadata, formatDuration } from "@/lib/exportUtils";
+import { exportToPDF } from "@/lib/pdfExportUtils";
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths } from "date-fns";
 
 interface TimesheetEntry {
   id: string;
@@ -127,21 +129,74 @@ export default function Reports() {
   }, [userWithRole]);
 
   const handleExport = () => {
+    const reportPeriod = filters.dateFrom && filters.dateTo
+      ? `${format(filters.dateFrom, "MMM dd, yyyy")} - ${format(filters.dateTo, "MMM dd, yyyy")}`
+      : "All Time";
+
     const csvData = entries.map(entry => ({
-      Date: entry.entry_date,
-      Faculty: entry.faculty_name,
-      Department: entry.department_name,
-      "Activity Type": entry.activity_type,
-      "Activity Subtype": entry.activity_subtype || "-",
-      "Start Time": entry.start_time,
-      "End Time": entry.end_time,
-      Duration: formatDuration(entry.duration_minutes),
-      Status: entry.status,
-      Approver: entry.approver_name || "-",
-      Notes: entry.notes || "-",
+      ...entry,
+      profiles: { full_name: entry.faculty_name },
+      departments: { name: entry.department_name },
     }));
 
-    exportToCSV(csvData, "timesheet_report");
+    exportToCSVWithMetadata(csvData, "timesheet_report", {
+      reportPeriod,
+      generatedBy: userWithRole?.profile?.full_name || "Admin",
+      totalHours: entries.reduce((sum, entry) => sum + entry.duration_minutes, 0),
+      totalEntries: entries.length,
+    });
+  };
+
+  const handleExportPDF = () => {
+    const reportPeriod = filters.dateFrom && filters.dateTo
+      ? `${format(filters.dateFrom, "MMM dd, yyyy")} - ${format(filters.dateTo, "MMM dd, yyyy")}`
+      : "All Time";
+
+    exportToPDF(entries.map(entry => ({
+      ...entry,
+      profiles: { full_name: entry.faculty_name },
+      departments: { name: entry.department_name },
+    })), "timesheet_report", {
+      reportPeriod,
+      generatedBy: userWithRole?.profile?.full_name || "Admin",
+      totalHours: entries.reduce((sum, entry) => sum + entry.duration_minutes, 0),
+      approvedHours: entries.filter(e => e.status === "approved").reduce((sum, entry) => sum + entry.duration_minutes, 0),
+      pendingCount,
+    });
+  };
+
+  const applyPreset = (preset: string) => {
+    const now = new Date();
+    let dateFrom: Date;
+    let dateTo: Date;
+
+    switch (preset) {
+      case "today":
+        dateFrom = now;
+        dateTo = now;
+        break;
+      case "thisWeek":
+        dateFrom = startOfWeek(now, { weekStartsOn: 1 });
+        dateTo = endOfWeek(now, { weekStartsOn: 1 });
+        break;
+      case "lastWeek":
+        dateFrom = subWeeks(startOfWeek(now, { weekStartsOn: 1 }), 1);
+        dateTo = endOfWeek(dateFrom, { weekStartsOn: 1 });
+        break;
+      case "thisMonth":
+        dateFrom = startOfMonth(now);
+        dateTo = endOfMonth(now);
+        break;
+      case "lastMonth":
+        const lastMonth = subMonths(now, 1);
+        dateFrom = startOfMonth(lastMonth);
+        dateTo = endOfMonth(lastMonth);
+        break;
+      default:
+        return;
+    }
+
+    setFilters({ ...filters, dateFrom, dateTo });
   };
 
   const totalHours = entries.reduce((sum, entry) => sum + entry.duration_minutes, 0) / 60;
@@ -168,11 +223,41 @@ export default function Reports() {
             <h1 className="text-3xl font-bold">Reports & Export</h1>
             <p className="text-muted-foreground">Generate and export timesheet reports</p>
           </div>
-          <Button onClick={handleExport} disabled={entries.length === 0}>
-            <Download className="mr-2 h-4 w-4" />
-            Export to CSV
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button disabled={entries.length === 0}>
+                <Download className="mr-2 h-4 w-4" />
+                Export
+                <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={handleExport}>
+                Export to CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExportPDF}>
+                Export to PDF
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
+
+        {/* Report Period Presets */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Quick Report Periods</CardTitle>
+            <CardDescription>Select a preset time period for your report</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+              <Button variant="outline" onClick={() => applyPreset("today")}>Today</Button>
+              <Button variant="outline" onClick={() => applyPreset("thisWeek")}>This Week</Button>
+              <Button variant="outline" onClick={() => applyPreset("lastWeek")}>Last Week</Button>
+              <Button variant="outline" onClick={() => applyPreset("thisMonth")}>This Month</Button>
+              <Button variant="outline" onClick={() => applyPreset("lastMonth")}>Last Month</Button>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
