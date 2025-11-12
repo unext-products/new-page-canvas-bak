@@ -166,23 +166,35 @@ export async function bulkInsertTimesheets(entries: any[]) {
 
 export async function fetchUsersAndDepartments() {
   try {
-    // Fetch auth users to get emails (admin only)
-    const { data: authData, error: authError } = await supabase.auth.admin.listUsers();
+    // Fetch auth users via secure edge function (admin only)
+    const VITE_SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+    const VITE_SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    const response = await fetch(`${VITE_SUPABASE_URL}/functions/v1/admin-list-users`, {
+      headers: {
+        'Authorization': `Bearer ${session?.access_token || VITE_SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
     const deptsResponse = await supabase.from("departments").select("id, code");
 
-    if (authError) {
-      console.error("Error fetching auth users:", authError);
+    let authUsers: any[] = [];
+    if (response.ok) {
+      const result = await response.json();
+      authUsers = result.users || [];
+    } else {
+      console.error("Error fetching auth users:", await response.text());
     }
 
     const usersMap = new Map<string, string>();
-    if (authData && 'users' in authData) {
-      const authUsers = authData.users as any[];
-      authUsers?.forEach((user: any) => {
-        if (user.email) {
-          usersMap.set(user.email.toLowerCase(), user.id);
-        }
-      });
-    }
+    authUsers.forEach((user: any) => {
+      if (user.email) {
+        usersMap.set(user.email.toLowerCase(), user.id);
+      }
+    });
 
     const deptsMap = new Map<string, string>();
     deptsResponse.data?.forEach((dept) => {
