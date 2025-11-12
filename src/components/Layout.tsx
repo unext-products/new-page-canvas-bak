@@ -35,7 +35,10 @@ export function Layout({ children }: LayoutProps) {
     ];
 
     if (role === "faculty") {
-      baseItems.push({ to: "/timesheet", icon: FileText, label: "Timesheet" });
+      baseItems.push(
+        { to: "/timesheet", icon: FileText, label: "Timesheet" },
+        { to: "/bulk-import", icon: Upload, label: "Bulk Upload" }
+      );
     }
 
     if (role === "hod") {
