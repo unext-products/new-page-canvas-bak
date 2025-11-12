@@ -128,8 +128,8 @@ const Index = () => {
       />
 
       {/* Animated Background Gradient */}
-      <div className="fixed inset-0 bg-gradient-mesh animate-gradient-shift bg-[length:200%_200%]" />
-      <div className="fixed inset-0 bg-background/80 backdrop-blur-3xl" />
+      <div className="fixed inset-0 z-0 bg-gradient-mesh animate-gradient-shift bg-[length:200%_200%]" />
+      <div className="fixed inset-0 z-0 bg-background/95 backdrop-blur-xl" />
 
       {/* Content */}
       <div className="relative z-10">
@@ -224,14 +224,14 @@ const Index = () => {
         {/* Features Section - Bento Grid */}
         <section ref={featuresRef} className="py-20 px-6">
           <div className="container mx-auto max-w-7xl">
-            <div className={`text-center mb-16 ${isFeaturesVisible ? "animate-fade-in-up" : "opacity-0"}`}>
+            <div className="text-center mb-16 animate-fade-in-up">
               <h2 className="text-5xl font-bold mb-4 bg-gradient-to-r from-foreground to-foreground/60 bg-clip-text text-transparent">
                 Powerful Features
               </h2>
               <p className="text-xl text-muted-foreground">Everything you need to manage faculty time effectively</p>
             </div>
 
-            <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 ${isFeaturesVisible ? "animate-fade-in-up" : "opacity-0"}`}>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-fade-in-up">
               {features.map((feature, index) => {
                 const Icon = feature.icon;
                 const colSpan = feature.size === "large" ? "md:col-span-2" : feature.size === "medium" ? "md:col-span-2" : "md:col-span-1";

@@ -18,10 +18,16 @@ export function useScrollAnimation(ref: RefObject<HTMLElement>, threshold = 0.1)
       observer.observe(currentRef);
     }
 
+    // Fallback timeout to ensure content becomes visible
+    const fallbackTimer = setTimeout(() => {
+      setIsVisible(true);
+    }, 500);
+
     return () => {
       if (currentRef) {
         observer.unobserve(currentRef);
       }
+      clearTimeout(fallbackTimer);
     };
   }, [ref, threshold]);
 
