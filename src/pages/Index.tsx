@@ -32,7 +32,7 @@ const Index = () => {
         </div>
         <div className="space-y-2">
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
-            TimeTrack
+            ClockWise
           </h1>
           <p className="text-xl text-muted-foreground max-w-md mx-auto">
             Streamlined faculty timesheet management for coaching institutes

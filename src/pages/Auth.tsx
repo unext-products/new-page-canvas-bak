@@ -84,7 +84,7 @@ export default function Auth() {
         <CardHeader className="space-y-1 flex flex-col items-center">
           <div className="flex items-center gap-2 mb-2">
             <Clock className="h-8 w-8 text-primary" />
-            <span className="text-2xl font-bold">TimeTrack</span>
+            <span className="text-2xl font-bold">ClockWise</span>
           </div>
           <CardTitle className="text-2xl">
             {isLogin ? "Sign in" : "Create account"}
@@ -92,7 +92,7 @@ export default function Auth() {
           <CardDescription>
             {isLogin
               ? "Enter your credentials to access your account"
-              : "Register to get started with TimeTrack"}
+              : "Register to get started with ClockWise"}
           </CardDescription>
         </CardHeader>
         <CardContent>

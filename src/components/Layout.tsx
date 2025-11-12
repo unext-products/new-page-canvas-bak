@@ -65,7 +65,7 @@ export function Layout({ children }: LayoutProps) {
           <div className="flex items-center gap-6">
             <Link to="/dashboard" className="flex items-center gap-2">
               <Clock className="h-6 w-6 text-primary" />
-              <span className="text-lg font-semibold">TimeTrack</span>
+              <span className="text-lg font-semibold">ClockWise</span>
             </Link>
             <nav className="hidden md:flex items-center gap-1">
               {getNavItems().map((item) => (
