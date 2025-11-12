@@ -376,12 +376,12 @@ export default function Approvals() {
                     <span className="font-medium">Quick Filters:</span>
                   </div>
                   <div className="flex flex-wrap gap-2 flex-1">
-                    <Select value={filterFaculty || ""} onValueChange={(value) => setFilterFaculty(value || null)}>
+                    <Select value={filterFaculty || "all"} onValueChange={(value) => setFilterFaculty(value === "all" ? null : value)}>
                       <SelectTrigger className="w-[200px]">
                         <SelectValue placeholder="By Faculty" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">All Faculty</SelectItem>
+                        <SelectItem value="all">All Faculty</SelectItem>
                         {facultyList.map(({ userId, name, count }) => (
                           <SelectItem key={userId} value={userId}>
                             {name} ({count})
@@ -390,12 +390,12 @@ export default function Approvals() {
                       </SelectContent>
                     </Select>
                     
-                    <Select value={filterActivity || ""} onValueChange={(value) => setFilterActivity(value || null)}>
+                    <Select value={filterActivity || "all"} onValueChange={(value) => setFilterActivity(value === "all" ? null : value)}>
                       <SelectTrigger className="w-[200px]">
                         <SelectValue placeholder="By Activity" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">All Activities</SelectItem>
+                        <SelectItem value="all">All Activities</SelectItem>
                         {activityTypes.map(({ type, count }) => (
                           <SelectItem key={type} value={type}>
                             {type.replace(/_/g, " ").charAt(0).toUpperCase() + type.slice(1).replace(/_/g, " ")} ({count})
