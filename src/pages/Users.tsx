@@ -16,6 +16,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { UserRoleSelect } from "@/components/UserRoleSelect";
 import { DepartmentSelect } from "@/components/DepartmentSelect";
+import { userCreateSchema, type UserCreateInput } from "@/lib/validation";
+import { getUserErrorMessage } from "@/lib/errorHandler";
 import type { UserRole } from "@/lib/supabase";
 
 interface UserProfile {
@@ -93,12 +95,12 @@ export default function Users() {
 
       if (deptError) throw deptError;
 
-      // Fetch auth users for emails
-      const { data: authUsersData, error: authError } = await supabase.auth.admin.listUsers();
+      // Fetch auth users for emails using edge function
+      const { data: authResponse, error: authError } = await supabase.functions.invoke('admin-list-users');
 
       if (authError) throw authError;
-
-      const authUsers = authUsersData?.users || [];
+      
+      const authUsers = authResponse?.users || [];
 
       // Create lookup maps
       const rolesMap = new Map<string, any>();
@@ -108,7 +110,7 @@ export default function Users() {
       deptData?.forEach(d => deptMap.set(d.id, d.name));
       
       const emailMap = new Map<string, string>();
-      authUsers.forEach(u => u.email && emailMap.set(u.id, u.email));
+      authUsers.forEach((u: any) => u.email && emailMap.set(u.id, u.email));
 
       const enrichedUsers: UserProfile[] = profilesData?.map(profile => {
         const roleData = rolesMap.get(profile.id);
@@ -125,7 +127,7 @@ export default function Users() {
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message,
+        description: getUserErrorMessage(error, "fetch users"),
         variant: "destructive",
       });
     } finally {
@@ -152,46 +154,23 @@ export default function Users() {
 
   const handleCreate = async () => {
     try {
-      // Create auth user
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: formData.email,
-        password: "ChangeMe123!",
-        email_confirm: true,
-        user_metadata: {
-          full_name: formData.full_name,
-        },
+      // Validate form data
+      const validatedData = userCreateSchema.parse(formData);
+
+      // Call edge function to create user
+      const { data, error } = await supabase.functions.invoke('admin-create-user', {
+        body: validatedData,
       });
 
-      if (authError) throw authError;
+      if (error) throw error;
 
-      // Update profile
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .update({
-          full_name: formData.full_name,
-          phone: formData.phone || null,
-          is_active: formData.is_active,
-        })
-        .eq("id", authData.user.id);
-
-      if (profileError) throw profileError;
-
-      // Create user role
-      if (formData.role) {
-        const { error: roleError } = await supabase
-          .from("user_roles")
-          .insert({
-            user_id: authData.user.id,
-            role: formData.role,
-            department_id: formData.role === "admin" ? null : formData.department_id || null,
-          });
-
-        if (roleError) throw roleError;
+      if (data?.error) {
+        throw new Error(data.error);
       }
 
       toast({
         title: "Success",
-        description: "User created successfully. Password reset email sent.",
+        description: "User created successfully. A secure password has been generated and sent via email.",
       });
 
       setCreateDialogOpen(false);
@@ -205,11 +184,20 @@ export default function Users() {
       });
       fetchUsers();
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      // If it's a Zod validation error, show the specific validation message
+      if (error.errors) {
+        toast({
+          title: "Validation Error",
+          description: error.errors[0]?.message || "Invalid input",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: getUserErrorMessage(error, "create user"),
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -277,7 +265,7 @@ export default function Users() {
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message,
+        description: getUserErrorMessage(error, "update user status"),
         variant: "destructive",
       });
     }

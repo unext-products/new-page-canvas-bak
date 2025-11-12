@@ -13,6 +13,8 @@ import { useToast } from "@/hooks/use-toast";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Plus, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { timesheetEntrySchema } from "@/lib/validation";
+import { getUserErrorMessage } from "@/lib/errorHandler";
 
 type ActivityType = "class" | "quiz" | "invigilation" | "admin" | "other";
 
@@ -53,7 +55,7 @@ export default function Timesheet() {
     if (error) {
       toast({
         title: "Error",
-        description: "Failed to load entries",
+        description: getUserErrorMessage(error, "load timesheet entries"),
         variant: "destructive",
       });
     } else {
@@ -79,41 +81,38 @@ export default function Timesheet() {
       return;
     }
 
-    const duration = calculateDuration(startTime, endTime);
-    
-    if (duration <= 0) {
-      toast({
-        title: "Invalid time",
-        description: "End time must be after start time",
-        variant: "destructive",
+    try {
+      // Validate form data
+      const validatedData = timesheetEntrySchema.parse({
+        entry_date: entryDate,
+        start_time: startTime,
+        end_time: endTime,
+        activity_type: activityType,
+        activity_subtype: activitySubtype,
+        notes: notes,
       });
-      return;
-    }
 
-    setLoading(true);
+      const duration = calculateDuration(startTime, endTime);
 
-    const { error } = await supabase.from("timesheet_entries").insert({
-      user_id: userWithRole.user.id,
-      department_id: userWithRole.departmentId,
-      entry_date: entryDate,
-      start_time: startTime,
-      end_time: endTime,
-      duration_minutes: duration,
-      activity_type: activityType,
-      activity_subtype: activitySubtype || null,
-      notes: notes || null,
-      status,
-    });
+      setLoading(true);
 
-    setLoading(false);
-
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to create entry",
-        variant: "destructive",
+      const { error } = await supabase.from("timesheet_entries").insert({
+        user_id: userWithRole.user.id,
+        department_id: userWithRole.departmentId,
+        entry_date: validatedData.entry_date,
+        start_time: validatedData.start_time,
+        end_time: validatedData.end_time,
+        duration_minutes: duration,
+        activity_type: validatedData.activity_type,
+        activity_subtype: validatedData.activity_subtype || null,
+        notes: validatedData.notes || null,
+        status,
       });
-    } else {
+
+      setLoading(false);
+
+      if (error) throw error;
+
       toast({
         title: "Success",
         description: status === "draft" ? "Entry saved as draft" : "Entry submitted for approval",
@@ -121,6 +120,22 @@ export default function Timesheet() {
       setDialogOpen(false);
       resetForm();
       loadEntries();
+    } catch (error: any) {
+      setLoading(false);
+      
+      if (error.errors) {
+        toast({
+          title: "Validation Error",
+          description: error.errors[0]?.message || "Invalid input",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: getUserErrorMessage(error, "create timesheet entry"),
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -133,7 +148,7 @@ export default function Timesheet() {
     if (error) {
       toast({
         title: "Error",
-        description: "Failed to delete entry",
+        description: getUserErrorMessage(error, "delete timesheet entry"),
         variant: "destructive",
       });
     } else {

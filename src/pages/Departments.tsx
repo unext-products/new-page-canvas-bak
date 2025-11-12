@@ -11,6 +11,8 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, Users } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { departmentSchema } from "@/lib/validation";
+import { getUserErrorMessage } from "@/lib/errorHandler";
 
 interface Department {
   id: string;
@@ -77,7 +79,7 @@ export default function Departments() {
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message,
+        description: getUserErrorMessage(error, "fetch departments"),
         variant: "destructive",
       });
     } finally {
@@ -87,11 +89,17 @@ export default function Departments() {
 
   const handleCreate = async () => {
     try {
+      // Validate input
+      const validatedData = departmentSchema.parse({
+        name: formData.name,
+        code: formData.code,
+      });
+
       const { error } = await supabase
         .from("departments")
         .insert({
-          name: formData.name,
-          code: formData.code.toUpperCase(),
+          name: validatedData.name,
+          code: validatedData.code.toUpperCase(),
         });
 
       if (error) throw error;
@@ -105,11 +113,19 @@ export default function Departments() {
       setFormData({ name: "", code: "" });
       fetchDepartments();
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      if (error.errors) {
+        toast({
+          title: "Validation Error",
+          description: error.errors[0]?.message || "Invalid input",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: getUserErrorMessage(error, "create department"),
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -139,7 +155,7 @@ export default function Departments() {
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message,
+        description: getUserErrorMessage(error, "update department"),
         variant: "destructive",
       });
     }
@@ -167,7 +183,7 @@ export default function Departments() {
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message,
+        description: getUserErrorMessage(error, "delete department"),
         variant: "destructive",
       });
     }

@@ -17,6 +17,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { exportToCSVWithMetadata, formatDuration } from "@/lib/exportUtils";
 import { exportToPDF } from "@/lib/pdfExportUtils";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths } from "date-fns";
+import { getUserErrorMessage } from "@/lib/errorHandler";
 
 interface TimesheetEntry {
   id: string;
@@ -114,7 +115,7 @@ export default function Reports() {
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message,
+        description: getUserErrorMessage(error, "generate report"),
         variant: "destructive",
       });
     } finally {
