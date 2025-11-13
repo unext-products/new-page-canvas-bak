@@ -22,12 +22,14 @@ const COLORS = [
 ];
 
 export function ActivityBreakdownChart({ data }: ActivityBreakdownChartProps) {
-  const chartData = data.map((item) => ({
-    name: item.activityType.charAt(0).toUpperCase() + item.activityType.slice(1),
-    value: item.hours,
-    percentage: item.percentage,
-    count: item.count,
-  }));
+  const chartData = data
+    .filter((item) => item.activityType) // Filter out items with undefined/null activityType
+    .map((item) => ({
+      name: item.activityType.charAt(0).toUpperCase() + item.activityType.slice(1),
+      value: item.hours,
+      percentage: item.percentage,
+      count: item.count,
+    }));
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {

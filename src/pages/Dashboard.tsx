@@ -143,6 +143,7 @@ export default function Dashboard() {
     const activityMap = new Map();
     weekEntries?.forEach(entry => {
       const type = entry.activity_type;
+      if (!type) return; // Skip entries without activity type
       if (!activityMap.has(type)) {
         activityMap.set(type, { minutes: 0, count: 0 });
       }
@@ -154,7 +155,7 @@ export default function Dashboard() {
     });
 
     const activityBreakdown = Array.from(activityMap.entries()).map(([type, data]) => ({
-      type,
+      activityType: type,
       hours: data.minutes / 60,
       percentage: totalWeeklyMinutes > 0 ? (data.minutes / totalWeeklyMinutes) * 100 : 0,
       count: data.count,
