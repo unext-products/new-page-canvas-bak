@@ -81,8 +81,20 @@ export default function Auth() {
 
   return (
     <div className="min-h-screen flex relative overflow-hidden">
-      {/* Animated gradient background for left side */}
+      {/* Animated gradient background */}
       <div className="absolute inset-0 bg-gradient-mesh animate-gradient-shift opacity-60" />
+      
+      {/* Floating gradient orbs */}
+      <div className="absolute top-20 left-20 w-96 h-96 bg-primary/30 rounded-full blur-3xl animate-float-slow" />
+      <div className="absolute bottom-20 right-20 w-96 h-96 bg-accent/20 rounded-full blur-3xl animate-float-slow" style={{ animationDelay: "5s" }} />
+      
+      {/* Animated dots grid */}
+      <div className="absolute inset-0 opacity-10">
+        <div className="absolute inset-0" style={{
+          backgroundImage: "radial-gradient(circle, currentColor 1px, transparent 1px)",
+          backgroundSize: "40px 40px"
+        }} />
+      </div>
       
       {/* Theme Toggle - Fixed Position */}
       <div className="fixed top-6 right-6 z-50">
@@ -93,47 +105,65 @@ export default function Auth() {
       <div className="hidden lg:flex lg:w-1/2 relative items-center justify-center p-12">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-background/50 to-accent/20 backdrop-blur-3xl" />
         
-        <div className="relative z-10 max-w-lg space-y-8 animate-fade-in">
+        <div className="relative z-10 max-w-lg space-y-10 animate-fade-in">
           {/* Logo & Title */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="p-3 rounded-2xl bg-gradient-to-br from-primary to-primary/70 shadow-lg shadow-primary/20">
-                <Clock className="h-10 w-10 text-primary-foreground" />
+          <div className="space-y-6">
+            <div className="flex items-center gap-4">
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-primary to-primary/70 shadow-2xl shadow-primary/30 animate-pulse-glow">
+                <Clock className="h-12 w-12 text-primary-foreground" />
               </div>
-              <span className="text-4xl font-bold bg-gradient-to-r from-foreground via-foreground to-foreground/70 bg-clip-text text-transparent">
+              <span className="text-5xl font-bold bg-gradient-to-r from-foreground via-foreground to-foreground/70 bg-clip-text text-transparent">
                 ClockWise
               </span>
             </div>
-            <h1 className="text-5xl font-bold leading-tight">
+            <h1 className="text-6xl font-bold leading-tight tracking-tight">
               Time tracking
               <br />
               <span className="bg-gradient-to-r from-primary via-primary/80 to-accent bg-clip-text text-transparent">
                 made effortless
               </span>
             </h1>
-            <p className="text-lg text-muted-foreground">
+            <p className="text-xl text-muted-foreground leading-relaxed">
               Streamline your workflow with intelligent time management
             </p>
+            
+            {/* Stats showcase */}
+            <div className="flex items-center gap-6 pt-4">
+              <div className="text-center">
+                <div className="text-3xl font-bold text-primary">10k+</div>
+                <div className="text-sm text-muted-foreground">Teams</div>
+              </div>
+              <div className="w-px h-12 bg-border" />
+              <div className="text-center">
+                <div className="text-3xl font-bold text-primary">99.9%</div>
+                <div className="text-sm text-muted-foreground">Uptime</div>
+              </div>
+              <div className="w-px h-12 bg-border" />
+              <div className="text-center">
+                <div className="text-3xl font-bold text-primary">24/7</div>
+                <div className="text-sm text-muted-foreground">Support</div>
+              </div>
+            </div>
           </div>
 
           {/* Feature Highlights */}
-          <div className="space-y-6 pt-8">
+          <div className="space-y-5">
             {[
-              { icon: Zap, title: "Lightning Fast", desc: "Track time in seconds" },
-              { icon: Shield, title: "Secure & Private", desc: "Enterprise-grade security" },
-              { icon: TrendingUp, title: "Smart Analytics", desc: "Actionable insights" }
+              { icon: Zap, title: "Lightning Fast", desc: "Track time in seconds, not minutes" },
+              { icon: Shield, title: "Secure & Private", desc: "Enterprise-grade encryption" },
+              { icon: TrendingUp, title: "Smart Analytics", desc: "AI-powered insights & reports" }
             ].map((feature, i) => (
               <div
                 key={i}
-                className="flex items-start gap-4 p-4 rounded-xl bg-card/30 backdrop-blur-sm border border-border/40 hover:bg-card/50 transition-all duration-300 animate-fade-in"
+                className="group flex items-start gap-4 p-5 rounded-xl bg-card/40 backdrop-blur-md border border-border/50 hover:bg-card/60 hover:border-primary/30 hover:shadow-xl hover:shadow-primary/10 hover:-translate-y-1 transition-all duration-300 animate-fade-in"
                 style={{ animationDelay: `${i * 100}ms` }}
               >
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <feature.icon className="h-5 w-5 text-primary" />
+                <div className="p-3 rounded-xl bg-primary/10 group-hover:bg-primary/20 group-hover:shadow-lg group-hover:shadow-primary/20 transition-all duration-300">
+                  <feature.icon className="h-6 w-6 text-primary group-hover:scale-110 transition-transform duration-300" />
                 </div>
-                <div>
-                  <h3 className="font-semibold mb-1">{feature.title}</h3>
-                  <p className="text-sm text-muted-foreground">{feature.desc}</p>
+                <div className="space-y-1">
+                  <h3 className="font-semibold text-base">{feature.title}</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{feature.desc}</p>
                 </div>
               </div>
             ))}
@@ -145,15 +175,17 @@ export default function Auth() {
       <div className="w-full lg:w-1/2 flex items-center justify-center p-6 lg:p-12 relative">
         <div className="absolute inset-0 bg-background/95 backdrop-blur-xl lg:bg-background/80" />
         
-        <Card className="w-full max-w-md relative z-10 bg-card/50 backdrop-blur-xl border-border/40 shadow-2xl animate-fade-in">
-          <CardHeader className="space-y-1 pb-6">
+        <Card className="w-full max-w-md relative z-10 bg-card/60 backdrop-blur-2xl border-border/50 shadow-2xl hover:shadow-primary/10 animate-fade-in" style={{ boxShadow: "var(--glass-shadow)" }}>
+          <CardHeader className="space-y-2 pb-8">
             {/* Mobile Logo */}
-            <div className="flex lg:hidden items-center justify-center gap-2 mb-4">
-              <Clock className="h-8 w-8 text-primary" />
-              <span className="text-2xl font-bold">ClockWise</span>
+            <div className="flex lg:hidden items-center justify-center gap-3 mb-6">
+              <div className="p-2 rounded-xl bg-gradient-to-br from-primary to-primary/70 shadow-lg shadow-primary/20">
+                <Clock className="h-8 w-8 text-primary-foreground" />
+              </div>
+              <span className="text-3xl font-bold">ClockWise</span>
             </div>
             
-            <CardTitle className="text-3xl text-center">
+            <CardTitle className="text-3xl text-center font-bold">
               {isLogin ? "Welcome back" : "Get started"}
             </CardTitle>
             <CardDescription className="text-center text-base">
@@ -177,7 +209,7 @@ export default function Auth() {
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     required
-                    className="bg-background/50 border-border/60 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all"
+                    className="bg-background/60 border-border/60 focus:border-primary focus:ring-2 focus:ring-primary/30 transition-all h-11"
                   />
                 </div>
               )}
@@ -193,7 +225,7 @@ export default function Auth() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="bg-background/50 border-border/60 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all"
+                  className="bg-background/60 border-border/60 focus:border-primary focus:ring-2 focus:ring-primary/30 transition-all h-11"
                 />
               </div>
               
@@ -207,31 +239,42 @@ export default function Auth() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="bg-background/50 border-border/60 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all"
+                  className="bg-background/60 border-border/60 focus:border-primary focus:ring-2 focus:ring-primary/30 transition-all h-11"
                 />
               </div>
               
               <Button
                 type="submit"
-                className="w-full h-11 bg-gradient-to-r from-primary to-primary/80 hover:shadow-lg hover:shadow-primary/20 hover:scale-[1.02] transition-all duration-200"
+                className="relative w-full h-12 bg-gradient-to-r from-primary to-primary/80 hover:shadow-xl hover:shadow-primary/30 hover:scale-[1.02] transition-all duration-300 overflow-hidden group"
                 disabled={loading}
               >
-                {loading ? "Loading..." : isLogin ? "Sign In" : "Create Account"}
+                <span className="relative z-10">
+                  {loading ? "Loading..." : isLogin ? "Sign In" : "Create Account"}
+                </span>
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-1000" />
               </Button>
             </form>
             
-            <div className="mt-6 text-center">
-              <span className="text-sm text-muted-foreground">
-                {isLogin ? "Don't have an account?" : "Already have an account?"}
-              </span>
-              {" "}
-              <Button
-                variant="link"
-                className="p-0 h-auto text-sm font-semibold text-primary hover:text-primary/80"
-                onClick={() => setIsLogin(!isLogin)}
-              >
-                {isLogin ? "Sign up" : "Sign in"}
-              </Button>
+            <div className="mt-6 space-y-4">
+              <div className="text-center">
+                <span className="text-sm text-muted-foreground">
+                  {isLogin ? "Don't have an account?" : "Already have an account?"}
+                </span>
+                {" "}
+                <Button
+                  variant="link"
+                  className="p-0 h-auto text-sm font-semibold text-primary hover:text-primary/80 transition-colors"
+                  onClick={() => setIsLogin(!isLogin)}
+                >
+                  {isLogin ? "Sign up" : "Sign in"}
+                </Button>
+              </div>
+              
+              {/* Trust badge */}
+              <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground pt-2 border-t border-border/40">
+                <Shield className="h-3.5 w-3.5 text-primary" />
+                <span>256-bit SSL encryption • SOC 2 certified</span>
+              </div>
             </div>
           </CardContent>
         </Card>
