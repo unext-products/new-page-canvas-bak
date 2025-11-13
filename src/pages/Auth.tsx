@@ -119,7 +119,7 @@ export default function Auth() {
             <h1 className="text-6xl font-bold leading-tight tracking-tight">
               Time tracking
               <br />
-              <span className="bg-gradient-to-r from-primary via-primary/80 to-accent bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-primary via-primary/90 to-primary/70 bg-clip-text text-transparent">
                 made effortless
               </span>
             </h1>
