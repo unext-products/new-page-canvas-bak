@@ -26,7 +26,7 @@ export function Layout({ children }: LayoutProps) {
         variant: "destructive",
       });
     } else {
-      navigate("/auth");
+      navigate("/");
     }
   };
 

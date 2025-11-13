@@ -7,8 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { signIn, signUp } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
-import { Clock, Zap, Shield, TrendingUp } from "lucide-react";
+import { Clock, Zap, Shield, TrendingUp, Home } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { Link } from "react-router-dom";
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
@@ -96,6 +97,19 @@ export default function Auth() {
         }} />
       </div>
       
+      {/* Back to Home - Fixed Position */}
+      <div className="fixed top-6 left-6 z-50">
+        <Link to="/">
+          <Button 
+            variant="ghost" 
+            size="icon"
+            className="bg-background/60 backdrop-blur-md border border-border/50 hover:bg-background/80 hover:border-primary/30 transition-all duration-300"
+          >
+            <Home className="h-5 w-5" />
+          </Button>
+        </Link>
+      </div>
+
       {/* Theme Toggle - Fixed Position */}
       <div className="fixed top-6 right-6 z-50">
         <ThemeToggle />
