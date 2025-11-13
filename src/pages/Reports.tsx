@@ -75,11 +75,6 @@ export default function Reports() {
 
       if (reportType === "faculty") {
         if (selectedFaculty === "all") {
-          toast({
-            title: "Selection Required",
-            description: "Please select a faculty member to generate their report",
-            variant: "destructive",
-          });
           return;
         }
         const report = await fetchFacultyReport(selectedFaculty, reportPeriod);
