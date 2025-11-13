@@ -105,9 +105,11 @@ export default function Dashboard() {
   return (
     <Layout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">{getWelcomeMessage()}</h1>
-          <p className="text-muted-foreground">
+        <div className="animate-fade-in-up">
+          <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-foreground via-foreground to-foreground/70 bg-clip-text text-transparent">
+            {getWelcomeMessage()}
+          </h1>
+          <p className="text-muted-foreground mt-2">
             {userWithRole.role === "faculty" && "Track your working hours and submit timesheets"}
             {userWithRole.role === "hod" && "Review and approve team timesheets"}
             {userWithRole.role === "admin" && "Manage users, departments, and reports"}
@@ -116,55 +118,63 @@ export default function Dashboard() {
 
         {userWithRole.role === "faculty" && (
           <>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <Card>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 animate-fade-in-up">
+              <Card className="bg-card/50 backdrop-blur-xl border-border/40 hover:scale-105 transition-transform duration-300 hover:border-primary/50">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Today's Hours</CardTitle>
                   <Clock className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{formatMinutes(stats.todayMinutes)}</div>
+                  <div className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                    {formatMinutes(stats.todayMinutes)}
+                  </div>
                   <p className="text-xs text-muted-foreground">
                     Target: {formatMinutes(stats.targetMinutes)}
                   </p>
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="bg-card/50 backdrop-blur-xl border-border/40 hover:scale-105 transition-transform duration-300 hover:border-warning/50">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Pending</CardTitle>
                   <AlertCircle className="h-4 w-4 text-warning" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{stats.pending}</div>
+                  <div className="text-2xl font-bold bg-gradient-to-r from-warning to-warning/60 bg-clip-text text-transparent">
+                    {stats.pending}
+                  </div>
                   <p className="text-xs text-muted-foreground">Awaiting approval</p>
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="bg-card/50 backdrop-blur-xl border-border/40 hover:scale-105 transition-transform duration-300 hover:border-success/50">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Approved</CardTitle>
                   <CheckCircle className="h-4 w-4 text-success" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{stats.approved}</div>
+                  <div className="text-2xl font-bold bg-gradient-to-r from-success to-success/60 bg-clip-text text-transparent">
+                    {stats.approved}
+                  </div>
                   <p className="text-xs text-muted-foreground">This week</p>
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="bg-card/50 backdrop-blur-xl border-border/40 hover:scale-105 transition-transform duration-300 hover:border-border/60">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Drafts</CardTitle>
                   <XCircle className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{stats.rejected}</div>
+                  <div className="text-2xl font-bold bg-gradient-to-r from-foreground to-foreground/60 bg-clip-text text-transparent">
+                    {stats.rejected}
+                  </div>
                   <p className="text-xs text-muted-foreground">Incomplete</p>
                 </CardContent>
               </Card>
             </div>
 
-            <Card>
+            <Card className="bg-card/50 backdrop-blur-xl border-border/40 animate-fade-in-up">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
@@ -179,7 +189,7 @@ export default function Dashboard() {
               </CardHeader>
             </Card>
 
-            <Card>
+            <Card className="bg-card/50 backdrop-blur-xl border-border/40 animate-fade-in-up">
               <CardHeader>
                 <CardTitle>Recent Entries</CardTitle>
                 <CardDescription>Your latest timesheet submissions</CardDescription>
@@ -208,7 +218,7 @@ export default function Dashboard() {
         )}
 
         {userWithRole.role === "hod" && (
-          <Card>
+          <Card className="bg-card/50 backdrop-blur-xl border-border/40 animate-fade-in-up">
             <CardHeader>
               <CardTitle>Pending Approvals</CardTitle>
               <CardDescription>
@@ -224,8 +234,8 @@ export default function Dashboard() {
         )}
 
         {userWithRole.role === "admin" && (
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
+          <div className="grid gap-4 md:grid-cols-2 animate-fade-in-up">
+            <Card className="bg-card/50 backdrop-blur-xl border-border/40">
               <CardHeader>
                 <CardTitle>Quick Actions</CardTitle>
               </CardHeader>

@@ -5,6 +5,8 @@ import { signOut } from "@/lib/supabase";
 import { useNavigate, Link } from "react-router-dom";
 import { LogOut, Clock, Users, FileText, Settings, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { useCursorSpotlight } from "@/hooks/useCursorSpotlight";
 
 interface LayoutProps {
   children: ReactNode;
@@ -61,10 +63,17 @@ export function Layout({ children }: LayoutProps) {
     return baseItems;
   };
 
+  const cursorPos = useCursorSpotlight();
+
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-16 items-center justify-between">
+    <div className="min-h-screen bg-background relative">
+      {/* Subtle Animated Background Gradient */}
+      <div className="fixed inset-0 z-0 bg-gradient-mesh animate-gradient-shift bg-[length:200%_200%] opacity-30" />
+      <div className="fixed inset-0 z-0 bg-background/98 backdrop-blur-sm" />
+      
+      <div className="relative z-10">
+        <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/40 backdrop-blur-xl">
+          <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-6">
             <Link to="/dashboard" className="flex items-center gap-2">
               <Clock className="h-6 w-6 text-primary" />
@@ -73,7 +82,7 @@ export function Layout({ children }: LayoutProps) {
             <nav className="hidden md:flex items-center gap-1">
               {getNavItems().map((item) => (
                 <Link key={item.to} to={item.to}>
-                  <Button variant="ghost" size="sm" className="gap-2">
+                  <Button variant="ghost" size="sm" className="gap-2 hover:bg-primary/10 hover:text-primary transition-all duration-300 hover:scale-105">
                     <item.icon className="h-4 w-4" />
                     {item.label}
                   </Button>
@@ -85,6 +94,7 @@ export function Layout({ children }: LayoutProps) {
             <div className="hidden sm:block text-sm text-muted-foreground">
               {userWithRole?.profile?.full_name}
             </div>
+            <ThemeToggle />
             <Button variant="ghost" size="sm" onClick={handleSignOut}>
               <LogOut className="h-4 w-4 mr-2" />
               Sign Out
@@ -93,6 +103,7 @@ export function Layout({ children }: LayoutProps) {
         </div>
       </header>
       <main className="container py-6">{children}</main>
+      </div>
     </div>
   );
 }
