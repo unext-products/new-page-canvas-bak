@@ -175,14 +175,16 @@ export default function Timesheet() {
   return (
     <Layout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">My Timesheet</h1>
-            <p className="text-muted-foreground">Track and submit your working hours</p>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">My Timesheet</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Track and submit your working hours
+            </p>
           </div>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button>
+              <Button className="w-full sm:w-auto">
                 <Plus className="mr-2 h-4 w-4" />
                 New Entry
               </Button>

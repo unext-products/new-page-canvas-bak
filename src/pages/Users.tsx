@@ -13,6 +13,7 @@ import { Plus, Pencil, UserX, UserCheck, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { UserRoleSelect } from "@/components/UserRoleSelect";
 import { DepartmentSelect } from "@/components/DepartmentSelect";
