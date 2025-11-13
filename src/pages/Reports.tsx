@@ -29,7 +29,7 @@ import {
 import { exportFacultyReportCSV, exportDepartmentReportCSV } from "@/lib/exportUtils";
 import { exportFacultyReportPDF, exportDepartmentReportPDF } from "@/lib/pdfExportUtils";
 import { formatDuration } from "@/lib/exportUtils";
-import { format, startOfMonth, endOfMonth } from "date-fns";
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfDay, endOfDay } from "date-fns";
 import { getUserErrorMessage } from "@/lib/errorHandler";
 
 type ReportViewType = "faculty" | "department";
@@ -55,6 +55,26 @@ export default function Reports() {
       navigate("/dashboard");
     }
   }, [userWithRole, loading, navigate]);
+
+  // Auto-update date range when period changes
+  useEffect(() => {
+    const now = new Date();
+    
+    switch (period) {
+      case "daily":
+        setDateFrom(startOfDay(now));
+        setDateTo(endOfDay(now));
+        break;
+      case "weekly":
+        setDateFrom(startOfWeek(now, { weekStartsOn: 1 })); // Monday
+        setDateTo(endOfWeek(now, { weekStartsOn: 1 })); // Sunday
+        break;
+      case "monthly":
+        setDateFrom(startOfMonth(now));
+        setDateTo(endOfMonth(now));
+        break;
+    }
+  }, [period]);
 
   const handleDateRangeChange = (from: Date, to: Date) => {
     setDateFrom(from);
