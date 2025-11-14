@@ -5,8 +5,9 @@ import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Download, Filter, ChevronDown } from "lucide-react";
+import { Download, Filter, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { DepartmentSelect } from "@/components/DepartmentSelect";
 import { FacultySelect } from "@/components/FacultySelect";
@@ -18,6 +19,8 @@ import { ReportPeriodSelector, PeriodType } from "@/components/reports/ReportPer
 import { ActivityBreakdownChart } from "@/components/reports/ActivityBreakdownChart";
 import { CompletionMetricsCard } from "@/components/reports/CompletionMetricsCard";
 import { ReportSummaryCards } from "@/components/reports/ReportSummaryCards";
+import { FacultyCalendar } from "@/components/reports/FacultyCalendar";
+import { DepartmentCalendar } from "@/components/reports/DepartmentCalendar";
 import { 
   fetchFacultyReport, 
   fetchDepartmentReport, 
@@ -49,6 +52,10 @@ export default function Reports() {
   const [facultyReport, setFacultyReport] = useState<FacultyReportData | null>(null);
   const [departmentReport, setDepartmentReport] = useState<DepartmentReportData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Calendar view state
+  const [viewMode, setViewMode] = useState<"table" | "calendar">("table");
+  const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
 
   useEffect(() => {
     if (!loading && (!userWithRole || userWithRole.role !== "admin")) {
@@ -283,119 +290,215 @@ export default function Reports() {
               <ActivityBreakdownChart data={currentReport.activityBreakdown} />
             </div>
 
-            {/* Department Faculty Breakdown */}
-            {reportType === "department" && departmentReport && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Faculty Breakdown</CardTitle>
-                  <CardDescription>
-                    Performance summary for {departmentReport.totalFaculty} faculty members
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="border rounded-lg">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Faculty Name</TableHead>
-                          <TableHead>Hours Logged</TableHead>
-                          <TableHead>Completion Rate</TableHead>
-                          <TableHead>Total Entries</TableHead>
-                          <TableHead>Status</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {departmentReport.facultyBreakdown.map((faculty) => (
-                          <TableRow key={faculty.userId}>
-                            <TableCell className="font-medium">{faculty.facultyName}</TableCell>
-                            <TableCell>{faculty.totalHours.toFixed(1)}h</TableCell>
-                            <TableCell>{faculty.completionRate.toFixed(1)}%</TableCell>
-                            <TableCell>{faculty.entryCount}</TableCell>
-                            <TableCell>
-                              <span
-                                className={`text-xs font-medium px-2 py-1 rounded ${
-                                  faculty.completionRate >= 100
-                                    ? "bg-success/10 text-success"
-                                    : faculty.completionRate >= 70
-                                    ? "bg-success/10 text-success"
-                                    : faculty.completionRate >= 50
-                                    ? "bg-warning/10 text-warning"
-                                    : "bg-destructive/10 text-destructive"
-                                }`}
-                              >
-                                {faculty.completionRate >= 100
-                                  ? "Exceeded"
-                                  : faculty.completionRate >= 70
-                                  ? "On Track"
-                                  : "Behind"}
-                              </span>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
             {/* Detailed Entry Table - Faculty View */}
             {reportType === "faculty" && facultyReport && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Detailed Timesheet Entries</CardTitle>
-                  <CardDescription>
-                    All entries for {facultyReport.facultyName}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {facultyReport.entries.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      No timesheet entries found for the selected period
-                    </div>
+              <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "table" | "calendar")}>
+                <TabsList className="grid w-full grid-cols-2 mb-4">
+                  <TabsTrigger value="table">Table View</TabsTrigger>
+                  <TabsTrigger value="calendar">Calendar View</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="table">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Detailed Timesheet Entries</CardTitle>
+                      <CardDescription>
+                        All entries for {facultyReport.facultyName}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {facultyReport.entries.length === 0 ? (
+                        <div className="text-center py-8 text-muted-foreground">
+                          No timesheet entries found for the selected period
+                        </div>
+                      ) : (
+                        <div className="border rounded-lg">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Date</TableHead>
+                                <TableHead>Activity</TableHead>
+                                <TableHead>Time</TableHead>
+                                <TableHead>Duration</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead>Notes</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {facultyReport.entries.map((entry) => (
+                                <TableRow key={entry.id}>
+                                  <TableCell>{format(new Date(entry.entry_date), "MMM dd, yyyy")}</TableCell>
+                                  <TableCell>
+                                    <div>
+                                      <div className="font-medium capitalize">{entry.activity_type}</div>
+                                      {entry.activity_subtype && (
+                                        <div className="text-sm text-muted-foreground">{entry.activity_subtype}</div>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-sm">
+                                    {entry.start_time} - {entry.end_time}
+                                  </TableCell>
+                                  <TableCell>{formatDuration(entry.duration_minutes)}</TableCell>
+                                  <TableCell>
+                                    <StatusBadge status={entry.status} />
+                                  </TableCell>
+                                  <TableCell className="max-w-xs truncate">
+                                    {entry.notes || "-"}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="calendar" className="space-y-4">
+                  {selectedFaculty === "all" ? (
+                    <Card>
+                      <CardContent className="py-12 text-center text-muted-foreground">
+                        Please select a specific faculty member to view calendar
+                      </CardContent>
+                    </Card>
                   ) : (
-                    <div className="border rounded-lg">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Date</TableHead>
-                            <TableHead>Activity</TableHead>
-                            <TableHead>Time</TableHead>
-                            <TableHead>Duration</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Notes</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {facultyReport.entries.map((entry) => (
-                            <TableRow key={entry.id}>
-                              <TableCell>{format(new Date(entry.entry_date), "MMM dd, yyyy")}</TableCell>
-                              <TableCell>
-                                <div>
-                                  <div className="font-medium capitalize">{entry.activity_type}</div>
-                                  {entry.activity_subtype && (
-                                    <div className="text-sm text-muted-foreground">{entry.activity_subtype}</div>
-                                  )}
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-sm">
-                                {entry.start_time} - {entry.end_time}
-                              </TableCell>
-                              <TableCell>{formatDuration(entry.duration_minutes)}</TableCell>
-                              <TableCell>
-                                <StatusBadge status={entry.status} />
-                              </TableCell>
-                              <TableCell className="max-w-xs truncate">
-                                {entry.notes || "-"}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
+                    <>
+                      <div className="flex items-center justify-between">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1))}
+                        >
+                          <ChevronLeft className="h-4 w-4 mr-1" />
+                          Previous
+                        </Button>
+                        <h3 className="text-lg font-semibold">
+                          {format(calendarMonth, "MMMM yyyy")}
+                        </h3>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1))}
+                        >
+                          Next
+                          <ChevronRight className="h-4 w-4 ml-1" />
+                        </Button>
+                      </div>
+
+                      <FacultyCalendar
+                        facultyId={selectedFaculty}
+                        month={calendarMonth}
+                      />
+                    </>
                   )}
-                </CardContent>
-              </Card>
+                </TabsContent>
+              </Tabs>
+            )}
+
+            {/* Department Faculty Breakdown with Calendar */}
+            {reportType === "department" && departmentReport && (
+              <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "table" | "calendar")}>
+                <TabsList className="grid w-full grid-cols-2 mb-4">
+                  <TabsTrigger value="table">Table View</TabsTrigger>
+                  <TabsTrigger value="calendar">Calendar View</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="table">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Faculty Breakdown</CardTitle>
+                      <CardDescription>
+                        Performance summary for {departmentReport.totalFaculty} faculty members
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="border rounded-lg">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Faculty Name</TableHead>
+                              <TableHead>Hours Logged</TableHead>
+                              <TableHead>Completion Rate</TableHead>
+                              <TableHead>Total Entries</TableHead>
+                              <TableHead>Status</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {departmentReport.facultyBreakdown.map((faculty) => (
+                              <TableRow key={faculty.userId}>
+                                <TableCell className="font-medium">{faculty.facultyName}</TableCell>
+                                <TableCell>{faculty.totalHours.toFixed(1)}h</TableCell>
+                                <TableCell>{faculty.completionRate.toFixed(1)}%</TableCell>
+                                <TableCell>{faculty.entryCount}</TableCell>
+                                <TableCell>
+                                  <span
+                                    className={`text-xs font-medium px-2 py-1 rounded ${
+                                      faculty.completionRate >= 100
+                                        ? "bg-success/10 text-success"
+                                        : faculty.completionRate >= 70
+                                        ? "bg-success/10 text-success"
+                                        : faculty.completionRate >= 50
+                                        ? "bg-warning/10 text-warning"
+                                        : "bg-destructive/10 text-destructive"
+                                    }`}
+                                  >
+                                    {faculty.completionRate >= 100
+                                      ? "Exceeded"
+                                      : faculty.completionRate >= 70
+                                      ? "On Track"
+                                      : "Behind"}
+                                  </span>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="calendar" className="space-y-4">
+                  {selectedDepartment === "all" ? (
+                    <Card>
+                      <CardContent className="py-12 text-center text-muted-foreground">
+                        Please select a specific department to view calendar
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1))}
+                        >
+                          <ChevronLeft className="h-4 w-4 mr-1" />
+                          Previous
+                        </Button>
+                        <h3 className="text-lg font-semibold">
+                          {format(calendarMonth, "MMMM yyyy")}
+                        </h3>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1))}
+                        >
+                          Next
+                          <ChevronRight className="h-4 w-4 ml-1" />
+                        </Button>
+                      </div>
+
+                      <DepartmentCalendar
+                        departmentId={selectedDepartment}
+                        month={calendarMonth}
+                      />
+                    </>
+                  )}
+                </TabsContent>
+              </Tabs>
             )}
           </>
         ) : (
