@@ -58,6 +58,14 @@ export function DepartmentCalendar({ departmentId, month }: DepartmentCalendarPr
       .gte("entry_date", format(monthStart, "yyyy-MM-dd"))
       .lte("entry_date", format(monthEnd, "yyyy-MM-dd"));
 
+    // Fetch leave days - Type assertion to bypass TypeScript errors until types regenerate
+    const { data: leaves } = await supabase
+      .from('leave_days' as any)
+      .select('leave_date, user_id')
+      .in('user_id', facultyIds)
+      .gte('leave_date', format(monthStart, "yyyy-MM-dd"))
+      .lte('leave_date', format(monthEnd, "yyyy-MM-dd"));
+
     // Process data for each day
     const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
@@ -65,8 +73,10 @@ export function DepartmentCalendar({ departmentId, month }: DepartmentCalendarPr
       const dateStr = format(date, "yyyy-MM-dd");
       const isWeekendDay = isWeekend(date);
 
-      // Count faculty on leave (temporarily disabled)
-      const facultyOnLeave = new Set<string>();
+      // Count faculty on leave
+      const facultyOnLeave = new Set<string>(
+        leaves?.filter((l: any) => l.leave_date === dateStr).map((l: any) => l.user_id) || []
+      );
 
       // Count faculty with entries and total hours
       const dayEntries = entries?.filter(e => e.entry_date === dateStr) || [];
