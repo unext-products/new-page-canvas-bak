@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Upload, FileText, Download, AlertCircle, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { getUserErrorMessage } from "@/lib/errorHandler";
 import { 
   parseCSVFile, 
   validateCSVRow, 
@@ -196,7 +197,7 @@ export default function BulkImport() {
     } catch (error: any) {
       toast({
         title: "Validation failed",
-        description: error.message,
+        description: getUserErrorMessage(error, "validation"),
         variant: "destructive",
       });
     } finally {
@@ -246,7 +247,7 @@ export default function BulkImport() {
     } catch (error: any) {
       toast({
         title: "Import failed",
-        description: error.message,
+        description: getUserErrorMessage(error, "import"),
         variant: "destructive",
       });
     } finally {
