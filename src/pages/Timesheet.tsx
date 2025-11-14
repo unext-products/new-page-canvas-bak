@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { StatusBadge } from "@/components/StatusBadge";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Calendar } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { timesheetEntrySchema } from "@/lib/validation";
 import { getUserErrorMessage } from "@/lib/errorHandler";
@@ -34,11 +34,19 @@ export default function Timesheet() {
   const [activitySubtype, setActivitySubtype] = useState("");
   const [notes, setNotes] = useState("");
 
+  // Leave management state
+  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
+  const [leaveDate, setLeaveDate] = useState(new Date().toISOString().split("T")[0]);
+  const [leaveType, setLeaveType] = useState<"casual" | "sick" | "earned">("casual");
+  const [leaveComments, setLeaveComments] = useState("");
+  const [userLeaveDays, setUserLeaveDays] = useState<Set<string>>(new Set());
+
   useEffect(() => {
     if (userWithRole?.role !== "faculty") {
       navigate("/dashboard");
     } else {
       loadEntries();
+      loadLeaveDays();
     }
   }, [userWithRole, navigate]);
 
@@ -63,6 +71,20 @@ export default function Timesheet() {
     }
   };
 
+  const loadLeaveDays = async () => {
+    if (!userWithRole) return;
+
+    // Type assertion to bypass TypeScript errors until types regenerate
+    const { data } = await supabase
+      .from('leave_days' as any)
+      .select('leave_date')
+      .eq('user_id', userWithRole.user.id);
+
+    if (data) {
+      setUserLeaveDays(new Set(data.map((d: any) => d.leave_date)));
+    }
+  };
+
   const calculateDuration = (start: string, end: string) => {
     const [startHour, startMin] = start.split(":").map(Number);
     const [endHour, endMin] = end.split(":").map(Number);
@@ -76,6 +98,16 @@ export default function Timesheet() {
       toast({
         title: "Error",
         description: "You must be assigned to a department first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if the date is marked as leave
+    if (userLeaveDays.has(entryDate)) {
+      toast({
+        title: "Error",
+        description: "Cannot add timesheet entries on leave days",
         variant: "destructive",
       });
       return;
@@ -172,6 +204,50 @@ export default function Timesheet() {
     return `${hours}h ${mins}m`;
   };
 
+  const handleMarkLeave = async () => {
+    if (!userWithRole?.departmentId) {
+      toast({
+        title: "Error",
+        description: "You must be assigned to a department first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    
+    // Type assertion to bypass TypeScript errors until types regenerate
+    const { error } = await supabase
+      .from('leave_days' as any)
+      .insert({
+        user_id: userWithRole.user.id,
+        department_id: userWithRole.departmentId,
+        leave_date: leaveDate,
+        leave_type: leaveType,
+        comments: leaveComments || null,
+      });
+
+    setLoading(false);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: getUserErrorMessage(error, "mark leave"),
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Success",
+        description: "Leave day marked successfully",
+      });
+      setLeaveDialogOpen(false);
+      setLeaveDate(new Date().toISOString().split("T")[0]);
+      setLeaveType("casual");
+      setLeaveComments("");
+      loadLeaveDays();
+    }
+  };
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -183,6 +259,58 @@ export default function Timesheet() {
             </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <Dialog open={leaveDialogOpen} onOpenChange={setLeaveDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="w-full sm:w-auto">
+                <Calendar className="mr-2 h-4 w-4" />
+                Mark Leave
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Mark Leave Day</DialogTitle>
+                <DialogDescription>
+                  Mark a day when you were on leave
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="leave-date">Date</Label>
+                  <Input
+                    id="leave-date"
+                    type="date"
+                    value={leaveDate}
+                    onChange={(e) => setLeaveDate(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="leave-type">Leave Type</Label>
+                  <Select value={leaveType} onValueChange={(value: any) => setLeaveType(value)}>
+                    <SelectTrigger id="leave-type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="casual">Casual Leave</SelectItem>
+                      <SelectItem value="sick">Sick Leave</SelectItem>
+                      <SelectItem value="earned">Earned Leave</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="leave-comments">Comments (Optional)</Label>
+                  <Textarea
+                    id="leave-comments"
+                    value={leaveComments}
+                    onChange={(e) => setLeaveComments(e.target.value)}
+                    placeholder="Any additional notes..."
+                  />
+                </div>
+                <Button onClick={handleMarkLeave} disabled={loading} className="w-full">
+                  {loading ? "Marking..." : "Mark Leave"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
                 <Button className="w-full sm:w-auto">
