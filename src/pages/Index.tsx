@@ -146,6 +146,9 @@ const Index = () => {
                 </span>
               </div>
               <div className="flex items-center gap-2 sm:gap-3">
+                <Button variant="ghost" size="sm" onClick={() => navigate("/pricing")} className="hover:scale-105 transition-transform hidden sm:inline-flex">
+                  Pricing
+                </Button>
                 <ThemeToggle />
                 <Button variant="ghost" size="sm" onClick={() => navigate("/auth")} className="hover:scale-105 transition-transform hidden sm:inline-flex">
                   Login
