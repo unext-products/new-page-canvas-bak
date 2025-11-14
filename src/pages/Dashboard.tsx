@@ -8,6 +8,7 @@ import { Plus, Clock, CheckCircle, XCircle, AlertCircle, Users, Building2, Trend
 import { useNavigate } from "react-router-dom";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ActivityBreakdownChart } from "@/components/reports/ActivityBreakdownChart";
+import { CompletionMetricsCard } from "@/components/reports/CompletionMetricsCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 
@@ -20,6 +21,9 @@ export default function Dashboard() {
     pending: 0,
     approved: 0,
     rejected: 0,
+    weeklyActualMinutes: 0,
+    expectedWeeklyMinutes: 2400,
+    weeklyCompletionRate: 0,
   });
   const [recentEntries, setRecentEntries] = useState<any[]>([]);
   const [adminStats, setAdminStats] = useState({
@@ -72,6 +76,39 @@ export default function Dashboard() {
           pending: entries.filter((e) => e.status === "submitted").length,
           approved: entries.filter((e) => e.status === "approved").length,
           rejected: entries.filter((e) => e.status === "draft" || e.status === "rejected").length,
+        }));
+      }
+
+      // Calculate weekly completion for faculty
+      const startOfWeek = new Date();
+      startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay() + 1); // Monday
+      const weekStart = startOfWeek.toISOString().split("T")[0];
+
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(endOfWeek.getDate() + 6); // Sunday
+      const weekEnd = endOfWeek.toISOString().split("T")[0];
+
+      const { data: weekEntries } = await supabase
+        .from("timesheet_entries")
+        .select("duration_minutes, status")
+        .eq("user_id", userWithRole.user.id)
+        .gte("entry_date", weekStart)
+        .lte("entry_date", weekEnd);
+
+      if (weekEntries) {
+        const weeklyActualMinutes = weekEntries
+          .filter((e) => e.status === "approved" || e.status === "submitted")
+          .reduce((sum, e) => sum + e.duration_minutes, 0);
+        
+        // Expected: 8 hours/day * 5 working days = 40 hours = 2400 minutes
+        const expectedWeeklyMinutes = 2400;
+        const weeklyCompletionRate = (weeklyActualMinutes / expectedWeeklyMinutes) * 100;
+        
+        setStats((prev) => ({
+          ...prev,
+          weeklyActualMinutes,
+          expectedWeeklyMinutes,
+          weeklyCompletionRate,
         }));
       }
 
@@ -308,6 +345,15 @@ export default function Dashboard() {
                   <p className="text-xs text-muted-foreground">Incomplete</p>
                 </CardContent>
               </Card>
+            </div>
+
+            <div className="animate-fade-in-up" style={{ animationDelay: "200ms" }}>
+              <CompletionMetricsCard
+                actualHours={stats.weeklyActualMinutes / 60}
+                expectedHours={stats.expectedWeeklyMinutes / 60}
+                completionRate={stats.weeklyCompletionRate}
+                period="weekly"
+              />
             </div>
 
             <Card className="bg-card/50 backdrop-blur-xl border-border/40 animate-fade-in-up">
