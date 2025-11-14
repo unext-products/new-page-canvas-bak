@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Clock, Zap, Shield, TrendingUp, Home } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Link } from "react-router-dom";
+import { getUserErrorMessage } from "@/lib/errorHandler";
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
@@ -44,7 +45,7 @@ export default function Auth() {
           } else {
             toast({
               title: "Error",
-              description: error.message,
+              description: getUserErrorMessage(error, "sign in"),
               variant: "destructive",
             });
           }
@@ -63,7 +64,7 @@ export default function Auth() {
           } else {
             toast({
               title: "Error",
-              description: error.message,
+              description: getUserErrorMessage(error, "sign up"),
               variant: "destructive",
             });
           }

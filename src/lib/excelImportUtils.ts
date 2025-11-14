@@ -1,5 +1,6 @@
-import * as XLSX from 'xlsx';
 import { supabase } from "@/integrations/supabase/client";
+import * as XLSX from "xlsx";
+import { getUserErrorMessage } from "./errorHandler";
 
 // Common row structure
 interface ExcelRowBase {
@@ -248,7 +249,7 @@ export async function bulkInsertTimesheets(
 
     if (error) {
       failed += batch.length;
-      errors.push({ batch: i / batchSize + 1, error: error.message });
+      errors.push({ batch: i / batchSize + 1, error: getUserErrorMessage(error, "import timesheet") });
     } else {
       success += data?.length || 0;
     }

@@ -15,6 +15,8 @@ import { format } from "date-fns";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { approvalNotesSchema } from "@/lib/validation";
+import { getUserErrorMessage } from "@/lib/errorHandler";
 
 interface TimesheetEntry {
   id: string;
@@ -264,6 +266,20 @@ export default function Approvals() {
       return;
     }
     
+    // Validate comment length
+    if (bulkComment.trim()) {
+      try {
+        approvalNotesSchema.parse({ approver_notes: bulkComment });
+      } catch (err) {
+        toast({
+          title: "Invalid input",
+          description: "Comment must be less than 500 characters",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    
     try {
       setBulkSubmitting(true);
       
@@ -293,10 +309,9 @@ export default function Approvals() {
       
       fetchEntries();
     } catch (error) {
-      console.error("Error performing bulk action:", error);
       toast({
         title: "Error",
-        description: `Failed to ${bulkAction} entries`,
+        description: getUserErrorMessage(error, "bulk approval"),
         variant: "destructive",
       });
     } finally {

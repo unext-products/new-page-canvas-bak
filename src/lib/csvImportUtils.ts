@@ -1,5 +1,6 @@
-import Papa from "papaparse";
 import { supabase } from "@/integrations/supabase/client";
+import Papa from "papaparse";
+import { getUserErrorMessage } from "./errorHandler";
 
 export interface CSVRow {
   faculty_email: string;
@@ -147,7 +148,7 @@ export async function bulkInsertTimesheets(entries: any[]) {
         results.failed += batch.length;
         results.errors.push({
           batch: i / batchSize + 1,
-          error: error.message,
+          error: getUserErrorMessage(error, "import timesheet"),
         });
       } else {
         results.success += batch.length;
@@ -156,7 +157,7 @@ export async function bulkInsertTimesheets(entries: any[]) {
       results.failed += batch.length;
       results.errors.push({
         batch: i / batchSize + 1,
-        error: err.message,
+        error: getUserErrorMessage(err, "import timesheet"),
       });
     }
   }
