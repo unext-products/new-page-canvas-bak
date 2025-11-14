@@ -43,17 +43,9 @@ export function FacultyCalendar({ facultyId, month }: FacultyCalendarProps) {
       .gte("entry_date", format(monthStart, "yyyy-MM-dd"))
       .lte("entry_date", format(monthEnd, "yyyy-MM-dd"));
 
-    // Fetch leave days for the month
-    const { data: leaves } = await supabase
-      .from("leave_days")
-      .select("leave_date, leave_type")
-      .eq("user_id", facultyId)
-      .gte("leave_date", format(monthStart, "yyyy-MM-dd"))
-      .lte("leave_date", format(monthEnd, "yyyy-MM-dd"));
-
     // Build calendar data
     const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
-    const leaveMap = new Map(leaves?.map(l => [l.leave_date, l.leave_type]) || []);
+    const leaveMap = new Map<string, string>();
 
     const data: DayData[] = days.map(date => {
       const dateStr = format(date, "yyyy-MM-dd");

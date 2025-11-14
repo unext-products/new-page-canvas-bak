@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { StatusBadge } from "@/components/StatusBadge";
-import { Plus, Trash2, Calendar } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { timesheetEntrySchema } from "@/lib/validation";
 import { getUserErrorMessage } from "@/lib/errorHandler";
@@ -34,19 +34,11 @@ export default function Timesheet() {
   const [activitySubtype, setActivitySubtype] = useState("");
   const [notes, setNotes] = useState("");
 
-  // Leave marking state
-  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
-  const [leaveDate, setLeaveDate] = useState(new Date().toISOString().split("T")[0]);
-  const [leaveType, setLeaveType] = useState<string>("sick_leave");
-  const [leaveComments, setLeaveComments] = useState("");
-  const [userLeaveDays, setUserLeaveDays] = useState<Set<string>>(new Set());
-
   useEffect(() => {
     if (userWithRole?.role !== "faculty") {
       navigate("/dashboard");
     } else {
       loadEntries();
-      loadLeaveDays();
     }
   }, [userWithRole, navigate]);
 
@@ -71,19 +63,6 @@ export default function Timesheet() {
     }
   };
 
-  const loadLeaveDays = async () => {
-    if (!userWithRole) return;
-
-    const { data } = await supabase
-      .from("leave_days")
-      .select("leave_date")
-      .eq("user_id", userWithRole.user.id);
-
-    if (data) {
-      setUserLeaveDays(new Set(data.map(d => d.leave_date)));
-    }
-  };
-
   const calculateDuration = (start: string, end: string) => {
     const [startHour, startMin] = start.split(":").map(Number);
     const [endHour, endMin] = end.split(":").map(Number);
@@ -97,16 +76,6 @@ export default function Timesheet() {
       toast({
         title: "Error",
         description: "You must be assigned to a department first",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Check if the date is marked as leave
-    if (userLeaveDays.has(entryDate)) {
-      toast({
-        title: "Cannot create entry",
-        description: "You have marked yourself on leave on this date",
         variant: "destructive",
       });
       return;
@@ -197,44 +166,6 @@ export default function Timesheet() {
     setNotes("");
   };
 
-  const handleMarkLeave = async () => {
-    if (!userWithRole?.departmentId) {
-      toast({
-        title: "Error",
-        description: "You must be assigned to a department first",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setLoading(true);
-
-    const { error } = await supabase.from("leave_days").insert([{
-      user_id: userWithRole.user.id,
-      department_id: userWithRole.departmentId,
-      leave_date: leaveDate,
-      leave_type: leaveType as "sick_leave" | "casual_leave" | "vacation" | "personal" | "compensatory" | "other",
-      comments: leaveComments || null,
-    }]);
-
-    setLoading(false);
-
-    if (error) {
-      toast({
-        title: "Error",
-        description: getUserErrorMessage(error, "mark leave"),
-        variant: "destructive",
-      });
-    } else {
-      toast({ title: "Leave marked successfully" });
-      setLeaveDialogOpen(false);
-      setLeaveDate(new Date().toISOString().split("T")[0]);
-      setLeaveType("sick_leave");
-      setLeaveComments("");
-      loadLeaveDays();
-    }
-  };
-
   const formatMinutes = (minutes: number) => {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
@@ -250,66 +181,9 @@ export default function Timesheet() {
             <p className="text-sm text-muted-foreground mt-1">
               Track and submit your working hours
             </p>
-          </div>
-          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-            <Dialog open={leaveDialogOpen} onOpenChange={setLeaveDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" className="w-full sm:w-auto">
-                  <Calendar className="mr-2 h-4 w-4" />
-                  Mark Leave
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Mark Leave</DialogTitle>
-                  <DialogDescription>
-                    Mark a day when you'll be on leave
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="leave-date">Date</Label>
-                    <Input
-                      id="leave-date"
-                      type="date"
-                      value={leaveDate}
-                      onChange={(e) => setLeaveDate(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="leave-type">Leave Type</Label>
-                    <Select value={leaveType} onValueChange={setLeaveType}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="sick_leave">Sick Leave</SelectItem>
-                        <SelectItem value="casual_leave">Casual Leave</SelectItem>
-                        <SelectItem value="vacation">Vacation</SelectItem>
-                        <SelectItem value="personal">Personal</SelectItem>
-                        <SelectItem value="compensatory">Compensatory Leave</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="leave-comments">Comments (Optional)</Label>
-                    <Textarea
-                      id="leave-comments"
-                      value={leaveComments}
-                      onChange={(e) => setLeaveComments(e.target.value)}
-                      placeholder="Reason for leave..."
-                      rows={3}
-                    />
-                  </div>
-                  <Button onClick={handleMarkLeave} disabled={loading} className="w-full">
-                    Mark Leave
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
                 <Button className="w-full sm:w-auto">
                   <Plus className="mr-2 h-4 w-4" />
