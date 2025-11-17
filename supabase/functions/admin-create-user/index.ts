@@ -54,10 +54,10 @@ serve(async (req) => {
     }
 
     // Get request body
-    const { full_name, email, phone, role, department_id, is_active } = await req.json();
+    const { full_name, email, phone, role, department_id, is_active, password } = await req.json();
 
     // Validate inputs
-    if (!full_name || !email || !role) {
+    if (!full_name || !email || !role || !password) {
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -71,20 +71,27 @@ serve(async (req) => {
       });
     }
 
-    // Generate secure random password
-    const generatePassword = () => {
-      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
-      const array = new Uint8Array(16);
-      crypto.getRandomValues(array);
-      return Array.from(array).map(x => chars[x % chars.length]).join('');
-    };
+    // Validate password
+    if (password.length < 8) {
+      return new Response(JSON.stringify({ error: 'Password must be at least 8 characters' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
-    const tempPassword = generatePassword();
+    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(password)) {
+      return new Response(JSON.stringify({ 
+        error: 'Password must contain at least one uppercase letter, one lowercase letter, and one number' 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     // Create user with admin API
     const { data: authData, error: authCreateError } = await supabaseClient.auth.admin.createUser({
       email,
-      password: tempPassword,
+      password,
       email_confirm: true,
       user_metadata: { full_name },
     });

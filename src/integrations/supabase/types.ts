@@ -38,6 +38,44 @@ export type Database = {
         }
         Relationships: []
       }
+      leave_days: {
+        Row: {
+          comments: string | null
+          created_at: string
+          department_id: string
+          id: string
+          leave_date: string
+          leave_type: Database["public"]["Enums"]["leave_type"]
+          user_id: string
+        }
+        Insert: {
+          comments?: string | null
+          created_at?: string
+          department_id: string
+          id?: string
+          leave_date: string
+          leave_type: Database["public"]["Enums"]["leave_type"]
+          user_id: string
+        }
+        Update: {
+          comments?: string | null
+          created_at?: string
+          department_id?: string
+          id?: string
+          leave_date?: string
+          leave_type?: Database["public"]["Enums"]["leave_type"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leave_days_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -201,6 +239,13 @@ export type Database = {
       activity_type: "class" | "quiz" | "invigilation" | "admin" | "other"
       app_role: "admin" | "hod" | "faculty"
       entry_status: "draft" | "submitted" | "approved" | "rejected"
+      leave_type:
+        | "sick_leave"
+        | "casual_leave"
+        | "vacation"
+        | "personal"
+        | "compensatory"
+        | "other"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -331,6 +376,14 @@ export const Constants = {
       activity_type: ["class", "quiz", "invigilation", "admin", "other"],
       app_role: ["admin", "hod", "faculty"],
       entry_status: ["draft", "submitted", "approved", "rejected"],
+      leave_type: [
+        "sick_leave",
+        "casual_leave",
+        "vacation",
+        "personal",
+        "compensatory",
+        "other",
+      ],
     },
   },
 } as const
