@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, UserX, UserCheck, Search } from "lucide-react";
+import { Plus, Pencil, UserX, UserCheck, Search, Eye, EyeOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -52,7 +52,11 @@ export default function Users() {
     role: "" as UserRole | "",
     department_id: "",
     is_active: true,
+    password: "",
+    confirmPassword: "",
   });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   useEffect(() => {
     if (!loading && (!userWithRole || userWithRole.role !== "admin")) {
@@ -156,7 +160,11 @@ export default function Users() {
   const handleCreate = async () => {
     try {
       // Validate form data
-      const validatedData = userCreateSchema.parse(formData);
+      const validatedData = userCreateSchema.parse({
+        ...formData,
+        phone: formData.phone || undefined,
+        department_id: formData.department_id || undefined,
+      });
 
       // Call edge function to create user
       const { data, error } = await supabase.functions.invoke('admin-create-user', {
@@ -171,7 +179,7 @@ export default function Users() {
 
       toast({
         title: "Success",
-        description: "User created successfully. A secure password has been generated and sent via email.",
+        description: "User created successfully. You can now share the login credentials with the user.",
       });
 
       setCreateDialogOpen(false);
@@ -182,7 +190,11 @@ export default function Users() {
         role: "",
         department_id: "",
         is_active: true,
+        password: "",
+        confirmPassword: "",
       });
+      setShowPassword(false);
+      setShowConfirmPassword(false);
       fetchUsers();
     } catch (error: any) {
       // If it's a Zod validation error, show the specific validation message
@@ -281,6 +293,8 @@ export default function Users() {
       role: user.role || "",
       department_id: user.department_id || "",
       is_active: user.is_active,
+      password: "",
+      confirmPassword: "",
     });
     setEditDialogOpen(true);
   };
@@ -355,21 +369,93 @@ export default function Users() {
                   />
                 </div>
                 <div>
+                  <Label htmlFor="password">Password *</Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      placeholder="Minimum 8 characters"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <Eye className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </Button>
+                  </div>
+                  {formData.password && formData.password.length > 0 && formData.password.length < 8 && (
+                    <p className="text-sm text-destructive mt-1">Password must be at least 8 characters</p>
+                  )}
+                  {formData.password && formData.password.length >= 8 && 
+                   !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password) && (
+                    <p className="text-sm text-destructive mt-1">
+                      Must contain uppercase, lowercase, and number
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <Label htmlFor="confirmPassword">Confirm Password *</Label>
+                  <div className="relative">
+                    <Input
+                      id="confirmPassword"
+                      type={showConfirmPassword ? "text" : "password"}
+                      value={formData.confirmPassword}
+                      onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                      placeholder="Re-enter password"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    >
+                      {showConfirmPassword ? (
+                        <EyeOff className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <Eye className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </Button>
+                  </div>
+                  {formData.confirmPassword && formData.password !== formData.confirmPassword && (
+                    <p className="text-sm text-destructive mt-1">Passwords do not match</p>
+                  )}
+                </div>
+                <div>
                   <Label>Role</Label>
                   <UserRoleSelect
                     value={formData.role}
                     onValueChange={(value) => setFormData({ ...formData, role: value as UserRole })}
                   />
                 </div>
-                {formData.role && formData.role !== "admin" && (
-                  <div>
-                    <Label>Department</Label>
-                    <DepartmentSelect
-                      value={formData.department_id}
-                      onValueChange={(value) => setFormData({ ...formData, department_id: value })}
-                    />
-                  </div>
-                )}
+                <div>
+                  <Label htmlFor="department">
+                    Department {formData.role !== "admin" && "*"}
+                  </Label>
+                  <DepartmentSelect
+                    value={formData.department_id}
+                    onValueChange={(value) => setFormData({ ...formData, department_id: value })}
+                  />
+                  {formData.role === "admin" && (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Not required for Admin role
+                    </p>
+                  )}
+                  {formData.role !== "admin" && !formData.department_id && (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Required for HOD and Faculty roles
+                    </p>
+                  )}
+                </div>
                 <div className="flex items-center justify-between">
                   <Label htmlFor="is_active">Active</Label>
                   <Switch
@@ -385,7 +471,16 @@ export default function Users() {
                 </Button>
                 <Button
                   onClick={handleCreate}
-                  disabled={!formData.full_name || !formData.email || !formData.role}
+                  disabled={
+                    !formData.full_name || 
+                    !formData.email || 
+                    !formData.role ||
+                    !formData.password ||
+                    formData.password.length < 8 ||
+                    formData.password !== formData.confirmPassword ||
+                    !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password) ||
+                    (formData.role !== "admin" && !formData.department_id)
+                  }
                 >
                   Create User
                 </Button>
