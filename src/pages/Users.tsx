@@ -234,11 +234,16 @@ export default function Users() {
       if (formData.role) {
         const { error: roleError } = await supabase
           .from("user_roles")
-          .upsert({
-            user_id: selectedUser.id,
-            role: formData.role,
-            department_id: formData.role === "admin" ? null : formData.department_id || null,
-          });
+          .upsert(
+            {
+              user_id: selectedUser.id,
+              role: formData.role,
+              department_id: formData.role === "admin" ? null : formData.department_id || null,
+            },
+            {
+              onConflict: 'user_id'
+            }
+          );
 
         if (roleError) throw roleError;
       }
@@ -633,6 +638,19 @@ export default function Users() {
                   value={formData.full_name}
                   onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                 />
+              </div>
+              <div>
+                <Label htmlFor="edit-email">Email</Label>
+                <Input
+                  id="edit-email"
+                  type="email"
+                  value={formData.email}
+                  disabled
+                  className="bg-muted"
+                />
+                <p className="text-sm text-muted-foreground mt-1">
+                  Email cannot be changed (used for login)
+                </p>
               </div>
               <div>
                 <Label htmlFor="edit-phone">Phone</Label>
