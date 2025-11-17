@@ -243,13 +243,51 @@ export default function Users() {
         if (roleError) throw roleError;
       }
 
+      // Update password if provided
+      if (formData.password && formData.password.trim() !== "") {
+        // Validate password
+        if (formData.password.length < 8) {
+          throw new Error("Password must be at least 8 characters");
+        }
+        
+        if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
+          throw new Error("Password must contain uppercase, lowercase, and number");
+        }
+        
+        if (formData.password !== formData.confirmPassword) {
+          throw new Error("Passwords do not match");
+        }
+
+        // Update password using Supabase Admin API
+        const { error: passwordError } = await supabase.auth.admin.updateUserById(
+          selectedUser.id,
+          { password: formData.password }
+        );
+
+        if (passwordError) throw passwordError;
+      }
+
       toast({
         title: "Success",
-        description: "User updated successfully",
+        description: formData.password && formData.password.trim() !== "" ? 
+          "User updated successfully. New password has been set." :
+          "User updated successfully",
       });
 
       setEditDialogOpen(false);
       setSelectedUser(null);
+      setFormData({
+        full_name: "",
+        email: "",
+        phone: "",
+        role: "" as UserRole | "",
+        department_id: "",
+        is_active: true,
+        password: "",
+        confirmPassword: "",
+      });
+      setShowPassword(false);
+      setShowConfirmPassword(false);
       fetchUsers();
     } catch (error: any) {
       toast({
@@ -604,6 +642,74 @@ export default function Users() {
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 />
               </div>
+
+              <div>
+                <Label htmlFor="edit-password">New Password (Optional)</Label>
+                <div className="relative">
+                  <Input
+                    id="edit-password"
+                    type={showPassword ? "text" : "password"}
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    placeholder="Leave blank to keep current password"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <Eye className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </Button>
+                </div>
+                {formData.password && formData.password.length > 0 && formData.password.length < 8 && (
+                  <p className="text-sm text-destructive mt-1">Password must be at least 8 characters</p>
+                )}
+                {formData.password && formData.password.length >= 8 && 
+                 !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password) && (
+                  <p className="text-sm text-destructive mt-1">
+                    Must contain uppercase, lowercase, and number
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <Label htmlFor="edit-confirmPassword">Confirm New Password</Label>
+                <div className="relative">
+                  <Input
+                    id="edit-confirmPassword"
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={formData.confirmPassword}
+                    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                    placeholder="Re-enter new password"
+                    disabled={!formData.password}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    disabled={!formData.password}
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <Eye className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </Button>
+                </div>
+                {formData.password && formData.confirmPassword && 
+                 formData.password !== formData.confirmPassword && (
+                  <p className="text-sm text-destructive mt-1">Passwords do not match</p>
+                )}
+              </div>
+
               <div>
                 <Label>Role</Label>
                 <UserRoleSelect
@@ -611,15 +717,28 @@ export default function Users() {
                   onValueChange={(value) => setFormData({ ...formData, role: value as UserRole })}
                 />
               </div>
-              {formData.role && formData.role !== "admin" && (
-                <div>
-                  <Label>Department</Label>
-                  <DepartmentSelect
-                    value={formData.department_id}
-                    onValueChange={(value) => setFormData({ ...formData, department_id: value })}
-                  />
-                </div>
-              )}
+
+              <div>
+                <Label>
+                  Department {formData.role !== "admin" && "*"}
+                </Label>
+                <DepartmentSelect
+                  value={formData.department_id}
+                  onValueChange={(value) => setFormData({ ...formData, department_id: value })}
+                  disabled={formData.role === "admin"}
+                />
+                {formData.role === "admin" && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Not required for Admin role
+                  </p>
+                )}
+                {formData.role !== "admin" && !formData.department_id && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Required for HOD and Faculty roles
+                  </p>
+                )}
+              </div>
+
               <div className="flex items-center justify-between">
                 <Label htmlFor="edit-is_active">Active</Label>
                 <Switch
@@ -633,7 +752,21 @@ export default function Users() {
               <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleEdit}>Save Changes</Button>
+              <Button 
+                onClick={handleEdit}
+                disabled={
+                  !formData.full_name ||
+                  !formData.role ||
+                  (formData.password && formData.password.length > 0 && (
+                    formData.password.length < 8 ||
+                    formData.password !== formData.confirmPassword ||
+                    !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)
+                  )) ||
+                  (formData.role !== "admin" && !formData.department_id)
+                }
+              >
+                Save Changes
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
