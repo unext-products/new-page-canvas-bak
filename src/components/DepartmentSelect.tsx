@@ -12,9 +12,10 @@ interface DepartmentSelectProps {
   value: string;
   onValueChange: (value: string) => void;
   includeAll?: boolean;
+  disabled?: boolean;
 }
 
-export function DepartmentSelect({ value, onValueChange, includeAll = false }: DepartmentSelectProps) {
+export function DepartmentSelect({ value, onValueChange, includeAll = false, disabled = false }: DepartmentSelectProps) {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -39,7 +40,7 @@ export function DepartmentSelect({ value, onValueChange, includeAll = false }: D
   };
 
   return (
-    <Select value={value} onValueChange={onValueChange} disabled={isLoading}>
+    <Select value={value} onValueChange={onValueChange} disabled={isLoading || disabled}>
       <SelectTrigger>
         <SelectValue placeholder={isLoading ? "Loading..." : "Select department"} />
       </SelectTrigger>
