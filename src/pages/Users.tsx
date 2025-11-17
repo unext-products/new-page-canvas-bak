@@ -263,13 +263,19 @@ export default function Users() {
           throw new Error("Passwords do not match");
         }
 
-        // Update password using Supabase Admin API
-        const { error: passwordError } = await supabase.auth.admin.updateUserById(
-          selectedUser.id,
-          { password: formData.password }
+        // Call edge function to update password securely
+        const { data, error: passwordError } = await supabase.functions.invoke(
+          'admin-update-user',
+          {
+            body: {
+              user_id: selectedUser.id,
+              password: formData.password,
+            },
+          }
         );
 
         if (passwordError) throw passwordError;
+        if (data?.error) throw new Error(data.error);
       }
 
       toast({
