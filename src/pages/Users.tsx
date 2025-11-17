@@ -6,10 +6,11 @@ import { Layout } from "@/components/Layout";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, UserX, UserCheck, Search, Eye, EyeOff } from "lucide-react";
+import { Plus, Pencil, UserX, UserCheck, Search, Eye, EyeOff, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -57,6 +58,8 @@ export default function Users() {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<UserProfile | null>(null);
 
   useEffect(() => {
     if (!loading && (!userWithRole || userWithRole.role !== "admin")) {
@@ -331,6 +334,45 @@ export default function Users() {
         variant: "destructive",
       });
     }
+  };
+
+  const handleDelete = async () => {
+    if (!userToDelete) return;
+
+    try {
+      // Call edge function to delete user
+      const { data, error } = await supabase.functions.invoke(
+        'admin-delete-user',
+        {
+          body: {
+            user_id: userToDelete.id,
+          },
+        }
+      );
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      toast({
+        title: "Success",
+        description: `User "${userToDelete.full_name}" has been deleted successfully`,
+      });
+
+      setDeleteDialogOpen(false);
+      setUserToDelete(null);
+      fetchUsers();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: getUserErrorMessage(error, "delete user"),
+        variant: "destructive",
+      });
+    }
+  };
+
+  const openDeleteDialog = (user: UserProfile) => {
+    setUserToDelete(user);
+    setDeleteDialogOpen(true);
   };
 
   const openEditDialog = (user: UserProfile) => {
@@ -621,6 +663,14 @@ export default function Users() {
                           <UserCheck className="h-4 w-4" />
                         )}
                       </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => openDeleteDialog(user)}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -794,6 +844,40 @@ export default function Users() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete User?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete the user "{userToDelete?.full_name}" ({userToDelete?.email})?
+                <br /><br />
+                <span className="font-semibold text-destructive">
+                  This action cannot be undone. This will permanently delete:
+                </span>
+                <ul className="list-disc list-inside mt-2 space-y-1">
+                  <li>User account and authentication</li>
+                  <li>User profile information</li>
+                  <li>All timesheet entries created by this user</li>
+                  <li>All leave records</li>
+                  <li>User role assignments</li>
+                </ul>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setUserToDelete(null)}>
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleDelete}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Delete User
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </Layout>
   );
