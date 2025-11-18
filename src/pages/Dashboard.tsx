@@ -277,7 +277,7 @@ export default function Dashboard() {
 
   return (
     <Layout>
-      <div className="space-y-4 sm:space-y-6">
+      <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
         <div className="animate-fade-in-up">
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight bg-gradient-to-r from-foreground via-foreground to-foreground/70 bg-clip-text text-transparent">
             {getWelcomeMessage()}
