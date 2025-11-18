@@ -554,6 +554,9 @@ const Pricing = () => {
             </div>
           </div>
         </section>
+
+        {/* Calculator Section */}
+        <section className="container pb-20">
           <Card className="max-w-3xl mx-auto bg-gradient-to-br from-background to-primary/5 border-primary/20">
             <CardHeader className="text-center">
               <CardTitle className="text-3xl">Calculate Your Cost</CardTitle>
@@ -609,8 +612,8 @@ const Pricing = () => {
               <h2 className="text-3xl font-bold tracking-tight mb-3">Everything You Need</h2>
               <p className="text-muted-foreground text-lg">
                 Powerful features for modern time tracking
-            </p>
-          </div>
+              </p>
+            </div>
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 max-w-6xl mx-auto">
             {allFeatures.map((feature, index) => (
               <Card
@@ -621,6 +624,7 @@ const Pricing = () => {
                 <p className="font-medium">{feature.text}</p>
               </Card>
             ))}
+          </div>
           </div>
         </section>
 
