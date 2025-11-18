@@ -134,9 +134,9 @@ export function DepartmentCalendar({ departmentId, month }: DepartmentCalendarPr
         <CardTitle>Department Calendar - {format(month, "MMMM yyyy")}</CardTitle>
         <CardDescription>Total Faculty: {totalFacultyCount}</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-3 sm:px-6 py-4">
         {/* Legend */}
-        <div className="flex flex-wrap gap-2 mb-4 text-xs">
+        <div className="flex flex-wrap gap-2 mb-4 text-xs justify-center">
           <Badge variant="secondary" className="bg-green-500/20 text-green-700 border-green-500">
             80%+ Completion
           </Badge>
@@ -152,7 +152,7 @@ export function DepartmentCalendar({ departmentId, month }: DepartmentCalendarPr
         </div>
 
         {/* Calendar Grid */}
-        <div className="grid grid-cols-7 gap-1 sm:gap-2">
+        <div className="grid grid-cols-7 gap-1 sm:gap-2 max-w-4xl mx-auto">
           {/* Day headers */}
           {weekDays.map(day => (
             <div
@@ -165,7 +165,7 @@ export function DepartmentCalendar({ departmentId, month }: DepartmentCalendarPr
 
           {/* Empty cells for offset */}
           {Array.from({ length: monthStartDay }).map((_, i) => (
-            <div key={`empty-${i}`} className="aspect-square" />
+            <div key={`empty-${i}`} className="min-h-[70px] sm:min-h-[80px]" />
           ))}
 
           {/* Day cells */}
@@ -173,13 +173,13 @@ export function DepartmentCalendar({ departmentId, month }: DepartmentCalendarPr
             <div
               key={day.date.toISOString()}
               className={cn(
-                "min-h-[80px] border rounded-lg p-1 sm:p-2 text-xs transition-shadow hover:shadow-md cursor-pointer",
+                "min-h-[70px] sm:min-h-[80px] border rounded-lg p-1.5 sm:p-2 text-xs transition-shadow hover:shadow-md cursor-pointer",
                 getDayBgClass(day)
               )}
             >
               <div className="font-semibold mb-1">{format(day.date, "d")}</div>
               {!day.isWeekend && (
-                <div className="space-y-0.5 text-[9px] sm:text-[10px]">
+                <div className="space-y-0.5 text-[10px] sm:text-xs">
                   {day.facultyOnLeaveCount > 0 && (
                     <div className="text-blue-700 font-medium">
                       {day.facultyOnLeaveCount} on leave
