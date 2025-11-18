@@ -127,9 +127,9 @@ export function FacultyCalendar({ facultyId, month }: FacultyCalendarProps) {
       <CardHeader>
         <CardTitle>Calendar - {format(month, "MMMM yyyy")}</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-3 sm:px-6 py-4">
         {/* Legend */}
-        <div className="flex flex-wrap gap-2 mb-4 text-xs">
+        <div className="flex flex-wrap gap-2 mb-4 text-xs justify-center">
           <Badge variant="secondary" className="bg-blue-500/20 text-blue-700 border-blue-500">
             On Leave
           </Badge>
@@ -148,7 +148,7 @@ export function FacultyCalendar({ facultyId, month }: FacultyCalendarProps) {
         </div>
 
         {/* Calendar Grid */}
-        <div className="grid grid-cols-7 gap-1 sm:gap-2">
+        <div className="grid grid-cols-7 gap-1 sm:gap-2 max-w-4xl mx-auto">
           {/* Day headers */}
           {weekDays.map(day => (
             <div
@@ -161,7 +161,7 @@ export function FacultyCalendar({ facultyId, month }: FacultyCalendarProps) {
 
           {/* Empty cells for offset */}
           {Array.from({ length: monthStartDay }).map((_, i) => (
-            <div key={`empty-${i}`} className="aspect-square" />
+            <div key={`empty-${i}`} className="min-h-[70px] sm:min-h-[80px]" />
           ))}
 
           {/* Day cells */}
@@ -169,7 +169,7 @@ export function FacultyCalendar({ facultyId, month }: FacultyCalendarProps) {
             <div
               key={day.date.toISOString()}
               className={cn(
-                "aspect-square border rounded-lg p-1 sm:p-2 flex flex-col justify-between text-xs transition-shadow hover:shadow-md cursor-pointer",
+                "min-h-[70px] sm:min-h-[80px] border rounded-lg p-1.5 sm:p-2 flex flex-col justify-between text-xs transition-shadow hover:shadow-md cursor-pointer",
                 getDayBgClass(day.status)
               )}
             >
@@ -185,13 +185,13 @@ export function FacultyCalendar({ facultyId, month }: FacultyCalendarProps) {
                     <>
                       {day.totalHours > 0 && (
                         <>
-                          <div className="font-medium text-[10px] sm:text-xs">
+                          <div className="font-medium text-xs">
                             {day.totalHours.toFixed(1)}h
                           </div>
-                          <div className="text-[9px] text-muted-foreground">
+                          <div className="text-[10px] text-muted-foreground">
                             {day.entryCount} {day.entryCount === 1 ? 'entry' : 'entries'}
                           </div>
-                          <div className="text-[9px] font-medium">
+                          <div className="text-[10px] font-medium">
                             {Math.round(day.completionRate)}%
                           </div>
                         </>
