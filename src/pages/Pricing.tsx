@@ -39,7 +39,7 @@ const Pricing = () => {
       return { total: 0, perUser: 0, tier: "Free", monthlyEquivalent: 0, annualSavings: 0 };
     }
 
-    const baseRate = users <= 50 ? 20 : 15; // per user / year
+    const baseRate = users <= 50 ? 40 : 30; // per user / year
 
     if (period === "annual") {
       const total = users * baseRate;
@@ -53,8 +53,8 @@ const Pricing = () => {
       };
     }
 
-    // Monthly pricing (20% more expensive than annual equivalent)
-    const monthlyPerUser = (baseRate / 12) * 1.2;
+    // Monthly pricing
+    const monthlyPerUser = users <= 50 ? 5 : 4;
     const total = users * monthlyPerUser;
     const annualCostIfMonthly = total * 12;
     const annualCostIfAnnual = users * baseRate;
@@ -103,8 +103,8 @@ const Pricing = () => {
       name: "Pro",
       description: "For growing teams",
       users: "6–50 users",
-      annualPricePerUser: 20,
-      monthlyPricePerUser: 2,
+      annualPricePerUser: 40,
+      monthlyPricePerUser: 5,
       cta: "Get Started",
       popular: true,
       features: [
@@ -120,8 +120,8 @@ const Pricing = () => {
       name: "Pro Max",
       description: "For large organizations",
       users: "51+ users",
-      annualPricePerUser: 15,
-      monthlyPricePerUser: 1.5,
+      annualPricePerUser: 30,
+      monthlyPricePerUser: 4,
       cta: "Get Started",
       popular: false,
       features: [
