@@ -20,6 +20,8 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          organization_id: string | null
+          program_id: string | null
           updated_at: string
         }
         Insert: {
@@ -27,6 +29,8 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          organization_id?: string | null
+          program_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -34,9 +38,26 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          organization_id?: string | null
+          program_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "departments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "departments_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       leave_days: {
         Row: {
@@ -76,6 +97,30 @@ export type Database = {
           },
         ]
       }
+      organizations: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -105,6 +150,41 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      programs: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          name: string
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          name: string
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          name?: string
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "programs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       settings: {
         Row: {
@@ -197,6 +277,8 @@ export type Database = {
           created_at: string
           department_id: string | null
           id: string
+          organization_id: string | null
+          program_id: string | null
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
@@ -204,6 +286,8 @@ export type Database = {
           created_at?: string
           department_id?: string | null
           id?: string
+          organization_id?: string | null
+          program_id?: string | null
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
@@ -211,6 +295,8 @@ export type Database = {
           created_at?: string
           department_id?: string | null
           id?: string
+          organization_id?: string | null
+          program_id?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
         }
@@ -220,6 +306,20 @@ export type Database = {
             columns: ["department_id"]
             isOneToOne: false
             referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_roles_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_roles_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
             referencedColumns: ["id"]
           },
         ]
