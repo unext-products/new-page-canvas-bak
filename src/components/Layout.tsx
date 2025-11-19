@@ -52,13 +52,23 @@ export function Layout({ children }: LayoutProps) {
       );
     }
 
-    if (role === "admin") {
+    if (role === "org_admin") {
       baseItems.push(
-        { to: "/users", icon: Users, label: "Users" },
+        { to: "/organizations", icon: Users, label: "Organizations" },
+        { to: "/programs", icon: Users, label: "Programs" },
         { to: "/departments", icon: Users, label: "Departments" },
+        { to: "/users", icon: Users, label: "Users" },
         { to: "/reports", icon: FileText, label: "Reports" },
         { to: "/bulk-import", icon: Upload, label: "Bulk Import" },
         { to: "/settings", icon: Settings, label: "Settings" }
+      );
+    }
+
+    if (role === "program_manager") {
+      baseItems.push(
+        { to: "/programs", icon: Users, label: "Programs" },
+        { to: "/departments", icon: Users, label: "Departments" },
+        { to: "/reports", icon: FileText, label: "Reports" }
       );
     }
 

@@ -45,7 +45,7 @@ export default function BulkImport() {
   const [importStats, setImportStats] = useState({ success: 0, failed: 0 });
 
   const isMember = userWithRole?.role === "member";
-  const isAdmin = userWithRole?.role === "admin";
+  const isAdmin = userWithRole?.role === "org_admin";
 
   if (authLoading) {
     return (

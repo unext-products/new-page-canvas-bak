@@ -11,6 +11,8 @@ import Dashboard from "./pages/Dashboard";
 import Timesheet from "./pages/Timesheet";
 import Approvals from "./pages/Approvals";
 import Users from "./pages/Users";
+import Organizations from "./pages/Organizations";
+import Programs from "./pages/Programs";
 import Departments from "./pages/Departments";
 import Reports from "./pages/Reports";
 import BulkImport from "./pages/BulkImport";
@@ -34,6 +36,8 @@ const App = () => (
               <Route path="/timesheet" element={<Timesheet />} />
               <Route path="/approvals" element={<Approvals />} />
               <Route path="/users" element={<Users />} />
+              <Route path="/organizations" element={<Organizations />} />
+              <Route path="/programs" element={<Programs />} />
               <Route path="/departments" element={<Departments />} />
               <Route path="/reports" element={<Reports />} />
               <Route path="/bulk-import" element={<BulkImport />} />

@@ -13,7 +13,8 @@ export function UserRoleSelect({ value, onValueChange }: UserRoleSelectProps) {
         <SelectValue placeholder="Select role" />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="admin">{roleLabels.admin}</SelectItem>
+        <SelectItem value="org_admin">{roleLabels.org_admin}</SelectItem>
+        <SelectItem value="program_manager">{roleLabels.program_manager}</SelectItem>
         <SelectItem value="manager">{roleLabels.manager}</SelectItem>
         <SelectItem value="member">{roleLabels.member}</SelectItem>
       </SelectContent>

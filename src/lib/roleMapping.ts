@@ -1,18 +1,20 @@
 // Database roles (what's stored in Supabase)
-export type DbRole = "admin" | "hod" | "faculty";
+export type DbRole = "org_admin" | "program_manager" | "hod" | "faculty";
 
 // Display roles (what users see)
-export type DisplayRole = "admin" | "manager" | "member";
+export type DisplayRole = "org_admin" | "program_manager" | "manager" | "member";
 
 // Bidirectional mapping
 export const dbToDisplayRole: Record<DbRole, DisplayRole> = {
-  admin: "admin",
+  org_admin: "org_admin",
+  program_manager: "program_manager",
   hod: "manager",
   faculty: "member",
 };
 
 export const displayToDbRole: Record<DisplayRole, DbRole> = {
-  admin: "admin",
+  org_admin: "org_admin",
+  program_manager: "program_manager",
   manager: "hod",
   member: "faculty",
 };
@@ -28,7 +30,8 @@ export function toDbRole(displayRole: DisplayRole): DbRole {
 
 // Display labels for UI
 export const roleLabels: Record<DisplayRole, string> = {
-  admin: "Administrator",
+  org_admin: "Organization Admin",
+  program_manager: "Program Manager",
   manager: "Manager",
   member: "Member",
 };

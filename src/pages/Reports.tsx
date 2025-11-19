@@ -58,7 +58,7 @@ export default function Reports() {
   const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
 
   useEffect(() => {
-    if (!loading && (!userWithRole || userWithRole.role !== "admin")) {
+    if (!loading && (!userWithRole || !["org_admin", "program_manager"].includes(userWithRole.role || ""))) {
       navigate("/dashboard");
     }
   }, [userWithRole, loading, navigate]);
@@ -122,7 +122,7 @@ export default function Reports() {
   };
 
   useEffect(() => {
-    if (userWithRole?.role === "admin") {
+    if (userWithRole && ["org_admin", "program_manager"].includes(userWithRole.role || "")) {
       generateReport();
     }
   }, [userWithRole, reportType, period, dateFrom, dateTo, selectedFaculty, selectedDepartment]);

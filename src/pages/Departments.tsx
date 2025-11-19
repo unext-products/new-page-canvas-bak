@@ -35,13 +35,13 @@ export default function Departments() {
   const [formData, setFormData] = useState({ name: "", code: "" });
 
   useEffect(() => {
-    if (!loading && (!userWithRole || userWithRole.role !== "admin")) {
+    if (!loading && (!userWithRole || !["org_admin", "program_manager"].includes(userWithRole.role || ""))) {
       navigate("/dashboard");
     }
   }, [userWithRole, loading, navigate]);
 
   useEffect(() => {
-    if (userWithRole?.role === "admin") {
+    if (userWithRole && ["org_admin", "program_manager"].includes(userWithRole.role || "")) {
       fetchDepartments();
     }
   }, [userWithRole]);
