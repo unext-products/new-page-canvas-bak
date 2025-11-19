@@ -3,7 +3,7 @@ import Papa from "papaparse";
 import { getUserErrorMessage } from "./errorHandler";
 
 export interface CSVRow {
-  faculty_email: string;
+  member_email: string;
   entry_date: string;
   start_time: string;
   end_time: string;
@@ -55,7 +55,7 @@ export async function validateCSVRow(
   const errors: string[] = [];
 
   // Validate required fields
-  if (!row.faculty_email) errors.push("Missing faculty_email");
+  if (!row.member_email) errors.push("Missing member_email");
   if (!row.entry_date) errors.push("Missing entry_date");
   if (!row.start_time) errors.push("Missing start_time");
   if (!row.end_time) errors.push("Missing end_time");
@@ -67,9 +67,9 @@ export async function validateCSVRow(
   }
 
   // Validate email and lookup user
-  const userId = usersMap.get(row.faculty_email.toLowerCase().trim());
+  const userId = usersMap.get(row.member_email.toLowerCase().trim());
   if (!userId) {
-    errors.push(`User not found: ${row.faculty_email}`);
+    errors.push(`User not found: ${row.member_email}`);
   }
 
   // Validate department code

@@ -13,13 +13,13 @@ interface ExcelRowBase {
   department_code: string;
 }
 
-// Admin mode includes faculty email
+// Admin mode includes member email
 interface AdminExcelRow extends ExcelRowBase {
-  faculty_email: string;
+  member_email: string;
 }
 
-// Faculty mode doesn't need email
-interface FacultyExcelRow extends ExcelRowBase {}
+// Member mode doesn't need email
+interface MemberExcelRow extends ExcelRowBase {}
 
 export interface ValidationResult {
   isValid: boolean;
@@ -53,10 +53,10 @@ export async function parseExcelFile(file: File): Promise<any[]> {
 }
 
 /**
- * Validate row for faculty mode (no email needed)
+ * Validate row for member mode (no email needed)
  */
-export async function validateFacultyExcelRow(
-  row: FacultyExcelRow,
+export async function validateMemberExcelRow(
+  row: MemberExcelRow,
   userId: string,
   departmentId: string,
   deptsMap: Map<string, string>
@@ -148,7 +148,7 @@ export async function validateAdminExcelRow(
   const errors: string[] = [];
 
   // Required fields (including email for admin)
-  if (!row.faculty_email) errors.push("faculty_email is required");
+  if (!row.member_email) errors.push("member_email is required");
   if (!row.entry_date) errors.push("entry_date is required");
   if (!row.start_time) errors.push("start_time is required");
   if (!row.end_time) errors.push("end_time is required");
@@ -160,9 +160,9 @@ export async function validateAdminExcelRow(
   }
 
   // Validate user exists
-  const userId = usersMap.get(row.faculty_email.toLowerCase());
+  const userId = usersMap.get(row.member_email.toLowerCase());
   if (!userId) {
-    errors.push(`Faculty email '${row.faculty_email}' not found`);
+    errors.push(`Member email '${row.member_email}' not found`);
   }
 
   // Validate date format
@@ -317,9 +317,9 @@ export async function fetchDepartments(): Promise<Map<string, string>> {
 }
 
 /**
- * Generate Excel template for faculty (no email column)
+ * Generate Excel template for member (no email column)
  */
-export function generateFacultyExcelTemplate(): Blob {
+export function generateMemberExcelTemplate(): Blob {
   const templateData = [
     {
       entry_date: '2025-01-15',

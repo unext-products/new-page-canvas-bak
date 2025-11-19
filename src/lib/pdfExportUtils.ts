@@ -53,7 +53,7 @@ export function exportToPDF(
   // Add table
   autoTable(doc, {
     startY: 90,
-    head: [["Date", "Faculty", "Department", "Activity", "Duration", "Status"]],
+    head: [["Date", "Member", "Department", "Activity", "Duration", "Status"]],
     body: entries.map((entry) => [
       format(new Date(entry.entry_date), "MMM dd, yyyy"),
       entry.profiles?.full_name || "N/A",
@@ -92,7 +92,7 @@ export function exportToPDF(
   doc.save(`${filename}_${format(new Date(), "yyyy-MM-dd")}.pdf`);
 }
 
-export function exportFacultyReportPDF(
+export function exportMemberReportPDF(
   report: any,
   reportPeriod: string,
   generatedBy: string,
@@ -103,12 +103,12 @@ export function exportFacultyReportPDF(
   // Header
   doc.setFontSize(20);
   doc.setTextColor(41, 128, 185);
-  doc.text("Faculty Timesheet Report", 14, 22);
+  doc.text("Member Timesheet Report", 14, 22);
 
   // Metadata
   doc.setFontSize(10);
   doc.setTextColor(0, 0, 0);
-  doc.text(`Faculty: ${report.facultyName}`, 14, 32);
+  doc.text(`Member: ${report.facultyName}`, 14, 32);
   doc.text(`Department: ${report.department}`, 14, 38);
   doc.text(`Period: ${reportPeriod} (${period})`, 14, 44);
   doc.text(`Generated: ${format(new Date(), "PPP")}`, 14, 50);
