@@ -169,7 +169,7 @@ const Index = () => {
             <div className="text-center space-y-4 sm:space-y-6 md:space-y-8 animate-fade-in-up">
               <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border border-primary/20 bg-primary/5 backdrop-blur-sm">
                 <Sparkles className="h-3 w-3 sm:h-4 sm:w-4 text-primary" />
-                <span className="text-xs sm:text-sm font-medium">The Future of Faculty Management</span>
+                <span className="text-xs sm:text-sm font-medium">The Future of Workforce Management</span>
               </div>
               
               <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold leading-tight">
@@ -181,7 +181,7 @@ const Index = () => {
               </h1>
               
               <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed px-4">
-                The intelligent platform that transforms how educational institutions manage faculty timesheets, 
+                The intelligent platform that transforms how organizations manage team timesheets, 
                 approvals, and reporting.
               </p>
               
@@ -319,7 +319,7 @@ const Index = () => {
               <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-3 sm:mb-4 bg-gradient-to-r from-foreground to-foreground/60 bg-clip-text text-transparent">
                 Why Choose ClockWise
               </h2>
-              <p className="text-base sm:text-lg md:text-xl text-muted-foreground">Transform your institution's time management</p>
+              <p className="text-base sm:text-lg md:text-xl text-muted-foreground">Transform your organization's time management</p>
             </div>
 
             <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 ${isBenefitsVisible ? "animate-fade-in-up" : "opacity-0"}`}>
@@ -366,7 +366,7 @@ const Index = () => {
                   <span className="text-foreground">Your Workflow?</span>
                 </h2>
                 <p className="text-base sm:text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto px-4">
-                  Join hundreds of institutions already using ClockWise to streamline their faculty management.
+                  Join hundreds of organizations already using ClockWise to streamline their workforce management.
                 </p>
                 <Button 
                   size="lg" 
