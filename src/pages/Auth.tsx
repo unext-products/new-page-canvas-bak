@@ -17,6 +17,8 @@ export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [organizationName, setOrganizationName] = useState("");
+  const [organizationCode, setOrganizationCode] = useState("");
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -53,7 +55,7 @@ export default function Auth() {
           navigate("/dashboard");
         }
       } else {
-        const { error } = await signUp(email, password, fullName);
+        const { error } = await signUp(email, password, fullName, organizationName, organizationCode);
         if (error) {
           if (error.message.includes("already registered")) {
             toast({
@@ -71,7 +73,7 @@ export default function Auth() {
         } else {
           toast({
             title: "Success",
-            description: "Account created! Please contact your administrator to assign a role.",
+            description: "Account created! Your organization has been set up and you are now the admin.",
           });
           setIsLogin(true);
         }
@@ -213,20 +215,52 @@ export default function Auth() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-5">
               {!isLogin && (
-                <div className="space-y-2">
-                  <Label htmlFor="fullName" className="text-sm font-medium">
-                    Full Name
-                  </Label>
-                  <Input
-                    id="fullName"
-                    type="text"
-                    placeholder="John Doe"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    required
-                    className="bg-background/60 border-border/60 focus:border-primary focus:ring-2 focus:ring-primary/30 transition-all h-11"
-                  />
-                </div>
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="fullName" className="text-sm font-medium">
+                      Full Name
+                    </Label>
+                    <Input
+                      id="fullName"
+                      type="text"
+                      placeholder="John Doe"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      required
+                      className="bg-background/60 border-border/60 focus:border-primary focus:ring-2 focus:ring-primary/30 transition-all h-11"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="organizationName" className="text-sm font-medium">
+                      Organization Name
+                    </Label>
+                    <Input
+                      id="organizationName"
+                      type="text"
+                      placeholder="Acme University"
+                      value={organizationName}
+                      onChange={(e) => setOrganizationName(e.target.value)}
+                      required
+                      className="bg-background/60 border-border/60 focus:border-primary focus:ring-2 focus:ring-primary/30 transition-all h-11"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="organizationCode" className="text-sm font-medium">
+                      Organization Code
+                    </Label>
+                    <Input
+                      id="organizationCode"
+                      type="text"
+                      placeholder="ACME"
+                      value={organizationCode}
+                      onChange={(e) => setOrganizationCode(e.target.value)}
+                      required
+                      className="bg-background/60 border-border/60 focus:border-primary focus:ring-2 focus:ring-primary/30 transition-all h-11"
+                    />
+                  </div>
+                </>
               )}
               
               <div className="space-y-2">
