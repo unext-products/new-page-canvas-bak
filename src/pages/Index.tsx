@@ -49,14 +49,14 @@ const Index = () => {
     {
       icon: Clock,
       title: "Smart Time Tracking",
-      description: "Intuitive interface for faculty to log hours with precision and ease.",
+      description: "Intuitive interface for team members to log hours with precision and ease.",
       gradient: "from-primary to-purple-500",
       size: "large",
     },
     {
       icon: CheckCircle2,
       title: "Approval Workflows",
-      description: "Streamlined review process for HODs and administrators.",
+      description: "Streamlined review process for managers and administrators.",
       gradient: "from-purple-500 to-pink-500",
       size: "small",
     },
@@ -70,7 +70,7 @@ const Index = () => {
     {
       icon: Users,
       title: "Department Management",
-      description: "Organize faculty by departments with role-based access.",
+      description: "Organize teams by departments with role-based access.",
       gradient: "from-primary to-cyan-500",
       size: "medium",
     },
@@ -93,13 +93,13 @@ const Index = () => {
   const steps = [
     {
       icon: Clock,
-      title: "Faculty Log Hours",
-      description: "Instructors record their teaching and administrative hours with detailed activity descriptions.",
+      title: "Members Log Hours",
+      description: "Team members record their work hours and activities with detailed descriptions.",
     },
     {
       icon: FileCheck,
-      title: "HODs Review",
-      description: "Department heads review and approve submitted timesheets in real-time.",
+      title: "Managers Review",
+      description: "Team managers review and approve submitted timesheets in real-time.",
     },
     {
       icon: TrendingUp,
@@ -110,7 +110,7 @@ const Index = () => {
 
   const benefits = [
     "Reduce administrative overhead by 70%",
-    "Real-time visibility into faculty workload",
+    "Real-time visibility into team workload",
     "Eliminate timesheet disputes with audit trails",
     "Automated compliance reporting",
     "Mobile-friendly interface for on-the-go access",

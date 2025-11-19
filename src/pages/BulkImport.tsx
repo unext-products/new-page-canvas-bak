@@ -22,9 +22,9 @@ import {
 } from "@/lib/csvImportUtils";
 import {
   parseExcelFile,
-  validateFacultyExcelRow,
+  validateMemberExcelRow,
   validateAdminExcelRow,
-  generateFacultyExcelTemplate,
+  generateMemberExcelTemplate,
   generateAdminExcelTemplate,
   fetchDepartments,
   getFileType,
@@ -147,7 +147,7 @@ export default function BulkImport() {
 
         results = await Promise.all(
           rows.map(async (row, index) => {
-            const validation = await validateFacultyExcelRow(row, userId, departmentId, deptsMap);
+            const validation = await validateMemberExcelRow(row, userId, departmentId, deptsMap);
             return {
               rowNumber: index + 2,
               rowData: row,
@@ -262,7 +262,7 @@ export default function BulkImport() {
     if (isMember) {
       // Member template (no email column)
       if (format === 'excel') {
-        blob = generateFacultyExcelTemplate();
+        blob = generateMemberExcelTemplate();
         filename = 'my_timesheet_template.xlsx';
       } else {
         // Generate CSV from member template structure

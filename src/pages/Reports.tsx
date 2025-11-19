@@ -29,8 +29,8 @@ import {
   DepartmentReportData,
   groupEntriesByPeriod
 } from "@/lib/reportQueries";
-import { exportFacultyReportCSV, exportDepartmentReportCSV } from "@/lib/exportUtils";
-import { exportFacultyReportPDF, exportDepartmentReportPDF } from "@/lib/pdfExportUtils";
+import { exportMemberReportCSV, exportDepartmentReportCSV } from "@/lib/exportUtils";
+import { exportMemberReportPDF, exportDepartmentReportPDF } from "@/lib/pdfExportUtils";
 import { formatDuration } from "@/lib/exportUtils";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfDay, endOfDay } from "date-fns";
 import { getUserErrorMessage } from "@/lib/errorHandler";
@@ -132,7 +132,7 @@ export default function Reports() {
     const generatedBy = userWithRole?.profile?.full_name || "Admin";
 
     if (reportType === "member" && facultyReport) {
-      exportFacultyReportCSV(facultyReport, reportPeriod, generatedBy, period);
+      exportMemberReportCSV(facultyReport, reportPeriod, generatedBy, period);
     } else if (reportType === "department" && departmentReport) {
       exportDepartmentReportCSV(departmentReport, reportPeriod, generatedBy, period);
     }
@@ -143,7 +143,7 @@ export default function Reports() {
     const generatedBy = userWithRole?.profile?.full_name || "Admin";
 
     if (reportType === "member" && facultyReport) {
-      exportFacultyReportPDF(facultyReport, reportPeriod, generatedBy, period);
+      exportMemberReportPDF(facultyReport, reportPeriod, generatedBy, period);
     } else if (reportType === "department" && departmentReport) {
       exportDepartmentReportPDF(departmentReport, reportPeriod, generatedBy, period);
     }

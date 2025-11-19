@@ -12,17 +12,17 @@ interface DepartmentCalendarProps {
 
 interface DepartmentDayData {
   date: Date;
-  facultyOnLeaveCount: number;
-  facultyWithEntriesCount: number;
+  membersOnLeaveCount: number;
+  membersWithEntriesCount: number;
   totalHours: number;
-  totalFacultyCount: number;
+  totalMembersCount: number;
   averageCompletionRate: number;
   isWeekend: boolean;
 }
 
 export function DepartmentCalendar({ departmentId, month }: DepartmentCalendarProps) {
   const [calendarData, setCalendarData] = useState<DepartmentDayData[]>([]);
-  const [totalFacultyCount, setTotalFacultyCount] = useState(0);
+  const [totalMembersCount, setTotalMembersCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -35,26 +35,26 @@ export function DepartmentCalendar({ departmentId, month }: DepartmentCalendarPr
     const monthStart = startOfMonth(month);
     const monthEnd = endOfMonth(month);
 
-    // Get all faculty in department
-    const { data: facultyList } = await supabase
+    // Get all members in department
+    const { data: memberList } = await supabase
       .from("user_roles")
       .select("user_id")
       .eq("role", "faculty")
       .eq("department_id", departmentId);
 
-    const facultyIds = facultyList?.map(f => f.user_id) || [];
-    setTotalFacultyCount(facultyIds.length);
+    const memberIds = memberList?.map(f => f.user_id) || [];
+    setTotalMembersCount(memberIds.length);
 
-    if (facultyIds.length === 0) {
+    if (memberIds.length === 0) {
       setIsLoading(false);
       return;
     }
 
-    // Fetch all entries for department faculty
+    // Fetch all entries for department members
     const { data: entries } = await supabase
       .from("timesheet_entries")
       .select("user_id, entry_date, duration_minutes, status")
-      .in("user_id", facultyIds)
+      .in("user_id", memberIds)
       .gte("entry_date", format(monthStart, "yyyy-MM-dd"))
       .lte("entry_date", format(monthEnd, "yyyy-MM-dd"));
 
@@ -62,7 +62,7 @@ export function DepartmentCalendar({ departmentId, month }: DepartmentCalendarPr
     const { data: leaves } = await supabase
       .from('leave_days' as any)
       .select('leave_date, user_id')
-      .in('user_id', facultyIds)
+      .in('user_id', memberIds)
       .gte('leave_date', format(monthStart, "yyyy-MM-dd"))
       .lte('leave_date', format(monthEnd, "yyyy-MM-dd"));
 
@@ -73,31 +73,31 @@ export function DepartmentCalendar({ departmentId, month }: DepartmentCalendarPr
       const dateStr = format(date, "yyyy-MM-dd");
       const isWeekendDay = isWeekend(date);
 
-      // Count faculty on leave
-      const facultyOnLeave = new Set<string>(
+      // Count members on leave
+      const membersOnLeave = new Set<string>(
         leaves?.filter((l: any) => l.leave_date === dateStr).map((l: any) => l.user_id) || []
       );
 
-      // Count faculty with entries and total hours
+      // Count members with entries and total hours
       const dayEntries = entries?.filter(e => e.entry_date === dateStr) || [];
-      const facultyWithEntries = new Set(dayEntries.map(e => e.user_id));
+      const membersWithEntries = new Set(dayEntries.map(e => e.user_id));
       const totalMinutes = dayEntries
         .filter(e => e.status === "approved" || e.status === "submitted")
         .reduce((sum, e) => sum + e.duration_minutes, 0);
 
-      // Calculate average completion (only for faculty who should be working)
-      const workingFacultyCount = isWeekendDay ? 0 : facultyIds.length - facultyOnLeave.size;
-      const expectedTotalMinutes = workingFacultyCount * 480; // 8 hours per faculty
+      // Calculate average completion (only for members who should be working)
+      const workingMembersCount = isWeekendDay ? 0 : memberIds.length - membersOnLeave.size;
+      const expectedTotalMinutes = workingMembersCount * 480; // 8 hours per member
       const averageCompletionRate = expectedTotalMinutes > 0
         ? (totalMinutes / expectedTotalMinutes) * 100
         : 0;
 
       return {
         date,
-        facultyOnLeaveCount: facultyOnLeave.size,
-        facultyWithEntriesCount: facultyWithEntries.size,
+        membersOnLeaveCount: membersOnLeave.size,
+        membersWithEntriesCount: membersWithEntries.size,
         totalHours: totalMinutes / 60,
-        totalFacultyCount: facultyIds.length,
+        totalMembersCount: memberIds.length,
         averageCompletionRate,
         isWeekend: isWeekendDay,
       };
@@ -132,7 +132,7 @@ export function DepartmentCalendar({ departmentId, month }: DepartmentCalendarPr
     <Card>
       <CardHeader>
         <CardTitle>Department Calendar - {format(month, "MMMM yyyy")}</CardTitle>
-        <CardDescription>Total Faculty: {totalFacultyCount}</CardDescription>
+        <CardDescription>Total Members: {totalMembersCount}</CardDescription>
       </CardHeader>
       <CardContent className="px-3 sm:px-6 py-4">
         {/* Legend */}
@@ -180,13 +180,13 @@ export function DepartmentCalendar({ departmentId, month }: DepartmentCalendarPr
               <div className="font-semibold mb-1">{format(day.date, "d")}</div>
               {!day.isWeekend && (
                 <div className="space-y-0.5 text-[10px] sm:text-xs">
-                  {day.facultyOnLeaveCount > 0 && (
+                  {day.membersOnLeaveCount > 0 && (
                     <div className="text-blue-700 font-medium">
-                      {day.facultyOnLeaveCount} on leave
+                      {day.membersOnLeaveCount} on leave
                     </div>
                   )}
                   <div>
-                    {day.facultyWithEntriesCount} logged
+                    {day.membersWithEntriesCount} logged
                   </div>
                   <div className="font-medium">
                     {day.totalHours.toFixed(1)}h total
