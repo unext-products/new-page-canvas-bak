@@ -50,8 +50,8 @@ export default function Dashboard() {
     setLoading(true);
     const today = new Date().toISOString().split("T")[0];
 
-    // Load admin dashboard data
-    if (userWithRole.role === "admin") {
+    // Load org admin dashboard data
+    if (userWithRole.role === "org_admin") {
       await loadAdminDashboardData();
       setLoading(false);
       return;
@@ -285,7 +285,8 @@ export default function Dashboard() {
           <p className="text-sm sm:text-base text-muted-foreground mt-2">
             {userWithRole.role === "member" && "Track your working hours and submit timesheets"}
             {userWithRole.role === "manager" && "Review and approve team timesheets"}
-            {userWithRole.role === "admin" && "Manage users, departments, and reports"}
+            {userWithRole.role === "org_admin" && "Manage users, departments, and reports"}
+            {userWithRole.role === "program_manager" && "Manage programs and departments"}
           </p>
         </div>
 
@@ -415,7 +416,7 @@ export default function Dashboard() {
           </Card>
         )}
 
-        {userWithRole.role === "admin" && (
+        {userWithRole.role === "org_admin" && (
           <>
             {loading ? (
               <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 animate-fade-in-up">
