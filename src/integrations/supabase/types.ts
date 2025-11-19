@@ -237,7 +237,7 @@ export type Database = {
     }
     Enums: {
       activity_type: "class" | "quiz" | "invigilation" | "admin" | "other"
-      app_role: "admin" | "hod" | "faculty"
+      app_role: "admin" | "hod" | "faculty" | "org_admin" | "program_manager"
       entry_status: "draft" | "submitted" | "approved" | "rejected"
       leave_type:
         | "sick_leave"
@@ -374,7 +374,7 @@ export const Constants = {
   public: {
     Enums: {
       activity_type: ["class", "quiz", "invigilation", "admin", "other"],
-      app_role: ["admin", "hod", "faculty"],
+      app_role: ["admin", "hod", "faculty", "org_admin", "program_manager"],
       entry_status: ["draft", "submitted", "approved", "rejected"],
       leave_type: [
         "sick_leave",
