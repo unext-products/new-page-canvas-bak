@@ -555,56 +555,6 @@ const Pricing = () => {
           </div>
         </section>
 
-        {/* Calculator Section */}
-        <section className="container pb-20">
-          <Card className="max-w-3xl mx-auto bg-gradient-to-br from-background to-primary/5 border-primary/20">
-            <CardHeader className="text-center">
-              <CardTitle className="text-3xl">Calculate Your Cost</CardTitle>
-              <CardDescription>
-                See exactly how much you'll pay based on your team size
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-8">
-              <div className="space-y-4">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Number of users</span>
-                  <span className="font-semibold text-lg">{userCount[0]}</span>
-                </div>
-                <Slider
-                  value={userCount}
-                  onValueChange={setUserCount}
-                  min={1}
-                  max={100}
-                  step={1}
-                  className="w-full"
-                />
-              </div>
-              
-              <div className="space-y-4 p-6 rounded-lg bg-background/50 border border-border/50">
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Selected Tier:</span>
-                  <span className="font-semibold text-xl text-primary">{priceInfo.tier}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Price per user/year:</span>
-                  <span className="font-semibold">${priceInfo.perUser}</span>
-                </div>
-                <div className="flex justify-between items-center pt-4 border-t border-border/50">
-                  <span className="font-semibold text-lg">Total Annual Cost:</span>
-                  <span className="text-3xl font-bold bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent">
-                    ${priceInfo.total}
-                  </span>
-                </div>
-                {priceInfo.total > 0 && (
-                  <p className="text-sm text-muted-foreground text-center">
-                    That's just ${(priceInfo.total / 12 / userCount[0]).toFixed(2)} per user per month
-                  </p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </section>
-
         {/* All Features */}
         <section className="container pb-20">
           <div className="max-w-4xl mx-auto">
