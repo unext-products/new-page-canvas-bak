@@ -34,7 +34,6 @@ const Pricing = () => {
   const [userCount, setUserCount] = useState([25]);
   const [billingPeriod, setBillingPeriod] = useState<"annual" | "monthly">("annual");
   const [showStickyCta, setShowStickyCta] = useState(false);
-  const [isCtaDismissed, setIsCtaDismissed] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -651,48 +650,27 @@ const Pricing = () => {
       </div>
 
       {/* Sticky CTA Bar */}
-      {showStickyCta && !isCtaDismissed && (
-        <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-in-right">
-          <div className="bg-gradient-to-r from-primary via-purple-500 to-primary backdrop-blur-xl border-t border-border/20 shadow-2xl">
-            <div className="container py-4">
-              <div className="flex items-center justify-between gap-4 flex-wrap">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm sm:text-base font-semibold text-primary-foreground mb-1">
-                    Start Your Free Trial Today
-                  </p>
-                  <p className="text-xs sm:text-sm text-primary-foreground/80">
-                    Free up to 5 users • No credit card required • Cancel anytime
+      {showStickyCta && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 animate-fade-in">
+          <div className="bg-card/95 backdrop-blur-xl border-t-2 border-primary/20 shadow-[0_-4px_20px_rgba(0,0,0,0.1)]">
+            <div className="container py-5 sm:py-6">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="text-center sm:text-left">
+                  <h3 className="text-base sm:text-lg font-bold text-foreground mb-1">
+                    Ready to streamline your faculty management?
+                  </h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
+                    Start free with up to 5 users • No credit card required
                   </p>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Button
-                    onClick={() => {
-                      const pricingSection = document.getElementById("pricing-cards");
-                      pricingSection?.scrollIntoView({ behavior: "smooth" });
-                    }}
-                    variant="outline"
-                    size="sm"
-                    className="bg-background/20 border-primary-foreground/30 text-primary-foreground hover:bg-background/30 hidden sm:inline-flex"
-                  >
-                    View Plans
-                  </Button>
-                  <Button
-                    onClick={() => navigate("/auth")}
-                    size="sm"
-                    className="bg-background text-primary hover:bg-background/90 shadow-lg"
-                  >
-                    Start Free Trial
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                  <Button
-                    onClick={() => setIsCtaDismissed(true)}
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-primary-foreground/70 hover:text-primary-foreground hover:bg-background/20"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
+                <Button 
+                  size="lg" 
+                  className="shadow-lg hover:shadow-xl transition-all group whitespace-nowrap"
+                  onClick={() => navigate("/auth")}
+                >
+                  Start Free Trial
+                  <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                </Button>
               </div>
             </div>
           </div>
