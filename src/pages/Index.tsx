@@ -3,15 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { InteractiveFeatures } from "@/components/InteractiveFeatures";
 import { useCursorSpotlight } from "@/hooks/useCursorSpotlight";
 import { useScrollAnimation } from "@/hooks/useScrollAnimation";
 import {
   Clock,
   CheckCircle2,
-  BarChart3,
-  Users,
-  Shield,
-  Zap,
   ArrowRight,
   Sparkles,
   TrendingUp,
@@ -45,50 +42,6 @@ const Index = () => {
     );
   }
 
-  const features = [
-    {
-      icon: Clock,
-      title: "Smart Time Tracking",
-      description: "Intuitive interface for team members to log hours with precision and ease.",
-      gradient: "from-primary to-purple-500",
-      size: "large",
-    },
-    {
-      icon: CheckCircle2,
-      title: "Approval Workflows",
-      description: "Streamlined review process for managers and administrators.",
-      gradient: "from-purple-500 to-pink-500",
-      size: "small",
-    },
-    {
-      icon: BarChart3,
-      title: "Advanced Analytics",
-      description: "Real-time insights with comprehensive reporting tools.",
-      gradient: "from-pink-500 to-primary",
-      size: "small",
-    },
-    {
-      icon: Users,
-      title: "Department Management",
-      description: "Organize teams by departments with role-based access.",
-      gradient: "from-primary to-cyan-500",
-      size: "medium",
-    },
-    {
-      icon: Shield,
-      title: "Secure & Compliant",
-      description: "Enterprise-grade security with audit trails.",
-      gradient: "from-cyan-500 to-primary",
-      size: "medium",
-    },
-    {
-      icon: Zap,
-      title: "Bulk Operations",
-      description: "Import and export data with CSV/Excel support.",
-      gradient: "from-purple-500 to-primary",
-      size: "small",
-    },
-  ];
 
   const steps = [
     {
@@ -202,72 +155,12 @@ const Index = () => {
                   Watch Demo
                 </Button>
               </div>
-
-              {/* Floating Elements */}
-              <div className="relative h-24 sm:h-32 md:h-40 mt-8 sm:mt-12 md:mt-16 hidden md:block">
-                <div className="absolute top-0 left-1/4 animate-float">
-                  <div className="p-3 sm:p-4 rounded-2xl bg-gradient-to-br from-primary/20 to-purple-500/20 backdrop-blur-xl border border-border/40">
-                    <CheckCircle2 className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
-                  </div>
-                </div>
-                <div className="absolute top-0 right-1/4 animate-float" style={{ animationDelay: "1s" }}>
-                  <div className="p-3 sm:p-4 rounded-2xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 backdrop-blur-xl border border-border/40">
-                    <BarChart3 className="h-6 w-6 sm:h-8 sm:w-8 text-purple-500" />
-                  </div>
-                </div>
-                <div className="absolute top-10 left-1/2 -translate-x-1/2 animate-float" style={{ animationDelay: "2s" }}>
-                  <div className="p-3 sm:p-4 rounded-2xl bg-gradient-to-br from-pink-500/20 to-primary/20 backdrop-blur-xl border border-border/40">
-                    <Zap className="h-6 w-6 sm:h-8 sm:w-8 text-pink-500" />
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </section>
 
-        {/* Features Section - Bento Grid */}
-        <section ref={featuresRef} className="py-12 sm:py-16 md:py-20 px-4 sm:px-6">
-          <div className="container mx-auto max-w-7xl">
-            <div className="text-center mb-8 sm:mb-12 md:mb-16 animate-fade-in-up">
-              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-3 sm:mb-4 bg-gradient-to-r from-foreground to-foreground/60 bg-clip-text text-transparent">
-                Powerful Features
-              </h2>
-              <p className="text-base sm:text-lg md:text-xl text-muted-foreground">Everything you need to manage faculty time effectively</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 animate-fade-in-up">
-              {features.map((feature, index) => {
-                const Icon = feature.icon;
-                const colSpan = feature.size === "large" ? "md:col-span-2" : feature.size === "medium" ? "md:col-span-2" : "md:col-span-1";
-                const rowSpan = feature.size === "large" ? "md:row-span-2" : "";
-                
-                return (
-                  <div
-                    key={index}
-                    className={`col-span-1 ${colSpan} ${rowSpan} group relative p-5 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl border border-border/40 hover:border-primary/50 transition-all duration-500 hover:scale-[1.02] cursor-pointer overflow-hidden`}
-                    style={{ 
-                      background: "var(--glass-bg)",
-                      backdropFilter: "blur(20px)",
-                      boxShadow: "var(--glass-shadow)",
-                      animationDelay: `${index * 0.1}s`
-                    }}
-                  >
-                    {/* Gradient Background on Hover */}
-                    <div className={`absolute inset-0 bg-gradient-to-br ${feature.gradient} opacity-0 group-hover:opacity-10 transition-opacity duration-500`} />
-                    
-                    <div className="relative z-10">
-                      <div className={`inline-flex p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-gradient-to-br ${feature.gradient} mb-4 sm:mb-6`}>
-                        <Icon className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
-                      </div>
-                      <h3 className="text-xl sm:text-2xl font-bold mb-2 sm:mb-3">{feature.title}</h3>
-                      <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">{feature.description}</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </section>
+        {/* Interactive Features Section */}
+        <InteractiveFeatures />
 
         {/* How It Works Section */}
         <section ref={howItWorksRef} className="py-12 sm:py-16 md:py-20 px-4 sm:px-6">
