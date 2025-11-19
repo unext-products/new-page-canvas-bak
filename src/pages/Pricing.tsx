@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,6 +33,19 @@ const Pricing = () => {
   const navigate = useNavigate();
   const [userCount, setUserCount] = useState([25]);
   const [billingPeriod, setBillingPeriod] = useState<"annual" | "monthly">("annual");
+  const [showStickyCta, setShowStickyCta] = useState(false);
+  const [isCtaDismissed, setIsCtaDismissed] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollPosition = window.scrollY;
+      // Show sticky CTA after scrolling 300px
+      setShowStickyCta(scrollPosition > 300);
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   const calculatePrice = (users: number, period: "annual" | "monthly") => {
     if (users <= 5) {
@@ -319,7 +332,7 @@ const Pricing = () => {
         </section>
 
         {/* Pricing Cards */}
-        <section className="container pb-20">
+        <section id="pricing-cards" className="container pb-20">
           <div className="grid gap-8 lg:grid-cols-4 md:grid-cols-2 max-w-7xl mx-auto">
             {tiers.map((tier, index) => {
               const isEnterprise = tier.name === "Enterprise";
@@ -636,6 +649,55 @@ const Pricing = () => {
           </div>
         </footer>
       </div>
+
+      {/* Sticky CTA Bar */}
+      {showStickyCta && !isCtaDismissed && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-in-right">
+          <div className="bg-gradient-to-r from-primary via-purple-500 to-primary backdrop-blur-xl border-t border-border/20 shadow-2xl">
+            <div className="container py-4">
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm sm:text-base font-semibold text-primary-foreground mb-1">
+                    Start Your Free Trial Today
+                  </p>
+                  <p className="text-xs sm:text-sm text-primary-foreground/80">
+                    Free up to 5 users • No credit card required • Cancel anytime
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Button
+                    onClick={() => {
+                      const pricingSection = document.getElementById("pricing-cards");
+                      pricingSection?.scrollIntoView({ behavior: "smooth" });
+                    }}
+                    variant="outline"
+                    size="sm"
+                    className="bg-background/20 border-primary-foreground/30 text-primary-foreground hover:bg-background/30 hidden sm:inline-flex"
+                  >
+                    View Plans
+                  </Button>
+                  <Button
+                    onClick={() => navigate("/auth")}
+                    size="sm"
+                    className="bg-background text-primary hover:bg-background/90 shadow-lg"
+                  >
+                    Start Free Trial
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                  <Button
+                    onClick={() => setIsCtaDismissed(true)}
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-primary-foreground/70 hover:text-primary-foreground hover:bg-background/20"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
