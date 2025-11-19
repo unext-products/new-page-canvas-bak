@@ -55,7 +55,13 @@ export async function signIn(email: string, password: string) {
   return { data, error };
 }
 
-export async function signUp(email: string, password: string, fullName: string) {
+export async function signUp(
+  email: string, 
+  password: string, 
+  fullName: string,
+  organizationName: string,
+  organizationCode: string
+) {
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -63,6 +69,8 @@ export async function signUp(email: string, password: string, fullName: string) 
       emailRedirectTo: `${window.location.origin}/`,
       data: {
         full_name: fullName,
+        organization_name: organizationName,
+        organization_code: organizationCode,
       },
     },
   });
