@@ -652,20 +652,27 @@ const Pricing = () => {
       {/* Sticky CTA Bar */}
       {showStickyCta && (
         <div className="fixed bottom-0 left-0 right-0 z-50 animate-fade-in">
-          <div className="bg-card/95 backdrop-blur-xl border-t-2 border-primary/20 shadow-[0_-4px_20px_rgba(0,0,0,0.1)]">
-            <div className="container py-5 sm:py-6">
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          {/* Colorful ambient gradient background */}
+          <div className="absolute inset-0 bg-gradient-to-r from-purple-600/20 via-pink-600/20 to-blue-600/20 blur-3xl" />
+          
+          {/* Glass layer */}
+          <div className="relative bg-background/30 backdrop-blur-2xl border-t border-white/20 shadow-[0_-20px_60px_rgba(139,92,246,0.2)]">
+            {/* Gradient border on top */}
+            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-purple-500 via-pink-500 to-blue-500" />
+            
+            <div className="container py-6">
+              <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-between gap-4 max-w-4xl mx-auto">
                 <div className="text-center sm:text-left">
-                  <h3 className="text-base sm:text-lg font-bold text-foreground mb-1">
-                    Ready to streamline your faculty management?
+                  <h3 className="text-lg sm:text-xl font-bold text-foreground mb-1">
+                    Try it free. Love it forever.
                   </h3>
-                  <p className="text-xs sm:text-sm text-muted-foreground">
-                    Start free with up to 5 users • No credit card required
+                  <p className="text-sm text-muted-foreground">
+                    5 users free • No card needed • 2 min setup
                   </p>
                 </div>
                 <Button 
                   size="lg" 
-                  className="shadow-lg hover:shadow-xl transition-all group whitespace-nowrap"
+                  className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-lg hover:shadow-[0_0_30px_rgba(168,85,247,0.4)] transition-all group whitespace-nowrap border-0"
                   onClick={() => navigate("/auth")}
                 >
                   Start Free Trial
