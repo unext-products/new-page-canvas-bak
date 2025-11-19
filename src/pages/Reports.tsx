@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Download, Filter, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { DepartmentSelect } from "@/components/DepartmentSelect";
-import { FacultySelect } from "@/components/FacultySelect";
+import { MemberSelect } from "@/components/MemberSelect";
 import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/StatusBadge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -19,7 +19,7 @@ import { ReportPeriodSelector, PeriodType } from "@/components/reports/ReportPer
 import { ActivityBreakdownChart } from "@/components/reports/ActivityBreakdownChart";
 import { CompletionMetricsCard } from "@/components/reports/CompletionMetricsCard";
 import { ReportSummaryCards } from "@/components/reports/ReportSummaryCards";
-import { FacultyCalendar } from "@/components/reports/FacultyCalendar";
+import { MemberCalendar } from "@/components/reports/MemberCalendar";
 import { DepartmentCalendar } from "@/components/reports/DepartmentCalendar";
 import { 
   fetchFacultyReport, 
@@ -35,14 +35,14 @@ import { formatDuration } from "@/lib/exportUtils";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfDay, endOfDay } from "date-fns";
 import { getUserErrorMessage } from "@/lib/errorHandler";
 
-type ReportViewType = "faculty" | "department";
+type ReportViewType = "member" | "department";
 
 export default function Reports() {
   const { userWithRole, loading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  const [reportType, setReportType] = useState<ReportViewType>("faculty");
+  const [reportType, setReportType] = useState<ReportViewType>("member");
   const [period, setPeriod] = useState<PeriodType>("monthly");
   const [dateFrom, setDateFrom] = useState<Date>(startOfMonth(new Date()));
   const [dateTo, setDateTo] = useState<Date>(endOfMonth(new Date()));
@@ -100,7 +100,7 @@ export default function Reports() {
         dateTo,
       };
 
-      if (reportType === "faculty") {
+      if (reportType === "member") {
         if (selectedFaculty === "all") {
           return;
         }
@@ -131,7 +131,7 @@ export default function Reports() {
     const reportPeriod = `${format(dateFrom, "MMM dd, yyyy")} - ${format(dateTo, "MMM dd, yyyy")}`;
     const generatedBy = userWithRole?.profile?.full_name || "Admin";
 
-    if (reportType === "faculty" && facultyReport) {
+    if (reportType === "member" && facultyReport) {
       exportFacultyReportCSV(facultyReport, reportPeriod, generatedBy, period);
     } else if (reportType === "department" && departmentReport) {
       exportDepartmentReportCSV(departmentReport, reportPeriod, generatedBy, period);
@@ -142,16 +142,16 @@ export default function Reports() {
     const reportPeriod = `${format(dateFrom, "MMM dd, yyyy")} - ${format(dateTo, "MMM dd, yyyy")}`;
     const generatedBy = userWithRole?.profile?.full_name || "Admin";
 
-    if (reportType === "faculty" && facultyReport) {
+    if (reportType === "member" && facultyReport) {
       exportFacultyReportPDF(facultyReport, reportPeriod, generatedBy, period);
     } else if (reportType === "department" && departmentReport) {
       exportDepartmentReportPDF(departmentReport, reportPeriod, generatedBy, period);
     }
   };
 
-  const currentReport = reportType === "faculty" ? facultyReport : departmentReport;
+  const currentReport = reportType === "member" ? facultyReport : departmentReport;
   const hasData = currentReport && (
-    reportType === "faculty" 
+    reportType === "member" 
       ? facultyReport?.entries.length > 0 
       : departmentReport?.facultyBreakdown.length > 0
   );
@@ -235,10 +235,10 @@ export default function Reports() {
                   onDateChange={(date) => date && setDateTo(date)}
                 />
               </div>
-              {reportType === "faculty" ? (
+              {reportType === "member" ? (
                 <div>
-                  <Label>Faculty Member</Label>
-                  <FacultySelect
+                  <Label>Team Member</Label>
+                  <MemberSelect
                     value={selectedFaculty}
                     onValueChange={setSelectedFaculty}
                     includeAll={false}
@@ -270,7 +270,7 @@ export default function Reports() {
               expectedHours={currentReport.expectedHours}
               completionRate={currentReport.completionRate}
               totalEntries={
-                reportType === "faculty"
+                reportType === "member"
                   ? facultyReport?.entries.length || 0
                   : departmentReport?.facultyBreakdown.reduce((sum, f) => sum + f.entryCount, 0) || 0
               }
@@ -290,8 +290,8 @@ export default function Reports() {
               <ActivityBreakdownChart data={currentReport.activityBreakdown} />
             </div>
 
-            {/* Detailed Entry Table - Faculty View */}
-            {reportType === "faculty" && facultyReport && (
+            {/* Detailed Entry Table - Member View */}
+            {reportType === "member" && facultyReport && (
               <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "table" | "calendar")}>
                 <TabsList className="grid w-full grid-cols-2 mb-4">
                   <TabsTrigger value="table">Table View</TabsTrigger>
@@ -387,8 +387,8 @@ export default function Reports() {
                         </Button>
                       </div>
 
-                      <FacultyCalendar
-                        facultyId={selectedFaculty}
+                      <MemberCalendar
+                        memberId={selectedFaculty}
                         month={calendarMonth}
                       />
                     </>
@@ -505,8 +505,8 @@ export default function Reports() {
           <Card>
             <CardContent className="py-12">
               <div className="text-center text-muted-foreground">
-                {reportType === "faculty" && selectedFaculty === "all" ? (
-                  <p>Please select a faculty member to view their report</p>
+                {reportType === "member" && selectedFaculty === "all" ? (
+                  <p>Please select a team member to view their report</p>
                 ) : (
                   <p>Select filters and generate a report</p>
                 )}

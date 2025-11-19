@@ -59,13 +59,13 @@ export default function Approvals() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!authLoading && userWithRole?.role !== "hod") {
+    if (!authLoading && userWithRole?.role !== "manager") {
       navigate("/dashboard");
     }
   }, [authLoading, userWithRole, navigate]);
 
   useEffect(() => {
-    if (userWithRole?.role === "hod" && userWithRole?.departmentId) {
+    if (userWithRole?.role === "manager" && userWithRole?.departmentId) {
       fetchEntries();
     }
   }, [userWithRole]);

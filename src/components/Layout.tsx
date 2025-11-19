@@ -38,14 +38,14 @@ export function Layout({ children }: LayoutProps) {
       { to: "/dashboard", icon: Clock, label: "Dashboard" },
     ];
 
-    if (role === "faculty") {
+    if (role === "member") {
       baseItems.push(
         { to: "/timesheet", icon: FileText, label: "Timesheet" },
         { to: "/bulk-import", icon: Upload, label: "Bulk Upload" }
       );
     }
 
-    if (role === "hod") {
+    if (role === "manager") {
       baseItems.push(
         { to: "/approvals", icon: FileText, label: "Approvals" },
         { to: "/team", icon: Users, label: "Team" }

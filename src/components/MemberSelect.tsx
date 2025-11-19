@@ -17,29 +17,29 @@ import {
 } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 
-interface Faculty {
+interface Member {
   id: string;
   full_name: string;
   email: string;
   department_name?: string;
 }
 
-interface FacultySelectProps {
+interface MemberSelectProps {
   value: string;
   onValueChange: (value: string) => void;
   includeAll?: boolean;
 }
 
-export function FacultySelect({ value, onValueChange, includeAll = false }: FacultySelectProps) {
+export function MemberSelect({ value, onValueChange, includeAll = false }: MemberSelectProps) {
   const [open, setOpen] = useState(false);
-  const [faculty, setFaculty] = useState<Faculty[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetchFaculty();
+    fetchMembers();
   }, []);
 
-  const fetchFaculty = async () => {
+  const fetchMembers = async () => {
     try {
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
@@ -67,22 +67,22 @@ export function FacultySelect({ value, onValueChange, includeAll = false }: Facu
       const deptMap = new Map(departments?.map(d => [d.id, d.name]) || []);
       const rolesMap = new Map(roles?.map(r => [r.user_id, r.department_id]) || []);
 
-      const facultyData = profiles?.map(p => ({
+      const memberData = profiles?.map(p => ({
         id: p.id,
         full_name: p.full_name,
         email: p.id,
         department_name: deptMap.get(rolesMap.get(p.id) || "") || "N/A",
-      })).filter(f => rolesMap.has(f.id)) || [];
+      })).filter(m => rolesMap.has(m.id)) || [];
 
-      setFaculty(facultyData);
+      setMembers(memberData);
     } catch (error) {
-      console.error("Error fetching faculty:", error);
+      console.error("Error fetching members:", error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const selectedFaculty = faculty.find((f) => f.id === value);
+  const selectedMember = members.find((m) => m.id === value);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -97,16 +97,16 @@ export function FacultySelect({ value, onValueChange, includeAll = false }: Facu
           {isLoading ? (
             "Loading..."
           ) : value === "all" ? (
-            "All Faculty"
-          ) : selectedFaculty ? (
+            "All Members"
+          ) : selectedMember ? (
             <span className="truncate">
-              {selectedFaculty.full_name}
+              {selectedMember.full_name}
               <span className="text-muted-foreground ml-2 text-xs">
-                {selectedFaculty.department_name}
+                {selectedMember.department_name}
               </span>
             </span>
           ) : (
-            "Select faculty..."
+            "Select member..."
           )}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
@@ -115,7 +115,7 @@ export function FacultySelect({ value, onValueChange, includeAll = false }: Facu
         <Command>
           <CommandInput placeholder="Search by name..." />
           <CommandList>
-            <CommandEmpty>No faculty found.</CommandEmpty>
+            <CommandEmpty>No members found.</CommandEmpty>
             <CommandGroup>
               {includeAll && (
                 <CommandItem
@@ -131,28 +131,28 @@ export function FacultySelect({ value, onValueChange, includeAll = false }: Facu
                       value === "all" ? "opacity-100" : "opacity-0"
                     )}
                   />
-                  All Faculty
+                  All Members
                 </CommandItem>
               )}
-              {faculty.map((f) => (
+              {members.map((member) => (
                 <CommandItem
-                  key={f.id}
-                  value={`${f.full_name} ${f.department_name}`}
+                  key={member.id}
+                  value={member.full_name}
                   onSelect={() => {
-                    onValueChange(f.id);
+                    onValueChange(member.id);
                     setOpen(false);
                   }}
                 >
                   <Check
                     className={cn(
                       "mr-2 h-4 w-4",
-                      value === f.id ? "opacity-100" : "opacity-0"
+                      value === member.id ? "opacity-100" : "opacity-0"
                     )}
                   />
                   <div className="flex flex-col">
-                    <span>{f.full_name}</span>
+                    <span>{member.full_name}</span>
                     <span className="text-xs text-muted-foreground">
-                      {f.department_name}
+                      {member.department_name}
                     </span>
                   </div>
                 </CommandItem>

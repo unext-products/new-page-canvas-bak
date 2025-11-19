@@ -42,7 +42,7 @@ export default function Timesheet() {
   const [userLeaveDays, setUserLeaveDays] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    if (userWithRole?.role !== "faculty") {
+    if (userWithRole?.role !== "member") {
       navigate("/dashboard");
     } else {
       loadEntries();
