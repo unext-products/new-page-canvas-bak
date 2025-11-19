@@ -21,6 +21,7 @@ import { DepartmentSelect } from "@/components/DepartmentSelect";
 import { userCreateSchema, type UserCreateInput } from "@/lib/validation";
 import { getUserErrorMessage } from "@/lib/errorHandler";
 import type { UserRole } from "@/lib/supabase";
+import { displayToDbRole } from "@/lib/roleMapping";
 
 interface UserProfile {
   id: string;
@@ -240,7 +241,7 @@ export default function Users() {
           .upsert(
             {
               user_id: selectedUser.id,
-              role: formData.role,
+              role: displayToDbRole[formData.role],
               department_id: formData.role === "admin" ? null : formData.department_id || null,
             },
             {
@@ -394,9 +395,9 @@ export default function Users() {
     switch (role) {
       case "admin":
         return "destructive";
-      case "hod":
+      case "manager":
         return "default";
-      case "faculty":
+      case "member":
         return "secondary";
       default:
         return "outline";

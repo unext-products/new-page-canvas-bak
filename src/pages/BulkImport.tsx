@@ -44,7 +44,7 @@ export default function BulkImport() {
   const [importComplete, setImportComplete] = useState(false);
   const [importStats, setImportStats] = useState({ success: 0, failed: 0 });
 
-  const isFaculty = userWithRole?.role === "faculty";
+  const isMember = userWithRole?.role === "member";
   const isAdmin = userWithRole?.role === "admin";
 
   if (authLoading) {
@@ -57,8 +57,8 @@ export default function BulkImport() {
     );
   }
 
-  // Redirect if not faculty or admin
-  if (!isFaculty && !isAdmin) {
+  // Redirect if not member or admin
+  if (!isMember && !isAdmin) {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -129,8 +129,8 @@ export default function BulkImport() {
 
       let results: ValidationResult[] = [];
 
-      if (isFaculty) {
-        // Faculty mode: validate without email, use current user
+      if (isMember) {
+        // Member mode: validate without email, use current user
         const deptsMap = await fetchDepartments();
         const userId = userWithRole?.user.id;
         const departmentId = userWithRole?.departmentId;
@@ -230,9 +230,9 @@ export default function BulkImport() {
 
       if (results.success > 0) {
         toast({
-          title: isFaculty ? "Submitted for approval" : "Import complete",
-          description: isFaculty 
-            ? `${results.success} entries submitted to HOD for approval`
+          title: isMember ? "Submitted for approval" : "Import complete",
+          description: isMember 
+            ? `${results.success} entries submitted to manager for approval`
             : `Successfully imported ${results.success} entries`,
         });
       }
@@ -259,13 +259,13 @@ export default function BulkImport() {
     let blob: Blob;
     let filename: string;
 
-    if (isFaculty) {
-      // Faculty template (no email column)
+    if (isMember) {
+      // Member template (no email column)
       if (format === 'excel') {
         blob = generateFacultyExcelTemplate();
         filename = 'my_timesheet_template.xlsx';
       } else {
-        // Generate CSV from faculty template structure
+        // Generate CSV from member template structure
         const csvContent = `entry_date,start_time,end_time,activity_type,activity_subtype,notes,department_code
 2025-01-15,09:00,11:00,class,CS101 Lecture,Introduction to Programming,CS`;
         blob = new Blob([csvContent], { type: 'text/csv' });
@@ -309,12 +309,12 @@ export default function BulkImport() {
       <div className="max-w-4xl mx-auto space-y-6">
         <div>
           <h1 className="text-3xl font-bold">
-            {isFaculty ? "Bulk Upload My Timesheets" : "Bulk Import Timesheets (Admin)"}
+            {isMember ? "Bulk Upload My Timesheets" : "Bulk Import Timesheets (Admin)"}
           </h1>
           <p className="text-muted-foreground mt-2">
-            {isFaculty 
-              ? "Upload your timesheet entries in bulk. Entries will be submitted for HOD approval."
-              : "Upload timesheet entries for any faculty member using CSV or Excel files."
+            {isMember 
+              ? "Upload your timesheet entries in bulk. Entries will be submitted for manager approval."
+              : "Upload timesheet entries for any team member using CSV or Excel files."
             }
           </p>
         </div>
@@ -342,9 +342,9 @@ export default function BulkImport() {
               </Button>
             </div>
             <p className="text-sm text-muted-foreground mt-4">
-              {isFaculty 
+              {isMember 
                 ? "Template includes: date, times, activity type, subtype, notes, and department code"
-                : "Template includes: faculty email, date, times, activity type, subtype, notes, and department code"
+                : "Template includes: member email, date, times, activity type, subtype, notes, and department code"
               }
             </p>
           </CardContent>
@@ -472,7 +472,7 @@ export default function BulkImport() {
                   {isImporting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                   {isImporting 
                     ? "Importing..." 
-                    : isFaculty 
+                    : isMember 
                       ? `Submit ${validCount} Entries for Approval` 
                       : `Import ${validCount} Valid Entries`
                   }
@@ -486,7 +486,7 @@ export default function BulkImport() {
                 <div className="space-y-2">
                   <Progress value={importProgress} />
                   <p className="text-sm text-muted-foreground text-center">
-                    {isFaculty ? "Submitting entries..." : "Importing entries..."}
+                    {isMember ? "Submitting entries..." : "Importing entries..."}
                   </p>
                 </div>
               )}
@@ -499,7 +499,7 @@ export default function BulkImport() {
           <Card>
             <CardHeader>
               <CardTitle>
-                {isFaculty ? "Submission Complete" : "Import Complete"}
+                {isMember ? "Submission Complete" : "Import Complete"}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -507,7 +507,7 @@ export default function BulkImport() {
                 <Alert>
                   <CheckCircle className="h-4 w-4 text-green-600" />
                   <AlertTitle>
-                    {isFaculty ? "Submitted" : "Imported"}
+                    {isMember ? "Submitted" : "Imported"}
                   </AlertTitle>
                   <AlertDescription className="text-2xl font-bold">
                     {importStats.success}
@@ -524,19 +524,19 @@ export default function BulkImport() {
                 )}
               </div>
 
-              {isFaculty && importStats.success > 0 && (
+              {isMember && importStats.success > 0 && (
                 <Alert>
                   <AlertCircle className="h-4 w-4" />
                   <AlertTitle>Next Steps</AlertTitle>
                   <AlertDescription>
-                    Your timesheet entries have been submitted to your HOD for approval. 
+                    Your timesheet entries have been submitted to your manager for approval. 
                     You can track their status on your dashboard.
                   </AlertDescription>
                 </Alert>
               )}
 
               <Button onClick={handleReset}>
-                {isFaculty ? "Upload More Entries" : "Import Another File"}
+                {isMember ? "Upload More Entries" : "Import Another File"}
               </Button>
             </CardContent>
           </Card>

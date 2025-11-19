@@ -1,5 +1,5 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { UserRole } from "@/lib/supabase";
+import { roleLabels, type DisplayRole } from "@/lib/roleMapping";
 
 interface UserRoleSelectProps {
   value: string;
@@ -13,9 +13,9 @@ export function UserRoleSelect({ value, onValueChange }: UserRoleSelectProps) {
         <SelectValue placeholder="Select role" />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="admin">Admin</SelectItem>
-        <SelectItem value="hod">HOD</SelectItem>
-        <SelectItem value="faculty">Faculty</SelectItem>
+        <SelectItem value="admin">{roleLabels.admin}</SelectItem>
+        <SelectItem value="manager">{roleLabels.manager}</SelectItem>
+        <SelectItem value="member">{roleLabels.member}</SelectItem>
       </SelectContent>
     </Select>
   );

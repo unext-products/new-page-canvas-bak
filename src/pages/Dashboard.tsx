@@ -57,8 +57,8 @@ export default function Dashboard() {
       return;
     }
 
-    // Load today's total minutes for faculty
-    if (userWithRole.role === "faculty") {
+    // Load today's total minutes for members
+    if (userWithRole.role === "member") {
       const { data: entries } = await supabase
         .from("timesheet_entries")
         .select("duration_minutes, status")
@@ -124,8 +124,8 @@ export default function Dashboard() {
       setRecentEntries(recent || []);
     }
 
-    // Load pending approvals for HOD
-    if (userWithRole.role === "hod" && userWithRole.departmentId) {
+    // Load pending approvals for Manager
+    if (userWithRole.role === "manager" && userWithRole.departmentId) {
       const { data: pending } = await supabase
         .from("timesheet_entries")
         .select("*")
@@ -283,13 +283,13 @@ export default function Dashboard() {
             {getWelcomeMessage()}
           </h1>
           <p className="text-sm sm:text-base text-muted-foreground mt-2">
-            {userWithRole.role === "faculty" && "Track your working hours and submit timesheets"}
-            {userWithRole.role === "hod" && "Review and approve team timesheets"}
+            {userWithRole.role === "member" && "Track your working hours and submit timesheets"}
+            {userWithRole.role === "manager" && "Review and approve team timesheets"}
             {userWithRole.role === "admin" && "Manage users, departments, and reports"}
           </p>
         </div>
 
-        {userWithRole.role === "faculty" && (
+        {userWithRole.role === "member" && (
           <>
             <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 animate-fade-in-up">
               <Card className="bg-card/50 backdrop-blur-xl border-border/40 hover:scale-105 transition-transform duration-300 hover:border-primary/50">
@@ -399,7 +399,7 @@ export default function Dashboard() {
           </>
         )}
 
-        {userWithRole.role === "hod" && (
+        {userWithRole.role === "manager" && (
           <Card className="bg-card/50 backdrop-blur-xl border-border/40 animate-fade-in-up">
             <CardHeader>
               <CardTitle>Pending Approvals</CardTitle>

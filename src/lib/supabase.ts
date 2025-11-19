@@ -1,7 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Session, User } from "@supabase/supabase-js";
+import { toDisplayRole, type DisplayRole, type DbRole } from "./roleMapping";
 
-export type UserRole = "admin" | "hod" | "faculty";
+export type UserRole = DisplayRole;
 
 export interface UserWithRole {
   user: User;
@@ -36,7 +37,7 @@ export async function getUserWithRole(userId: string): Promise<UserWithRole | nu
 
     return {
       user,
-      role: roleData.data?.role as UserRole | null,
+      role: toDisplayRole(roleData.data?.role as DbRole | null),
       departmentId: roleData.data?.department_id || null,
       profile: profileData.data,
     };

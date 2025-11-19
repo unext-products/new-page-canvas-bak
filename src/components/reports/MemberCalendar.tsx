@@ -5,8 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend } from "date-fns";
 import { cn } from "@/lib/utils";
 
-interface FacultyCalendarProps {
-  facultyId: string;
+interface MemberCalendarProps {
+  memberId: string;
   month: Date;
 }
 
@@ -21,13 +21,13 @@ interface DayData {
   status: 'leave' | 'complete' | 'partial' | 'low' | 'none' | 'weekend';
 }
 
-export function FacultyCalendar({ facultyId, month }: FacultyCalendarProps) {
+export function MemberCalendar({ memberId, month }: MemberCalendarProps) {
   const [calendarData, setCalendarData] = useState<DayData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     loadCalendarData();
-  }, [facultyId, month]);
+  }, [memberId, month]);
 
   const loadCalendarData = async () => {
     setIsLoading(true);
@@ -39,7 +39,7 @@ export function FacultyCalendar({ facultyId, month }: FacultyCalendarProps) {
     const { data: entries } = await supabase
       .from("timesheet_entries")
       .select("entry_date, duration_minutes, status")
-      .eq("user_id", facultyId)
+      .eq("user_id", memberId)
       .gte("entry_date", format(monthStart, "yyyy-MM-dd"))
       .lte("entry_date", format(monthEnd, "yyyy-MM-dd"));
 
@@ -47,7 +47,7 @@ export function FacultyCalendar({ facultyId, month }: FacultyCalendarProps) {
     const { data: leaves } = await supabase
       .from('leave_days' as any)
       .select('leave_date, leave_type')
-      .eq('user_id', facultyId)
+      .eq('user_id', memberId)
       .gte('leave_date', format(monthStart, "yyyy-MM-dd"))
       .lte('leave_date', format(monthEnd, "yyyy-MM-dd"));
 
@@ -119,89 +119,93 @@ export function FacultyCalendar({ facultyId, month }: FacultyCalendarProps) {
     );
   }
 
-  const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const monthStartDay = startOfMonth(month).getDay();
+  // Get first day of month to calculate offset
+  const firstDayOfMonth = startOfMonth(month);
+  const startDayOfWeek = firstDayOfMonth.getDay();
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Calendar - {format(month, "MMMM yyyy")}</CardTitle>
+        <CardTitle>Monthly Calendar - {format(month, "MMMM yyyy")}</CardTitle>
       </CardHeader>
-      <CardContent className="px-3 sm:px-6 py-4">
-        {/* Legend */}
-        <div className="flex flex-wrap gap-2 mb-4 text-xs justify-center">
-          <Badge variant="secondary" className="bg-blue-500/20 text-blue-700 border-blue-500">
-            On Leave
-          </Badge>
-          <Badge variant="secondary" className="bg-green-500/20 text-green-700 border-green-500">
-            Complete (8+hrs)
-          </Badge>
-          <Badge variant="secondary" className="bg-yellow-500/20 text-yellow-700 border-yellow-500">
-            Partial (4-8hrs)
-          </Badge>
-          <Badge variant="secondary" className="bg-orange-500/20 text-orange-700 border-orange-500">
-            Low (&lt;4hrs)
-          </Badge>
-          <Badge variant="secondary" className="bg-muted text-muted-foreground border-border">
-            Weekend
-          </Badge>
-        </div>
-
-        {/* Calendar Grid */}
-        <div className="grid grid-cols-7 gap-1 sm:gap-2 max-w-4xl mx-auto">
+      <CardContent>
+        <div className="grid grid-cols-7 gap-1 sm:gap-2">
           {/* Day headers */}
-          {weekDays.map(day => (
+          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
             <div
               key={day}
-              className="text-center text-xs sm:text-sm font-semibold p-2 text-muted-foreground"
+              className="text-center font-semibold text-xs sm:text-sm py-2 text-muted-foreground"
             >
               {day}
             </div>
           ))}
 
-          {/* Empty cells for offset */}
-          {Array.from({ length: monthStartDay }).map((_, i) => (
-            <div key={`empty-${i}`} className="min-h-[70px] sm:min-h-[80px]" />
+          {/* Empty cells for days before month starts */}
+          {Array.from({ length: startDayOfWeek }).map((_, i) => (
+            <div key={`empty-${i}`} />
           ))}
 
-          {/* Day cells */}
-          {calendarData.map(day => (
+          {/* Calendar days */}
+          {calendarData.map((day) => (
             <div
-              key={day.date.toISOString()}
+              key={format(day.date, "yyyy-MM-dd")}
               className={cn(
-                "min-h-[70px] sm:min-h-[80px] border rounded-lg p-1.5 sm:p-2 flex flex-col justify-between text-xs transition-shadow hover:shadow-md cursor-pointer",
-                getDayBgClass(day.status)
+                "min-h-[60px] sm:min-h-[80px] p-1 sm:p-2 rounded-md border-2 transition-all",
+                getDayBgClass(day.status),
+                "hover:shadow-md"
               )}
             >
-              <div className="font-semibold">{format(day.date, "d")}</div>
+              <div className="text-xs sm:text-sm font-medium mb-1">
+                {format(day.date, "d")}
+              </div>
 
-              {!day.isWeekend && (
-                <div className="space-y-0.5">
-                  {day.isOnLeave ? (
-                    <Badge className="text-[10px] px-1 py-0 bg-blue-600 text-white">
-                      Leave
-                    </Badge>
-                  ) : (
-                    <>
-                      {day.totalHours > 0 && (
-                        <>
-                          <div className="font-medium text-xs">
-                            {day.totalHours.toFixed(1)}h
-                          </div>
-                          <div className="text-[10px] text-muted-foreground">
-                            {day.entryCount} {day.entryCount === 1 ? 'entry' : 'entries'}
-                          </div>
-                          <div className="text-[10px] font-medium">
-                            {Math.round(day.completionRate)}%
-                          </div>
-                        </>
-                      )}
-                    </>
+              {day.isOnLeave && (
+                <Badge variant="outline" className="text-[10px] sm:text-xs mb-1 px-1">
+                  Leave
+                </Badge>
+              )}
+
+              {!day.isWeekend && !day.isOnLeave && (
+                <div className="space-y-0.5 text-[10px] sm:text-xs">
+                  <div className="font-medium">{day.totalHours.toFixed(1)}h</div>
+                  {day.entryCount > 0 && (
+                    <div className="text-muted-foreground">
+                      {day.entryCount} {day.entryCount === 1 ? "entry" : "entries"}
+                    </div>
+                  )}
+                  {day.totalHours > 0 && (
+                    <div className="font-medium">
+                      {Math.round(day.completionRate)}%
+                    </div>
                   )}
                 </div>
               )}
             </div>
           ))}
+        </div>
+
+        {/* Legend */}
+        <div className="mt-6 flex flex-wrap gap-3 sm:gap-4 text-xs sm:text-sm">
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded bg-green-500/20 border-2 border-green-500" />
+            <span>Complete (8+ hrs)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded bg-yellow-500/20 border-2 border-yellow-500" />
+            <span>Partial (4-8 hrs)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded bg-orange-500/20 border-2 border-orange-500" />
+            <span>Low (&lt;4 hrs)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded bg-blue-500/20 border-2 border-blue-500" />
+            <span>On Leave</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded bg-muted border-2 border-border" />
+            <span>Weekend</span>
+          </div>
         </div>
       </CardContent>
     </Card>
