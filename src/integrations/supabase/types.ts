@@ -21,7 +21,6 @@ export type Database = {
           id: string
           name: string
           organization_id: string | null
-          program_id: string | null
           updated_at: string
         }
         Insert: {
@@ -30,7 +29,6 @@ export type Database = {
           id?: string
           name: string
           organization_id?: string | null
-          program_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -39,7 +37,6 @@ export type Database = {
           id?: string
           name?: string
           organization_id?: string | null
-          program_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -48,13 +45,6 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "departments_program_id_fkey"
-            columns: ["program_id"]
-            isOneToOne: false
-            referencedRelation: "programs"
             referencedColumns: ["id"]
           },
         ]
@@ -155,33 +145,33 @@ export type Database = {
         Row: {
           code: string
           created_at: string
+          department_id: string | null
           id: string
           name: string
-          organization_id: string
           updated_at: string
         }
         Insert: {
           code: string
           created_at?: string
+          department_id?: string | null
           id?: string
           name: string
-          organization_id: string
           updated_at?: string
         }
         Update: {
           code?: string
           created_at?: string
+          department_id?: string | null
           id?: string
           name?: string
-          organization_id?: string
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "programs_organization_id_fkey"
-            columns: ["organization_id"]
+            foreignKeyName: "programs_department_id_fkey"
+            columns: ["department_id"]
             isOneToOne: false
-            referencedRelation: "organizations"
+            referencedRelation: "departments"
             referencedColumns: ["id"]
           },
         ]
@@ -329,6 +319,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_department_organization: {
+        Args: { dept_id: string }
+        Returns: string
+      }
       get_user_department: { Args: { user_id: string }; Returns: string }
       get_user_organization: { Args: { user_id: string }; Returns: string }
       get_user_program: { Args: { user_id: string }; Returns: string }

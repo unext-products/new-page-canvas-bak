@@ -9,30 +9,33 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Loader2, FolderTree, Plus, Pencil, Trash2 } from "lucide-react";
 import { z } from "zod";
+import { DepartmentSelect } from "@/components/DepartmentSelect";
 
 const programSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   code: z.string().min(2, "Code must be at least 2 characters").regex(/^[A-Z0-9_]+$/, "Code must be uppercase letters, numbers, and underscores only"),
-  organization_id: z.string().uuid("Please select an organization"),
+  department_id: z.string().uuid("Please select a department"),
 });
 
 interface Program {
   id: string;
   name: string;
   code: string;
-  organization_id: string;
+  department_id: string;
   created_at: string;
-  organizations?: { name: string };
-  department_count?: number;
+  departments?: { 
+    name: string;
+    organizations?: { name: string };
+  };
 }
 
-interface Organization {
+interface Department {
   id: string;
   name: string;
+  code: string;
 }
 
 export default function Programs() {
@@ -40,12 +43,12 @@ export default function Programs() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [programs, setPrograms] = useState<Program[]>([]);
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedProgram, setSelectedProgram] = useState<Program | null>(null);
-  const [formData, setFormData] = useState({ name: "", code: "", organization_id: "" });
+  const [formData, setFormData] = useState({ name: "", code: "", department_id: "" });
 
   useEffect(() => {
     if (!userWithRole) return;
@@ -59,27 +62,22 @@ export default function Programs() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [programsData, orgsData] = await Promise.all([
+      const [programsData, deptsData] = await Promise.all([
         supabase
           .from("programs")
-          .select("*, organizations(name), departments(count)")
+          .select("*, departments(name, organizations(name))")
           .order("name"),
         supabase
-          .from("organizations")
-          .select("id, name")
+          .from("departments")
+          .select("id, name, code")
           .order("name"),
       ]);
 
       if (programsData.error) throw programsData.error;
-      if (orgsData.error) throw orgsData.error;
+      if (deptsData.error) throw deptsData.error;
 
-      const programsWithCounts = programsData.data.map((program: any) => ({
-        ...program,
-        department_count: program.departments[0]?.count || 0,
-      }));
-
-      setPrograms(programsWithCounts);
-      setOrganizations(orgsData.data);
+      setPrograms(programsData.data);
+      setDepartments(deptsData.data);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -96,7 +94,7 @@ export default function Programs() {
       const validated = programSchema.parse(formData);
       const { error } = await supabase
         .from("programs")
-        .insert([{ name: validated.name, code: validated.code, organization_id: validated.organization_id }]);
+        .insert([{ name: validated.name, code: validated.code, department_id: validated.department_id }]);
 
       if (error) throw error;
 
@@ -105,7 +103,7 @@ export default function Programs() {
         description: "Program created successfully",
       });
       setDialogOpen(false);
-      setFormData({ name: "", code: "", organization_id: "" });
+      setFormData({ name: "", code: "", department_id: "" });
       fetchData();
     } catch (error: any) {
       if (error instanceof z.ZodError) {
@@ -142,7 +140,7 @@ export default function Programs() {
       });
       setDialogOpen(false);
       setSelectedProgram(null);
-      setFormData({ name: "", code: "", organization_id: "" });
+      setFormData({ name: "", code: "", department_id: "" });
       fetchData();
     } catch (error: any) {
       if (error instanceof z.ZodError) {
@@ -193,7 +191,7 @@ export default function Programs() {
     setFormData({ 
       name: program.name, 
       code: program.code,
-      organization_id: program.organization_id 
+      department_id: program.department_id 
     });
     setDialogOpen(true);
   };
@@ -223,9 +221,9 @@ export default function Programs() {
           </div>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button onClick={() => { 
-                setSelectedProgram(null); 
-                setFormData({ name: "", code: "", organization_id: "" }); 
+              <Button onClick={() => {
+                setSelectedProgram(null);
+                setFormData({ name: "", code: "", department_id: "" });
               }}>
                 <Plus className="mr-2 h-4 w-4" />
                 Add Program
@@ -239,6 +237,13 @@ export default function Programs() {
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
+                <div>
+                  <Label htmlFor="department">Department</Label>
+                  <DepartmentSelect
+                    value={formData.department_id}
+                    onValueChange={(value) => setFormData({ ...formData, department_id: value })}
+                  />
+                </div>
                 <div>
                   <Label htmlFor="name">Name</Label>
                   <Input
@@ -256,24 +261,6 @@ export default function Programs() {
                     onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
                     placeholder="PROG_CODE"
                   />
-                </div>
-                <div>
-                  <Label htmlFor="organization">Organization</Label>
-                  <Select
-                    value={formData.organization_id}
-                    onValueChange={(value) => setFormData({ ...formData, organization_id: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select organization" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {organizations.map((org) => (
-                        <SelectItem key={org.id} value={org.id}>
-                          {org.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                 </div>
               </div>
               <DialogFooter>
@@ -303,14 +290,13 @@ export default function Programs() {
                 </div>
                 <CardTitle>{program.name}</CardTitle>
                 <CardDescription>
-                  {program.code} • {program.organizations?.name}
+                  Code: {program.code}
+                  <br />
+                  Department: {program.departments?.name || "N/A"}
+                  <br />
+                  Organization: {program.departments?.organizations?.name || "N/A"}
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  {program.department_count || 0} department{program.department_count !== 1 ? "s" : ""}
-                </p>
-              </CardContent>
             </Card>
           ))}
         </div>
