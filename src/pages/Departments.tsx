@@ -13,11 +13,13 @@ import { Plus, Pencil, Trash2, Users } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { departmentSchema } from "@/lib/validation";
 import { getUserErrorMessage } from "@/lib/errorHandler";
+import { OrganizationSelect } from "@/components/OrganizationSelect";
 
 interface Department {
   id: string;
   name: string;
   code: string;
+  organization_id: string;
   created_at: string;
   userCount?: number;
 }
@@ -32,7 +34,8 @@ export default function Departments() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null);
-  const [formData, setFormData] = useState({ name: "", code: "" });
+  const [formData, setFormData] = useState({ name: "", code: "", organization_id: "" });
+  const [userOrgId, setUserOrgId] = useState<string>("");
 
   useEffect(() => {
     if (!loading && (!userWithRole || !["org_admin", "program_manager"].includes(userWithRole.role || ""))) {
@@ -42,9 +45,30 @@ export default function Departments() {
 
   useEffect(() => {
     if (userWithRole && ["org_admin", "program_manager"].includes(userWithRole.role || "")) {
+      fetchUserOrganization();
       fetchDepartments();
     }
   }, [userWithRole]);
+
+  const fetchUserOrganization = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("organization_id")
+        .eq("user_id", userWithRole?.user.id)
+        .single();
+
+      if (error) throw error;
+      if (data?.organization_id) {
+        setUserOrgId(data.organization_id);
+        if (userWithRole?.role === "org_admin") {
+          setFormData(prev => ({ ...prev, organization_id: data.organization_id }));
+        }
+      }
+    } catch (error: any) {
+      console.error("Error fetching user organization:", error);
+    }
+  };
 
   const fetchDepartments = async () => {
     try {
@@ -95,11 +119,21 @@ export default function Departments() {
         code: formData.code,
       });
 
+      if (!formData.organization_id) {
+        toast({
+          title: "Validation Error",
+          description: "Please select an organization",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const { error } = await supabase
         .from("departments")
         .insert({
           name: validatedData.name,
           code: validatedData.code.toUpperCase(),
+          organization_id: formData.organization_id,
         });
 
       if (error) throw error;
@@ -110,7 +144,11 @@ export default function Departments() {
       });
 
       setCreateDialogOpen(false);
-      setFormData({ name: "", code: "" });
+      setFormData({ 
+        name: "", 
+        code: "", 
+        organization_id: userWithRole?.role === "org_admin" ? userOrgId : "" 
+      });
       fetchDepartments();
     } catch (error: any) {
       if (error.errors) {
@@ -150,7 +188,11 @@ export default function Departments() {
 
       setEditDialogOpen(false);
       setSelectedDepartment(null);
-      setFormData({ name: "", code: "" });
+      setFormData({ 
+        name: "", 
+        code: "", 
+        organization_id: userWithRole?.role === "org_admin" ? userOrgId : "" 
+      });
       fetchDepartments();
     } catch (error: any) {
       toast({
@@ -191,7 +233,11 @@ export default function Departments() {
 
   const openEditDialog = (dept: Department) => {
     setSelectedDepartment(dept);
-    setFormData({ name: dept.name, code: dept.code });
+    setFormData({ 
+      name: dept.name, 
+      code: dept.code,
+      organization_id: dept.organization_id 
+    });
     setEditDialogOpen(true);
   };
 

@@ -59,6 +59,20 @@ export const departmentSchema = z.object({
     .regex(/^[A-Z0-9_-]+$/, "Code must contain only uppercase letters, numbers, hyphens, and underscores"),
 });
 
+// Program validation schemas
+export const programSchema = z.object({
+  name: z.string()
+    .trim()
+    .min(1, "Program name is required")
+    .max(100, "Name must be less than 100 characters"),
+  code: z.string()
+    .trim()
+    .min(1, "Program code is required")
+    .max(10, "Code must be less than 10 characters")
+    .regex(/^[A-Z0-9_-]+$/, "Code must contain only uppercase letters, numbers, hyphens, and underscores"),
+  department_id: z.string().uuid("Please select a department"),
+});
+
 // Timesheet validation schemas
 export const timesheetEntrySchema = z.object({
   entry_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format"),

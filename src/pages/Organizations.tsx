@@ -30,12 +30,13 @@ export default function Organizations() {
   const { userWithRole } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [organization, setOrganization] = useState<Organization | null>(null);
   const [loading, setLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [formData, setFormData] = useState({ name: "", code: "" });
+  const [departmentCount, setDepartmentCount] = useState(0);
+  const [programCount, setProgramCount] = useState(0);
+  const [userCount, setUserCount] = useState(0);
 
   useEffect(() => {
     if (!userWithRole) return;
@@ -43,25 +44,67 @@ export default function Organizations() {
       navigate("/dashboard");
       return;
     }
-    fetchOrganizations();
+    fetchOrganization();
   }, [userWithRole, navigate]);
 
-  const fetchOrganizations = async () => {
+  const fetchOrganization = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      
+      // Get user's organization ID
+      const { data: roleData, error: roleError } = await supabase
+        .from("user_roles")
+        .select("organization_id")
+        .eq("user_id", userWithRole?.user.id)
+        .single();
+
+      if (roleError) throw roleError;
+      if (!roleData?.organization_id) {
+        toast({
+          title: "Error",
+          description: "No organization found for your account",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Fetch organization details
+      const { data: orgData, error: orgError } = await supabase
         .from("organizations")
-        .select("*, programs(count)")
-        .order("name");
+        .select("*")
+        .eq("id", roleData.organization_id)
+        .single();
 
-      if (error) throw error;
+      if (orgError) throw orgError;
 
-      const orgsWithCounts = data.map((org: any) => ({
-        ...org,
-        program_count: org.programs[0]?.count || 0,
-      }));
+      // Fetch department count
+      const { count: deptCount } = await supabase
+        .from("departments")
+        .select("*", { count: "exact", head: true })
+        .eq("organization_id", roleData.organization_id);
 
-      setOrganizations(orgsWithCounts);
+      // Fetch program count (through departments)
+      const { data: depts } = await supabase
+        .from("departments")
+        .select("id")
+        .eq("organization_id", roleData.organization_id);
+      
+      const deptIds = depts?.map(d => d.id) || [];
+      const { count: progCount } = await supabase
+        .from("programs")
+        .select("*", { count: "exact", head: true })
+        .in("department_id", deptIds.length > 0 ? deptIds : ['00000000-0000-0000-0000-000000000000']);
+
+      // Fetch user count
+      const { count: usrCount } = await supabase
+        .from("user_roles")
+        .select("*", { count: "exact", head: true })
+        .eq("organization_id", roleData.organization_id);
+
+      setOrganization(orgData);
+      setDepartmentCount(deptCount || 0);
+      setProgramCount(progCount || 0);
+      setUserCount(usrCount || 0);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -73,48 +116,15 @@ export default function Organizations() {
     }
   };
 
-  const handleCreate = async () => {
-    try {
-      const validated = organizationSchema.parse(formData);
-      const { error } = await supabase
-        .from("organizations")
-        .insert([{ name: validated.name, code: validated.code }]);
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Organization created successfully",
-      });
-      setDialogOpen(false);
-      setFormData({ name: "", code: "" });
-      fetchOrganizations();
-    } catch (error: any) {
-      if (error instanceof z.ZodError) {
-        toast({
-          title: "Validation Error",
-          description: error.errors[0].message,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: error.message,
-          variant: "destructive",
-        });
-      }
-    }
-  };
-
   const handleEdit = async () => {
-    if (!selectedOrg) return;
+    if (!organization) return;
 
     try {
       const validated = organizationSchema.parse(formData);
       const { error } = await supabase
         .from("organizations")
         .update(validated)
-        .eq("id", selectedOrg.id);
+        .eq("id", organization.id);
 
       if (error) throw error;
 
@@ -122,10 +132,8 @@ export default function Organizations() {
         title: "Success",
         description: "Organization updated successfully",
       });
-      setDialogOpen(false);
-      setSelectedOrg(null);
-      setFormData({ name: "", code: "" });
-      fetchOrganizations();
+      setEditDialogOpen(false);
+      fetchOrganization();
     } catch (error: any) {
       if (error instanceof z.ZodError) {
         toast({
@@ -143,42 +151,10 @@ export default function Organizations() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!selectedOrg) return;
-
-    try {
-      const { error } = await supabase
-        .from("organizations")
-        .delete()
-        .eq("id", selectedOrg.id);
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Organization deleted successfully",
-      });
-      setDeleteDialogOpen(false);
-      setSelectedOrg(null);
-      fetchOrganizations();
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  };
-
-  const openEditDialog = (org: Organization) => {
-    setSelectedOrg(org);
-    setFormData({ name: org.name, code: org.code });
-    setDialogOpen(true);
-  };
-
-  const openDeleteDialog = (org: Organization) => {
-    setSelectedOrg(org);
-    setDeleteDialogOpen(true);
+  const openEditDialog = () => {
+    if (!organization) return;
+    setFormData({ name: organization.name, code: organization.code });
+    setEditDialogOpen(true);
   };
 
   if (!userWithRole || loading) {
@@ -194,97 +170,75 @@ export default function Organizations() {
   return (
     <Layout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Organizations</h1>
-            <p className="text-muted-foreground">Manage organizations in the system</p>
-          </div>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={() => { setSelectedOrg(null); setFormData({ name: "", code: "" }); }}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Organization
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>{selectedOrg ? "Edit" : "Create"} Organization</DialogTitle>
-                <DialogDescription>
-                  {selectedOrg ? "Update the organization details" : "Add a new organization to the system"}
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="name">Name</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Organization name"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="code">Code</Label>
-                  <Input
-                    id="code"
-                    value={formData.code}
-                    onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-                    placeholder="ORG_CODE"
-                  />
-                </div>
+        <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-bold">Your Organization</h1>
+          <Button onClick={openEditDialog}>
+            <Pencil className="mr-2 h-4 w-4" />
+            Edit Details
+          </Button>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-start justify-between">
+              <Building2 className="h-8 w-8 text-primary" />
+            </div>
+            <CardTitle className="text-2xl">{organization.name}</CardTitle>
+            <CardDescription>Code: {organization.code}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-3 gap-4">
+              <div className="text-center p-4 bg-muted rounded-lg">
+                <p className="text-2xl font-bold">{departmentCount}</p>
+                <p className="text-sm text-muted-foreground">Departments</p>
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-                <Button onClick={selectedOrg ? handleEdit : handleCreate}>
-                  {selectedOrg ? "Update" : "Create"}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
+              <div className="text-center p-4 bg-muted rounded-lg">
+                <p className="text-2xl font-bold">{programCount}</p>
+                <p className="text-sm text-muted-foreground">Programs</p>
+              </div>
+              <div className="text-center p-4 bg-muted rounded-lg">
+                <p className="text-2xl font-bold">{userCount}</p>
+                <p className="text-sm text-muted-foreground">Users</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {organizations.map((org) => (
-            <Card key={org.id}>
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <Building2 className="h-8 w-8 text-primary" />
-                  <div className="flex gap-2">
-                    <Button variant="ghost" size="icon" onClick={() => openEditDialog(org)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => openDeleteDialog(org)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-                <CardTitle>{org.name}</CardTitle>
-                <CardDescription>Code: {org.code}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  {org.program_count || 0} program{org.program_count !== 1 ? "s" : ""}
-                </p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Organization</DialogTitle>
+              <DialogDescription>
+                Update your organization details
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="name">Name</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="code">Code</Label>
+                <Input
+                  id="code"
+                  value={formData.code}
+                  onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleEdit}>Save Changes</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
-
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete the organization "{selectedOrg?.name}". This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </Layout>
   );
 }
