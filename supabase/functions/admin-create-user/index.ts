@@ -41,11 +41,11 @@ serve(async (req) => {
 
     const { data: roleData, error: roleError } = await supabaseClient
       .from('user_roles')
-      .select('role')
+      .select('role, organization_id')
       .eq('user_id', user.id)
       .single();
 
-    if (roleError || roleData?.role !== 'admin') {
+    if (roleError || roleData?.role !== 'org_admin') {
       console.error('Role check failed:', roleError);
       return new Response(JSON.stringify({ error: 'Forbidden - Admin access required' }), {
         status: 403,
@@ -54,7 +54,7 @@ serve(async (req) => {
     }
 
     // Get request body
-    const { full_name, email, phone, role, department_id, is_active, password } = await req.json();
+    const { full_name, email, phone, role, department_id, program_id, is_active, password } = await req.json();
 
     // Validate inputs
     if (!full_name || !email || !role || !password) {
@@ -116,13 +116,15 @@ serve(async (req) => {
       throw profileError;
     }
 
-    // Create user role
+    // Create user role - get organization_id from admin's organization
     const { error: roleInsertError } = await supabaseClient
       .from('user_roles')
       .insert({
         user_id: authData.user.id,
         role,
-        department_id: role === 'admin' ? null : (department_id || null),
+        organization_id: roleData.organization_id,
+        department_id: role === 'org_admin' ? null : (department_id || null),
+        program_id: (role === 'program_manager' || role === 'faculty') ? (program_id || null) : null,
       });
 
     if (roleInsertError) {

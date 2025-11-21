@@ -18,6 +18,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { UserRoleSelect } from "@/components/UserRoleSelect";
 import { DepartmentSelect } from "@/components/DepartmentSelect";
+import { ProgramSelect } from "@/components/ProgramSelect";
 import { userCreateSchema, type UserCreateInput } from "@/lib/validation";
 import { getUserErrorMessage } from "@/lib/errorHandler";
 import type { UserRole } from "@/lib/supabase";
@@ -53,6 +54,7 @@ export default function Users() {
     phone: "",
     role: "" as UserRole | "",
     department_id: "",
+    program_id: "",
     is_active: true,
     password: "",
     confirmPassword: "",
@@ -168,6 +170,7 @@ export default function Users() {
         ...formData,
         phone: formData.phone || undefined,
         department_id: formData.department_id || undefined,
+        program_id: formData.program_id || undefined,
       });
 
       // Call edge function to create user
@@ -193,6 +196,7 @@ export default function Users() {
         phone: "",
         role: "",
         department_id: "",
+        program_id: "",
         is_active: true,
         password: "",
         confirmPassword: "",
@@ -243,6 +247,7 @@ export default function Users() {
               user_id: selectedUser.id,
               role: displayToDbRole[formData.role],
               department_id: formData.role === "org_admin" ? null : formData.department_id || null,
+              program_id: (formData.role === "program_manager" || formData.role === "member") ? formData.program_id || null : null,
             },
             {
               onConflict: 'user_id'
@@ -297,6 +302,7 @@ export default function Users() {
         phone: "",
         role: "" as UserRole | "",
         department_id: "",
+        program_id: "",
         is_active: true,
         password: "",
         confirmPassword: "",
@@ -384,6 +390,7 @@ export default function Users() {
       phone: user.phone || "",
       role: user.role || "",
       department_id: user.department_id || "",
+      program_id: "",
       is_active: user.is_active,
       password: "",
       confirmPassword: "",
@@ -528,28 +535,54 @@ export default function Users() {
                   <Label>Role</Label>
                   <UserRoleSelect
                     value={formData.role}
-                    onValueChange={(value) => setFormData({ ...formData, role: value as UserRole })}
+                    onValueChange={(value) => {
+                      setFormData({ ...formData, role: value as UserRole, department_id: "", program_id: "" });
+                    }}
                   />
                 </div>
                 <div>
                   <Label htmlFor="department">
-                    Department {formData.role !== "org_admin" && formData.role !== "program_manager" && "*"}
+                    Department {(formData.role === "manager" || formData.role === "member" || formData.role === "program_manager") && "*"}
                   </Label>
                   <DepartmentSelect
                     value={formData.department_id}
-                    onValueChange={(value) => setFormData({ ...formData, department_id: value })}
+                    onValueChange={(value) => setFormData({ ...formData, department_id: value, program_id: "" })}
+                    disabled={formData.role === "org_admin"}
                   />
-                  {(formData.role === "org_admin" || formData.role === "program_manager") && (
+                  {formData.role === "org_admin" && (
                     <p className="text-sm text-muted-foreground mt-1">
-                      Not required for {formData.role === "org_admin" ? "Organization Admin" : "Program Manager"} role
+                      Not required for Organization Admin role
                     </p>
                   )}
-                  {formData.role !== "org_admin" && formData.role !== "program_manager" && !formData.department_id && (
+                  {(formData.role === "manager" || formData.role === "member" || formData.role === "program_manager") && !formData.department_id && (
                     <p className="text-sm text-muted-foreground mt-1">
-                      Required for Manager and Member roles
+                      Required for this role
                     </p>
                   )}
                 </div>
+                {(formData.role === "program_manager" || formData.role === "member") && (
+                  <div>
+                    <Label htmlFor="program">
+                      Program {formData.role === "program_manager" && "*"}
+                    </Label>
+                    <ProgramSelect
+                      value={formData.program_id}
+                      onValueChange={(value) => setFormData({ ...formData, program_id: value })}
+                      departmentId={formData.department_id}
+                      disabled={!formData.department_id}
+                    />
+                    {formData.role === "program_manager" && !formData.program_id && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Required for Program Manager role
+                      </p>
+                    )}
+                    {formData.role === "member" && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Optional for Member role
+                      </p>
+                    )}
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <Label htmlFor="is_active">Active</Label>
                   <Switch
@@ -573,7 +606,8 @@ export default function Users() {
                     formData.password.length < 8 ||
                     formData.password !== formData.confirmPassword ||
                     !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password) ||
-                    (formData.role !== "org_admin" && formData.role !== "program_manager" && !formData.department_id)
+                    ((formData.role === "manager" || formData.role === "member" || formData.role === "program_manager") && !formData.department_id) ||
+                    (formData.role === "program_manager" && !formData.program_id)
                   }
                 >
                   Create User
@@ -791,30 +825,56 @@ export default function Users() {
                 <Label>Role</Label>
                 <UserRoleSelect
                   value={formData.role}
-                  onValueChange={(value) => setFormData({ ...formData, role: value as UserRole })}
+                  onValueChange={(value) => {
+                    setFormData({ ...formData, role: value as UserRole, department_id: "", program_id: "" });
+                  }}
                 />
               </div>
 
               <div>
                 <Label>
-                  Department {formData.role !== "org_admin" && formData.role !== "program_manager" && "*"}
+                  Department {(formData.role === "manager" || formData.role === "member" || formData.role === "program_manager") && "*"}
                 </Label>
                 <DepartmentSelect
                   value={formData.department_id}
-                  onValueChange={(value) => setFormData({ ...formData, department_id: value })}
-                  disabled={formData.role === "org_admin" || formData.role === "program_manager"}
+                  onValueChange={(value) => setFormData({ ...formData, department_id: value, program_id: "" })}
+                  disabled={formData.role === "org_admin"}
                 />
-                {(formData.role === "org_admin" || formData.role === "program_manager") && (
+                {formData.role === "org_admin" && (
                   <p className="text-sm text-muted-foreground mt-1">
-                    Not required for {formData.role === "org_admin" ? "Organization Admin" : "Program Manager"} role
+                    Not required for Organization Admin role
                   </p>
                 )}
-                {formData.role !== "org_admin" && formData.role !== "program_manager" && !formData.department_id && (
+                {(formData.role === "manager" || formData.role === "member" || formData.role === "program_manager") && !formData.department_id && (
                   <p className="text-sm text-muted-foreground mt-1">
-                    Required for Manager and Member roles
+                    Required for this role
                   </p>
                 )}
               </div>
+
+              {(formData.role === "program_manager" || formData.role === "member") && (
+                <div>
+                  <Label htmlFor="edit-program">
+                    Program {formData.role === "program_manager" && "*"}
+                  </Label>
+                  <ProgramSelect
+                    value={formData.program_id}
+                    onValueChange={(value) => setFormData({ ...formData, program_id: value })}
+                    departmentId={formData.department_id}
+                    disabled={!formData.department_id}
+                  />
+                  {formData.role === "program_manager" && !formData.program_id && (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Required for Program Manager role
+                    </p>
+                  )}
+                  {formData.role === "member" && (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Optional for Member role
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div className="flex items-center justify-between">
                 <Label htmlFor="edit-is_active">Active</Label>
@@ -839,7 +899,8 @@ export default function Users() {
                     formData.password !== formData.confirmPassword ||
                     !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)
                   )) ||
-                  (formData.role !== "org_admin" && formData.role !== "program_manager" && !formData.department_id)
+                  ((formData.role === "manager" || formData.role === "member" || formData.role === "program_manager") && !formData.department_id) ||
+                  (formData.role === "program_manager" && !formData.program_id)
                 }
               >
                 Save Changes
