@@ -20,6 +20,7 @@ export const userCreateSchema = z.object({
     required_error: "Role is required",
   }),
   department_id: z.string().uuid().optional().or(z.literal("")),
+  program_id: z.string().uuid().optional().or(z.literal("")),
   is_active: z.boolean().default(true),
   password: z.string()
     .min(8, "Password must be at least 8 characters")

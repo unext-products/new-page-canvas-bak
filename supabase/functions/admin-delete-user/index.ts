@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
       .eq('user_id', user.id)
       .single();
 
-    if (roleError || roleData?.role !== 'admin') {
+    if (roleError || roleData?.role !== 'org_admin') {
       console.error('User is not an admin:', user.id);
       return new Response(
         JSON.stringify({ error: 'Forbidden: Admin access required' }),
