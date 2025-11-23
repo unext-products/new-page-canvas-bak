@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { signOut } from "@/lib/supabase";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 import {
   Sidebar,
@@ -89,10 +90,17 @@ export function AppSidebar() {
   const items = getNavItems();
 
   return (
-    <Sidebar className={collapsed ? "w-14" : "w-60"} collapsible="icon">
-      <SidebarHeader className="border-b border-border/40 p-4">
+    <Sidebar 
+      className={cn(
+        collapsed ? "w-14" : "w-60",
+        "bg-sidebar-background/40 backdrop-blur-2xl border-r border-white/10",
+        "shadow-[0_8px_32px_0_rgba(0,0,0,0.12)]"
+      )} 
+      collapsible="icon"
+    >
+      <SidebarHeader className="border-b border-white/10 p-4 bg-gradient-to-b from-white/5 to-transparent">
         <NavLink to="/dashboard" className="flex items-center gap-2">
-          <Clock className="h-6 w-6 text-primary" />
+          <Clock className="h-6 w-6 text-primary drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
           {!collapsed && <span className="text-lg font-semibold">ClockWise</span>}
         </NavLink>
       </SidebarHeader>
@@ -110,8 +118,16 @@ export function AppSidebar() {
                     <NavLink
                       to={item.to}
                       end
-                      className="flex items-center gap-3 px-3 py-2 rounded-md transition-all duration-300 hover:bg-primary/10 hover:text-primary"
-                      activeClassName="bg-primary/10 text-primary font-medium"
+                      className="flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-300
+                        hover:bg-white/10 hover:backdrop-blur-xl hover:shadow-lg
+                        hover:border hover:border-white/20
+                        relative overflow-hidden
+                        before:absolute before:inset-0 before:bg-gradient-to-r 
+                        before:from-transparent before:via-white/5 before:to-transparent
+                        before:translate-x-[-100%] hover:before:translate-x-[100%]
+                        before:transition-transform before:duration-700"
+                      activeClassName="bg-primary/20 backdrop-blur-xl border border-primary/30
+                        shadow-[0_0_20px_rgba(59,130,246,0.3)] font-medium text-primary"
                     >
                       <item.icon className="h-4 w-4 flex-shrink-0" />
                       {!collapsed && <span>{item.label}</span>}
@@ -124,9 +140,10 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-border/40 p-4">
+      <SidebarFooter className="border-t border-white/10 p-4 bg-gradient-to-t from-white/5 to-transparent">
         {!collapsed && (
-          <div className="text-sm text-muted-foreground mb-2 px-2 truncate">
+          <div className="text-sm text-muted-foreground mb-2 px-2 truncate
+            bg-white/5 rounded-md py-1.5 backdrop-blur-sm border border-white/10">
             {userWithRole?.profile?.full_name}
           </div>
         )}
@@ -134,7 +151,10 @@ export function AppSidebar() {
           variant="ghost"
           size="sm"
           onClick={handleSignOut}
-          className="w-full justify-start gap-3"
+          className="w-full justify-start gap-3 
+            hover:bg-red-500/10 hover:text-red-500 hover:border hover:border-red-500/20
+            hover:shadow-[0_0_15px_rgba(239,68,68,0.2)]
+            transition-all duration-300 rounded-lg"
         >
           <LogOut className="h-4 w-4" />
           {!collapsed && <span>Sign Out</span>}
