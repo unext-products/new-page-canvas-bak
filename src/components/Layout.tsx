@@ -13,7 +13,7 @@ export function Layout({ children }: LayoutProps) {
       <div className="min-h-screen w-full bg-background relative flex">
         {/* Subtle Animated Background Gradient */}
         <div className="fixed inset-0 z-0 bg-gradient-mesh animate-gradient-shift bg-[length:200%_200%] opacity-30" />
-        <div className="fixed inset-0 z-0 bg-background/98 backdrop-blur-sm" />
+        <div className="fixed inset-0 z-0 bg-background/95 backdrop-blur-sm" />
         
         <AppSidebar />
         
