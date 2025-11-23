@@ -92,19 +92,18 @@ export function AppSidebar() {
   return (
     <Sidebar 
       className={cn(
-        "w-72",
-        "bg-background/20 backdrop-blur-3xl",
-        "border border-white/20 dark:border-white/10",
-        "shadow-[0_20px_60px_0_rgba(0,0,0,0.3)]",
-        "rounded-2xl m-4",
+        collapsed ? "w-16" : "w-64",
+        "bg-background/30 backdrop-blur-3xl",
+        "border-r border-white/20 dark:border-white/10",
+        "shadow-[8px_0_32px_-8px_rgba(0,0,0,0.2)]",
         "glass-sidebar"
       )} 
-      collapsible="offcanvas"
+      collapsible="icon"
     >
-      <SidebarHeader className="border-b border-white/10 p-6 bg-gradient-to-b from-white/5 to-transparent">
+      <SidebarHeader className="border-b border-white/10 p-4 bg-gradient-to-b from-white/5 to-transparent">
         <NavLink to="/dashboard" className="flex items-center gap-3">
-          <Clock className="h-7 w-7 text-primary drop-shadow-[0_0_12px_rgba(59,130,246,0.6)]" />
-          <span className="text-xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">ClockWise</span>
+          <Clock className="h-6 w-6 text-primary drop-shadow-[0_0_12px_rgba(59,130,246,0.6)]" />
+          {!collapsed && <span className="text-lg font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">ClockWise</span>}
         </NavLink>
       </SidebarHeader>
 
@@ -118,7 +117,7 @@ export function AppSidebar() {
                     <NavLink
                       to={item.to}
                       end
-                      className="flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-300
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-300
                         hover:bg-white/15 hover:backdrop-blur-xl hover:shadow-lg
                         hover:border hover:border-white/30
                         relative overflow-hidden
@@ -127,11 +126,10 @@ export function AppSidebar() {
                         before:translate-x-[-100%] hover:before:translate-x-[100%]
                         before:transition-transform before:duration-700"
                       activeClassName="bg-primary/25 backdrop-blur-xl border border-primary/40
-                        shadow-[0_0_25px_rgba(59,130,246,0.4)] font-semibold text-primary
-                        scale-[1.02]"
+                        shadow-[0_0_25px_rgba(59,130,246,0.4)] font-semibold text-primary"
                     >
-                      <item.icon className="h-5 w-5 flex-shrink-0" />
-                      <span className="text-base">{item.label}</span>
+                      <item.icon className="h-4 w-4 flex-shrink-0" />
+                      {!collapsed && <span>{item.label}</span>}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -141,12 +139,13 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-white/10 p-6 bg-gradient-to-t from-white/5 to-transparent">
-        <div className="text-sm text-muted-foreground mb-3 px-3 truncate
-          bg-white/10 rounded-xl py-2.5 backdrop-blur-sm border border-white/20
-          shadow-[0_4px_12px_rgba(0,0,0,0.1)]">
-          {userWithRole?.profile?.full_name}
-        </div>
+      <SidebarFooter className="border-t border-white/10 p-4 bg-gradient-to-t from-white/5 to-transparent">
+        {!collapsed && (
+          <div className="text-sm text-muted-foreground mb-2 px-2 truncate
+            bg-white/10 rounded-lg py-1.5 backdrop-blur-sm border border-white/20">
+            {userWithRole?.profile?.full_name}
+          </div>
+        )}
         <Button
           variant="ghost"
           size="sm"
@@ -154,10 +153,10 @@ export function AppSidebar() {
           className="w-full justify-start gap-3 
             hover:bg-red-500/10 hover:text-red-500 hover:border hover:border-red-500/20
             hover:shadow-[0_0_20px_rgba(239,68,68,0.3)]
-            transition-all duration-300 rounded-xl py-5"
+            transition-all duration-300 rounded-lg"
         >
-          <LogOut className="h-5 w-5" />
-          <span>Sign Out</span>
+          <LogOut className="h-4 w-4" />
+          {!collapsed && <span>Sign Out</span>}
         </Button>
       </SidebarFooter>
     </Sidebar>
