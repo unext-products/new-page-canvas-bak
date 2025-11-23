@@ -9,7 +9,7 @@ interface LayoutProps {
 
 export function Layout({ children }: LayoutProps) {
   return (
-    <SidebarProvider>
+    <SidebarProvider defaultOpen={false}>
       <div className="min-h-screen w-full bg-background relative flex">
         {/* Subtle Animated Background Gradient */}
         <div className="fixed inset-0 z-0 bg-gradient-mesh animate-gradient-shift bg-[length:200%_200%] opacity-30" />
@@ -17,9 +17,9 @@ export function Layout({ children }: LayoutProps) {
         
         <AppSidebar />
         
-        <div className="relative z-10 flex-1 flex flex-col">
-          <header className="sticky top-0 z-50 h-16 border-b border-border/40 bg-background/40 backdrop-blur-xl flex items-center px-4 gap-4">
-            <SidebarTrigger />
+        <div className="relative z-10 flex-1 flex flex-col w-full">
+          <header className="sticky top-0 z-50 h-16 border-b border-border/40 bg-background/60 backdrop-blur-xl flex items-center px-4 gap-4">
+            <SidebarTrigger className="hover:bg-white/10 hover:backdrop-blur-xl rounded-lg p-2 transition-all duration-300 hover:shadow-lg" />
             <div className="flex-1" />
             <ThemeToggle />
           </header>
