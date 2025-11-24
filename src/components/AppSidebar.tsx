@@ -92,16 +92,17 @@ export function AppSidebar() {
       collapsible="offcanvas"
       className={cn(
         "w-72",
-        "bg-transparent backdrop-blur-[40px]",
-        "border border-white/10 dark:border-white/5",
-        "shadow-[0_8px_32px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_48px_rgba(0,0,0,0.4)]",
+        "bg-white/[0.02] dark:bg-black/[0.08] backdrop-blur-[80px] backdrop-saturate-[180%]",
+        "border border-white/[0.08] dark:border-white/[0.03]",
+        "shadow-[0_8px_48px_-12px_rgba(0,0,0,0.15)] dark:shadow-[0_12px_60px_-15px_rgba(0,0,0,0.6)]",
+        "rounded-3xl",
         "transition-all duration-500 ease-in-out",
         "data-[state=collapsed]:translate-y-[-100%] data-[state=collapsed]:opacity-0"
       )} 
     >
-      <SidebarHeader className="border-b border-white/10 dark:border-white/5 p-6 bg-gradient-to-b from-white/3 to-transparent">
+      <SidebarHeader className="border-b border-white/[0.06] dark:border-white/[0.03] p-6">
         <NavLink to="/dashboard" className="flex items-center gap-3">
-          <Clock className="h-7 w-7 text-primary drop-shadow-[0_0_16px_rgba(59,130,246,0.7)] transition-transform hover:scale-110" />
+          <Clock className="h-7 w-7 text-primary drop-shadow-[0_0_8px_rgba(59,130,246,0.4)] transition-transform hover:scale-110" />
           <span className="text-xl font-bold bg-gradient-to-r from-primary via-primary to-primary/60 bg-clip-text text-transparent">
             ClockWise
           </span>
@@ -118,20 +119,11 @@ export function AppSidebar() {
                     <NavLink
                       to={item.to}
                       end
-                      className="flex items-center gap-3 px-4 py-3 rounded-xl mx-2 transition-all duration-300
-                        hover:bg-white/10 dark:hover:bg-white/5
-                        hover:backdrop-blur-xl hover:shadow-lg
-                        hover:border hover:border-white/20 dark:hover:border-white/10
-                        hover:scale-[1.02]
-                        relative overflow-hidden group
-                        before:absolute before:inset-0 before:bg-gradient-to-r 
-                        before:from-transparent before:via-white/8 before:to-transparent
-                        before:translate-x-[-100%] group-hover:before:translate-x-[100%]
-                        before:transition-transform before:duration-1000"
-                      activeClassName="bg-primary/15 dark:bg-primary/20 backdrop-blur-xl 
-                        border border-primary/30 dark:border-primary/40
-                        shadow-[0_0_30px_rgba(59,130,246,0.3)] dark:shadow-[0_0_40px_rgba(59,130,246,0.5)]
-                        font-semibold text-primary scale-[1.02]"
+                      className="flex items-center gap-3 px-4 py-3 rounded-2xl mx-2 transition-all duration-200
+                        hover:bg-white/[0.08] dark:hover:bg-white/[0.04]
+                        hover:scale-[1.01]"
+                      activeClassName="bg-white/[0.12] dark:bg-white/[0.08]
+                        font-medium text-primary"
                     >
                       <item.icon className="h-5 w-5 flex-shrink-0" />
                       <span>{item.label}</span>
@@ -144,11 +136,10 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-white/10 dark:border-white/5 p-6 bg-gradient-to-t from-white/3 to-transparent">
+      <SidebarFooter className="border-t border-white/[0.06] dark:border-white/[0.03] p-6">
         <div className="text-sm text-muted-foreground mb-3 px-3 py-2 truncate
-          bg-white/5 dark:bg-white/3 rounded-xl backdrop-blur-sm 
-          border border-white/10 dark:border-white/5
-          shadow-inner">
+          bg-white/[0.04] dark:bg-white/[0.02] rounded-xl
+          border border-white/[0.06] dark:border-white/[0.03]">
           {userWithRole?.profile?.full_name}
         </div>
         <Button
@@ -156,11 +147,9 @@ export function AppSidebar() {
           size="sm"
           onClick={handleSignOut}
           className="w-full justify-start gap-3 px-4 py-3 rounded-xl
-            hover:bg-red-500/10 dark:hover:bg-red-500/15
-            hover:text-red-500 hover:border hover:border-red-500/30
-            hover:shadow-[0_0_24px_rgba(239,68,68,0.25)]
-            hover:scale-[1.02]
-            transition-all duration-300"
+            hover:bg-red-500/[0.08] dark:hover:bg-red-500/[0.12]
+            hover:text-red-500
+            transition-all duration-200"
         >
           <LogOut className="h-5 w-5" />
           <span>Sign Out</span>
