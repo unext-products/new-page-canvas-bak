@@ -220,16 +220,16 @@ All colors MUST be HSL.
     }
   }
   
-  /* Enhanced glass blur for floating sidebar */
+  /* iOS-style glassmorphism */
   .glass-floating {
     background: rgba(255, 255, 255, 0.02);
-    backdrop-filter: blur(40px) saturate(150%);
-    -webkit-backdrop-filter: blur(40px) saturate(150%);
+    backdrop-filter: blur(80px) saturate(180%);
+    -webkit-backdrop-filter: blur(80px) saturate(180%);
   }
   
   .dark .glass-floating {
-    background: rgba(0, 0, 0, 0.1);
-    backdrop-filter: blur(40px) saturate(180%);
-    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    background: rgba(0, 0, 0, 0.08);
+    backdrop-filter: blur(80px) saturate(180%);
+    -webkit-backdrop-filter: blur(80px) saturate(180%);
   }
 }
