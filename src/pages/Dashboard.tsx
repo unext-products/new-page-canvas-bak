@@ -277,12 +277,12 @@ export default function Dashboard() {
 
   return (
     <Layout>
-      <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6 px-4 sm:px-6">
-        <div className="animate-fade-in-up">
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight bg-gradient-to-r from-foreground via-foreground to-foreground/70 bg-clip-text text-transparent">
+      <div className="max-w-7xl space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">
             {getWelcomeMessage()}
           </h1>
-          <p className="text-sm sm:text-base text-muted-foreground mt-2">
+          <p className="text-muted-foreground mt-1">
             {userWithRole.role === "member" && "Track your working hours and submit timesheets"}
             {userWithRole.role === "manager" && "Review and approve team timesheets"}
             {userWithRole.role === "org_admin" && "Manage users, departments, and reports"}
@@ -292,72 +292,70 @@ export default function Dashboard() {
 
         {userWithRole.role === "member" && (
           <>
-            <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 animate-fade-in-up">
-              <Card className="bg-card/50 backdrop-blur-xl border-border/40 hover:scale-105 transition-transform duration-300 hover:border-primary/50">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-xs sm:text-sm font-medium">Today's Hours</CardTitle>
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Today's Hours</CardTitle>
                   <Clock className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                  <div className="text-2xl font-bold">
                     {formatMinutes(stats.todayMinutes)}
                   </div>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground mt-1">
                     Target: {formatMinutes(stats.targetMinutes)}
                   </p>
                 </CardContent>
               </Card>
 
-              <Card className="bg-card/50 backdrop-blur-xl border-border/40 hover:scale-105 transition-transform duration-300 hover:border-warning/50">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-xs sm:text-sm font-medium">Pending</CardTitle>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Pending</CardTitle>
                   <AlertCircle className="h-4 w-4 text-warning" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-warning to-warning/60 bg-clip-text text-transparent">
+                  <div className="text-2xl font-bold text-warning">
                     {stats.pending}
                   </div>
-                  <p className="text-xs text-muted-foreground">Awaiting approval</p>
+                  <p className="text-xs text-muted-foreground mt-1">Awaiting approval</p>
                 </CardContent>
               </Card>
 
-              <Card className="bg-card/50 backdrop-blur-xl border-border/40 hover:scale-105 transition-transform duration-300 hover:border-success/50">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-xs sm:text-sm font-medium">Approved</CardTitle>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Approved</CardTitle>
                   <CheckCircle className="h-4 w-4 text-success" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-success to-success/60 bg-clip-text text-transparent">
+                  <div className="text-2xl font-bold text-success">
                     {stats.approved}
                   </div>
-                  <p className="text-xs text-muted-foreground">This week</p>
+                  <p className="text-xs text-muted-foreground mt-1">This week</p>
                 </CardContent>
               </Card>
 
-              <Card className="bg-card/50 backdrop-blur-xl border-border/40 hover:scale-105 transition-transform duration-300 hover:border-border/60">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-xs sm:text-sm font-medium">Drafts</CardTitle>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Drafts</CardTitle>
                   <XCircle className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-foreground to-foreground/60 bg-clip-text text-transparent">
+                  <div className="text-2xl font-bold">
                     {stats.rejected}
                   </div>
-                  <p className="text-xs text-muted-foreground">Incomplete</p>
+                  <p className="text-xs text-muted-foreground mt-1">Incomplete</p>
                 </CardContent>
               </Card>
             </div>
 
-            <div className="animate-fade-in-up" style={{ animationDelay: "200ms" }}>
-              <CompletionMetricsCard
-                actualHours={stats.weeklyActualMinutes / 60}
-                expectedHours={stats.expectedWeeklyMinutes / 60}
-                completionRate={stats.weeklyCompletionRate}
-                period="weekly"
-              />
-            </div>
+            <CompletionMetricsCard
+              actualHours={stats.weeklyActualMinutes / 60}
+              expectedHours={stats.expectedWeeklyMinutes / 60}
+              completionRate={stats.weeklyCompletionRate}
+              period="weekly"
+            />
 
-            <Card className="bg-card/50 backdrop-blur-xl border-border/40 animate-fade-in-up">
+            <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
@@ -372,7 +370,7 @@ export default function Dashboard() {
               </CardHeader>
             </Card>
 
-            <Card className="bg-card/50 backdrop-blur-xl border-border/40 animate-fade-in-up">
+            <Card>
               <CardHeader>
                 <CardTitle>Recent Entries</CardTitle>
                 <CardDescription>Your latest timesheet submissions</CardDescription>
@@ -381,11 +379,11 @@ export default function Dashboard() {
                 {recentEntries.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No entries yet. Start by creating your first timesheet entry.</p>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {recentEntries.map((entry) => (
-                      <div key={entry.id} className="flex items-center justify-between border-b pb-3 last:border-0">
-                        <div>
-                          <p className="font-medium">{new Date(entry.entry_date).toLocaleDateString()}</p>
+                      <div key={entry.id} className="flex items-center justify-between py-2 border-b last:border-0">
+                        <div className="flex-1">
+                          <p className="font-medium text-sm">{new Date(entry.entry_date).toLocaleDateString()}</p>
                           <p className="text-sm text-muted-foreground">
                             {entry.activity_type} • {formatMinutes(entry.duration_minutes)}
                           </p>
@@ -401,7 +399,7 @@ export default function Dashboard() {
         )}
 
         {userWithRole.role === "manager" && (
-          <Card className="bg-card/50 backdrop-blur-xl border-border/40 animate-fade-in-up">
+          <Card>
             <CardHeader>
               <CardTitle>Pending Approvals</CardTitle>
               <CardDescription>
@@ -419,10 +417,10 @@ export default function Dashboard() {
         {userWithRole.role === "org_admin" && (
           <>
             {loading ? (
-              <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 animate-fade-in-up">
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
                 {[1, 2, 3, 4].map((i) => (
-                  <Card key={i} className="bg-card/50 backdrop-blur-xl border-border/40">
-                    <CardHeader className="space-y-0 pb-2">
+                  <Card key={i}>
+                    <CardHeader className="pb-2">
                       <Skeleton className="h-4 w-24" />
                     </CardHeader>
                     <CardContent>
@@ -435,56 +433,56 @@ export default function Dashboard() {
             ) : (
               <>
                 {/* Key Metrics Cards */}
-                <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 animate-fade-in-up">
-                  <Card className="bg-card/50 backdrop-blur-xl border-border/40 hover:scale-105 transition-transform duration-300 hover:border-primary/50">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-xs sm:text-sm font-medium">Total Faculty</CardTitle>
+                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">Total Faculty</CardTitle>
                       <Users className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent break-words">
+                      <div className="text-2xl font-bold">
                         {adminStats.totalUsers}
                       </div>
-                      <p className="text-xs text-muted-foreground">Active users</p>
+                      <p className="text-xs text-muted-foreground mt-1">Active users</p>
                     </CardContent>
                   </Card>
 
-                  <Card className="bg-card/50 backdrop-blur-xl border-border/40 hover:scale-105 transition-transform duration-300 hover:border-accent/50">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-xs sm:text-sm font-medium">Departments</CardTitle>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">Departments</CardTitle>
                       <Building2 className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-accent to-accent/60 bg-clip-text text-transparent break-words">
+                      <div className="text-2xl font-bold">
                         {adminStats.totalDepartments}
                       </div>
-                      <p className="text-xs text-muted-foreground">Total departments</p>
+                      <p className="text-xs text-muted-foreground mt-1">Total departments</p>
                     </CardContent>
                   </Card>
 
-                  <Card className={`bg-card/50 backdrop-blur-xl border-border/40 hover:scale-105 transition-transform duration-300 ${adminStats.pendingApprovals > 0 ? 'hover:border-warning/50' : 'hover:border-border/60'}`}>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-xs sm:text-sm font-medium">Pending Approvals</CardTitle>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">Pending Approvals</CardTitle>
                       <AlertCircle className={`h-4 w-4 ${adminStats.pendingApprovals > 0 ? 'text-warning' : 'text-muted-foreground'}`} />
                     </CardHeader>
                     <CardContent>
-                      <div className={`text-xl sm:text-2xl font-bold bg-gradient-to-r ${adminStats.pendingApprovals > 0 ? 'from-warning to-warning/60' : 'from-foreground to-foreground/60'} bg-clip-text text-transparent break-words`}>
+                      <div className={`text-2xl font-bold ${adminStats.pendingApprovals > 0 ? 'text-warning' : ''}`}>
                         {adminStats.pendingApprovals}
                       </div>
-                      <p className="text-xs text-muted-foreground">Awaiting review</p>
+                      <p className="text-xs text-muted-foreground mt-1">Awaiting review</p>
                     </CardContent>
                   </Card>
 
-                  <Card className="bg-card/50 backdrop-blur-xl border-border/40 hover:scale-105 transition-transform duration-300 hover:border-success/50">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-xs sm:text-sm font-medium">This Week</CardTitle>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">This Week</CardTitle>
                       <Clock className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-success to-success/60 bg-clip-text text-transparent break-words">
+                      <div className="text-2xl font-bold text-success">
                         {Math.round(adminStats.weeklyHours)}h
                       </div>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-muted-foreground mt-1">
                         / {Math.round(adminStats.expectedWeeklyHours)}h expected
                       </p>
                     </CardContent>
@@ -492,31 +490,31 @@ export default function Dashboard() {
                 </div>
 
                 {/* Organization Health Card */}
-                <Card className="bg-card/50 backdrop-blur-xl border-border/40 animate-fade-in-up">
+                <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                      <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5" />
+                    <CardTitle className="flex items-center gap-2">
+                      <TrendingUp className="h-5 w-5" />
                       Organization Health
                     </CardTitle>
-                    <CardDescription className="text-xs sm:text-sm">Weekly performance overview</CardDescription>
+                    <CardDescription>Weekly performance overview</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-xs sm:text-sm text-muted-foreground">Completion Rate</p>
-                        <p className={`text-3xl sm:text-4xl font-bold ${adminStats.completionRate >= 90 ? 'text-success' : adminStats.completionRate >= 70 ? 'text-warning' : 'text-destructive'}`}>
+                        <p className="text-sm text-muted-foreground">Completion Rate</p>
+                        <p className={`text-4xl font-bold ${adminStats.completionRate >= 90 ? 'text-success' : adminStats.completionRate >= 70 ? 'text-warning' : 'text-destructive'}`}>
                           {adminStats.completionRate}%
                         </p>
                       </div>
-                      <div className="sm:text-right">
-                        <p className="text-xs sm:text-sm text-muted-foreground">Status</p>
-                        <p className="text-base sm:text-lg font-semibold">
+                      <div className="text-right">
+                        <p className="text-sm text-muted-foreground">Status</p>
+                        <p className="text-lg font-semibold">
                           {adminStats.completionRate >= 90 ? '✓ Excellent' : adminStats.completionRate >= 70 ? '⚠ Good' : '⚠ Needs Attention'}
                         </p>
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <div className="flex justify-between text-xs sm:text-sm">
+                      <div className="flex justify-between text-sm">
                         <span>Actual: {Math.round(adminStats.weeklyHours)}h</span>
                         <span>Expected: {Math.round(adminStats.expectedWeeklyHours)}h</span>
                       </div>
@@ -525,25 +523,25 @@ export default function Dashboard() {
                   </CardContent>
                 </Card>
 
-                <div className="grid gap-3 sm:gap-4 md:grid-cols-2 animate-fade-in-up">
+                <div className="grid gap-4 md:grid-cols-2">
                   {/* Department Performance */}
-                  <Card className="bg-card/50 backdrop-blur-xl border-border/40">
+                  <Card>
                     <CardHeader>
-                      <CardTitle className="text-base sm:text-lg">Department Performance</CardTitle>
-                      <CardDescription className="text-xs sm:text-sm">Top and struggling departments</CardDescription>
+                      <CardTitle>Department Performance</CardTitle>
+                      <CardDescription>Top and struggling departments</CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-3 sm:space-y-4">
+                    <CardContent className="space-y-4">
                       {adminStats.topDepartments.length > 0 && (
                         <div>
-                          <h4 className="text-xs sm:text-sm font-semibold mb-2 text-success flex items-center gap-2">
+                          <h4 className="text-sm font-semibold mb-2 text-success flex items-center gap-2">
                             <CheckCircle className="h-4 w-4" />
                             Top Performers
                           </h4>
                           <div className="space-y-2">
                             {adminStats.topDepartments.map((dept) => (
-                              <div key={dept.id} className="flex items-center justify-between text-xs sm:text-sm gap-2">
-                                <span className="break-words flex-1">{dept.name}</span>
-                                <span className="font-semibold text-success whitespace-nowrap">{Math.round(dept.completionRate)}%</span>
+                              <div key={dept.id} className="flex items-center justify-between text-sm">
+                                <span>{dept.name}</span>
+                                <span className="font-semibold text-success">{Math.round(dept.completionRate)}%</span>
                               </div>
                             ))}
                           </div>
@@ -552,15 +550,15 @@ export default function Dashboard() {
                       
                       {adminStats.strugglingDepartments.length > 0 && (
                         <div>
-                          <h4 className="text-xs sm:text-sm font-semibold mb-2 text-warning flex items-center gap-2">
+                          <h4 className="text-sm font-semibold mb-2 text-warning flex items-center gap-2">
                             <AlertCircle className="h-4 w-4" />
                             Needs Attention
                           </h4>
                           <div className="space-y-2">
                             {adminStats.strugglingDepartments.slice(0, 3).map((dept) => (
-                              <div key={dept.id} className="flex items-center justify-between text-xs sm:text-sm gap-2">
-                                <span className="break-words flex-1">{dept.name}</span>
-                                <span className="font-semibold text-warning whitespace-nowrap">{Math.round(dept.completionRate)}%</span>
+                              <div key={dept.id} className="flex items-center justify-between text-sm">
+                                <span>{dept.name}</span>
+                                <span className="font-semibold text-warning">{Math.round(dept.completionRate)}%</span>
                               </div>
                             ))}
                           </div>
@@ -568,52 +566,52 @@ export default function Dashboard() {
                       )}
 
                       {adminStats.topDepartments.length === 0 && adminStats.strugglingDepartments.length === 0 && (
-                        <p className="text-xs sm:text-sm text-muted-foreground">No department data available yet.</p>
+                        <p className="text-sm text-muted-foreground">No department data available yet.</p>
                       )}
                     </CardContent>
                   </Card>
 
                   {/* Activity Breakdown */}
-                  <Card className="bg-card/50 backdrop-blur-xl border-border/40">
+                  <Card>
                     <CardHeader>
-                      <CardTitle className="text-base sm:text-lg">Activity Distribution</CardTitle>
-                      <CardDescription className="text-xs sm:text-sm">This week's activity breakdown</CardDescription>
+                      <CardTitle>Activity Distribution</CardTitle>
+                      <CardDescription>This week's activity breakdown</CardDescription>
                     </CardHeader>
                     <CardContent>
                       {adminStats.activityBreakdown.length > 0 ? (
                         <ActivityBreakdownChart data={adminStats.activityBreakdown} />
                       ) : (
-                        <p className="text-xs sm:text-sm text-muted-foreground">No activity data available yet.</p>
+                        <p className="text-sm text-muted-foreground">No activity data available yet.</p>
                       )}
                     </CardContent>
                   </Card>
                 </div>
 
                 {/* Recent Activity */}
-                <Card className="bg-card/50 backdrop-blur-xl border-border/40 animate-fade-in-up">
+                <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                      <Activity className="h-4 w-4 sm:h-5 sm:w-5" />
+                    <CardTitle className="flex items-center gap-2">
+                      <Activity className="h-5 w-5" />
                       Recent System Activity
                     </CardTitle>
-                    <CardDescription className="text-xs sm:text-sm">Latest timesheet submissions across organization</CardDescription>
+                    <CardDescription>Latest timesheet submissions across organization</CardDescription>
                   </CardHeader>
                   <CardContent>
                     {adminStats.recentActivity.length === 0 ? (
-                      <p className="text-xs sm:text-sm text-muted-foreground">No recent activity.</p>
+                      <p className="text-sm text-muted-foreground">No recent activity.</p>
                     ) : (
                       <div className="space-y-3">
                         {adminStats.recentActivity.map((entry) => (
-                          <div key={entry.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 border-b pb-3 last:border-0">
-                            <div className="space-y-1 min-w-0 flex-1">
-                              <p className="font-medium text-xs sm:text-sm break-words">{entry.profiles?.full_name || "Unknown"}</p>
-                              <p className="text-xs text-muted-foreground break-words">
+                          <div key={entry.id} className="flex items-center justify-between py-2 border-b last:border-0">
+                            <div className="flex-1">
+                              <p className="font-medium text-sm">{entry.profiles?.full_name || "Unknown"}</p>
+                              <p className="text-xs text-muted-foreground">
                                 {entry.departments?.name} • {entry.activity_type} • {formatMinutes(entry.duration_minutes)}
                               </p>
                             </div>
-                            <div className="flex sm:flex-col items-center sm:items-end gap-2 sm:gap-1 sm:text-right">
+                            <div className="flex flex-col items-end gap-1 text-right">
                               <StatusBadge status={entry.status} />
-                              <p className="text-xs text-muted-foreground whitespace-nowrap">
+                              <p className="text-xs text-muted-foreground">
                                 {new Date(entry.entry_date).toLocaleDateString()}
                               </p>
                             </div>
@@ -625,26 +623,26 @@ export default function Dashboard() {
                 </Card>
 
                 {/* Quick Actions */}
-                <Card className="bg-card/50 backdrop-blur-xl border-border/40 animate-fade-in-up">
+                <Card>
                   <CardHeader>
-                    <CardTitle className="text-base sm:text-lg">Quick Actions</CardTitle>
-                    <CardDescription className="text-xs sm:text-sm">Manage system settings and data</CardDescription>
+                    <CardTitle>Quick Actions</CardTitle>
+                    <CardDescription>Manage system settings and data</CardDescription>
                   </CardHeader>
                   <CardContent className="flex flex-wrap gap-2">
-                    <Button className="w-full sm:w-auto" onClick={() => navigate("/users")}>
+                    <Button onClick={() => navigate("/users")}>
                       <Users className="mr-2 h-4 w-4" />
                       Manage Users
                     </Button>
-                    <Button className="w-full sm:w-auto" variant="outline" onClick={() => navigate("/departments")}>
+                    <Button variant="outline" onClick={() => navigate("/departments")}>
                       <Building2 className="mr-2 h-4 w-4" />
                       Manage Departments
                     </Button>
-                    <Button className="w-full sm:w-auto" variant="outline" onClick={() => navigate("/reports")}>
+                    <Button variant="outline" onClick={() => navigate("/reports")}>
                       <TrendingUp className="mr-2 h-4 w-4" />
                       View Reports
                     </Button>
                     {adminStats.pendingApprovals > 0 && (
-                      <Button className="w-full sm:w-auto" variant="outline" onClick={() => navigate("/approvals")}>
+                      <Button variant="outline" onClick={() => navigate("/approvals")}>
                         <AlertCircle className="mr-2 h-4 w-4" />
                         Review Approvals ({adminStats.pendingApprovals})
                       </Button>

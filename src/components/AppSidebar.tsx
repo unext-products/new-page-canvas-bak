@@ -88,28 +88,20 @@ export function AppSidebar() {
 
   return (
     <Sidebar 
-      variant="floating"
-      collapsible="offcanvas"
-      className={cn(
-        "w-72",
-        "bg-white/[0.02] dark:bg-black/[0.08] backdrop-blur-[80px] backdrop-saturate-[180%]",
-        "border border-white/[0.08] dark:border-white/[0.03]",
-        "shadow-[0_8px_48px_-12px_rgba(0,0,0,0.15)] dark:shadow-[0_12px_60px_-15px_rgba(0,0,0,0.6)]",
-        "rounded-3xl",
-        "transition-all duration-500 ease-in-out",
-        "data-[state=collapsed]:translate-y-[-100%] data-[state=collapsed]:opacity-0"
-      )} 
+      variant="sidebar"
+      collapsible="icon"
+      className="border-r bg-sidebar"
     >
-      <SidebarHeader className="border-b border-white/[0.06] dark:border-white/[0.03] p-6">
-        <NavLink to="/dashboard" className="flex items-center gap-3">
-          <Clock className="h-7 w-7 text-primary drop-shadow-[0_0_8px_rgba(59,130,246,0.4)] transition-transform hover:scale-110" />
-          <span className="text-xl font-bold bg-gradient-to-r from-primary via-primary to-primary/60 bg-clip-text text-transparent">
+      <SidebarHeader className="border-b border-border p-4">
+        <NavLink to="/dashboard" className="flex items-center gap-2">
+          <Clock className="h-6 w-6 text-primary" />
+          <span className="text-lg font-semibold text-foreground">
             ClockWise
           </span>
         </NavLink>
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className="px-2 py-4">
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -119,13 +111,11 @@ export function AppSidebar() {
                     <NavLink
                       to={item.to}
                       end
-                      className="flex items-center gap-3 px-4 py-3 rounded-2xl mx-2 transition-all duration-200
-                        hover:bg-white/[0.08] dark:hover:bg-white/[0.04]
-                        hover:scale-[1.01]"
-                      activeClassName="bg-white/[0.12] dark:bg-white/[0.08]
-                        font-medium text-primary"
+                      className="flex items-center gap-3 px-3 py-2 rounded-md transition-colors
+                        hover:bg-accent hover:text-accent-foreground"
+                      activeClassName="bg-accent text-accent-foreground font-medium border-l-2 border-primary"
                     >
-                      <item.icon className="h-5 w-5 flex-shrink-0" />
+                      <item.icon className="h-4 w-4 flex-shrink-0" />
                       <span>{item.label}</span>
                     </NavLink>
                   </SidebarMenuButton>
@@ -136,22 +126,17 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-white/[0.06] dark:border-white/[0.03] p-6">
-        <div className="text-sm text-muted-foreground mb-3 px-3 py-2 truncate
-          bg-white/[0.04] dark:bg-white/[0.02] rounded-xl
-          border border-white/[0.06] dark:border-white/[0.03]">
+      <SidebarFooter className="border-t border-border p-4">
+        <div className="text-sm text-muted-foreground mb-2 px-2 py-1.5 truncate">
           {userWithRole?.profile?.full_name}
         </div>
         <Button
           variant="ghost"
           size="sm"
           onClick={handleSignOut}
-          className="w-full justify-start gap-3 px-4 py-3 rounded-xl
-            hover:bg-red-500/[0.08] dark:hover:bg-red-500/[0.12]
-            hover:text-red-500
-            transition-all duration-200"
+          className="w-full justify-start gap-2 hover:bg-destructive/10 hover:text-destructive"
         >
-          <LogOut className="h-5 w-5" />
+          <LogOut className="h-4 w-4" />
           <span>Sign Out</span>
         </Button>
       </SidebarFooter>
