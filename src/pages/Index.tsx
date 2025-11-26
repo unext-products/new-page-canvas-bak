@@ -5,102 +5,81 @@ import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useCursorSpotlight } from "@/hooks/useCursorSpotlight";
 import { useScrollAnimation } from "@/hooks/useScrollAnimation";
-import {
-  Clock,
-  ArrowRight,
-  Zap,
-  Shield,
-  TrendingUp,
-  Users,
-  BarChart3,
-  CheckCircle,
-  Sparkles,
-  MousePointer2,
-} from "lucide-react";
+import { Clock, ArrowRight, Zap, Shield, TrendingUp, Users, BarChart3, CheckCircle, Sparkles, MousePointer2 } from "lucide-react";
 import dashboardMockup from "@/assets/dashboard-mockup.jpg";
 import timesheetMockup from "@/assets/timesheet-entry-mockup.jpg";
 import approvalsMockup from "@/assets/approvals-mockup.jpg";
 import analyticsMockup from "@/assets/analytics-mockup.jpg";
-
 const Index = () => {
-  const { user, loading } = useAuth();
+  const {
+    user,
+    loading
+  } = useAuth();
   const navigate = useNavigate();
   const cursorPosition = useCursorSpotlight();
   const [activeFeature, setActiveFeature] = useState(0);
-
   const heroRef = useRef<HTMLDivElement>(null);
   const featuresRef = useRef<HTMLDivElement>(null);
   const showcaseRef = useRef<HTMLDivElement>(null);
   const statsRef = useRef<HTMLDivElement>(null);
-
   const isFeaturesVisible = useScrollAnimation(featuresRef);
   const isShowcaseVisible = useScrollAnimation(showcaseRef);
   const isStatsVisible = useScrollAnimation(statsRef);
-
   useEffect(() => {
     if (!loading && user) {
       navigate("/dashboard");
     }
   }, [user, loading, navigate]);
-
   useEffect(() => {
     const interval = setInterval(() => {
-      setActiveFeature((prev) => (prev + 1) % 4);
+      setActiveFeature(prev => (prev + 1) % 4);
     }, 3000);
     return () => clearInterval(interval);
   }, []);
-
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
+    return <div className="flex items-center justify-center min-h-screen">
         <div className="text-lg">Loading...</div>
-      </div>
-    );
+      </div>;
   }
-
-  const features = [
-    {
-      icon: Zap,
-      title: "Lightning Fast",
-      description: "Submit and approve timesheets in seconds, not hours",
-      color: "from-yellow-500 to-orange-500",
-    },
-    {
-      icon: Shield,
-      title: "Secure & Compliant",
-      description: "Bank-grade security with automatic audit trails",
-      color: "from-blue-500 to-cyan-500",
-    },
-    {
-      icon: BarChart3,
-      title: "Smart Analytics",
-      description: "AI-powered insights into workforce productivity",
-      color: "from-purple-500 to-pink-500",
-    },
-    {
-      icon: Users,
-      title: "Team Collaboration",
-      description: "Real-time sync across all departments",
-      color: "from-green-500 to-emerald-500",
-    },
-  ];
-
-  const stats = [
-    { value: "10K+", label: "Active Users" },
-    { value: "99.9%", label: "Uptime" },
-    { value: "2M+", label: "Hours Tracked" },
-    { value: "500+", label: "Companies" },
-  ];
-
-  return (
-    <div className="min-h-screen relative overflow-hidden bg-background">
+  const features = [{
+    icon: Zap,
+    title: "Lightning Fast",
+    description: "Submit and approve timesheets in seconds, not hours",
+    color: "from-yellow-500 to-orange-500"
+  }, {
+    icon: Shield,
+    title: "Secure & Compliant",
+    description: "Bank-grade security with automatic audit trails",
+    color: "from-blue-500 to-cyan-500"
+  }, {
+    icon: BarChart3,
+    title: "Smart Analytics",
+    description: "AI-powered insights into workforce productivity",
+    color: "from-purple-500 to-pink-500"
+  }, {
+    icon: Users,
+    title: "Team Collaboration",
+    description: "Real-time sync across all departments",
+    color: "from-green-500 to-emerald-500"
+  }];
+  const stats = [{
+    value: "10K+",
+    label: "Active Users"
+  }, {
+    value: "99.9%",
+    label: "Uptime"
+  }, {
+    value: "2M+",
+    label: "Hours Tracked"
+  }, {
+    value: "500+",
+    label: "Companies"
+  }];
+  return <div className="min-h-screen relative overflow-hidden bg-background">
       {/* Enhanced Cursor Spotlight */}
-      <div
-        className="pointer-events-none fixed inset-0 z-30 transition-opacity duration-500"
-        style={{
-          background: `radial-gradient(800px circle at ${cursorPosition.x}px ${cursorPosition.y}px, rgba(59, 130, 246, 0.08), transparent 70%)`,
-        }}
-      />
+      <div className="pointer-events-none fixed inset-0 z-30 transition-opacity duration-500" style={{
+      background: `radial-gradient(800px circle at ${cursorPosition.x}px ${cursorPosition.y}px, rgba(59, 130, 246, 0.08), transparent 70%)`
+    }} />
 
       {/* Dynamic Background Grid */}
       <div className="fixed inset-0 z-0">
@@ -131,31 +110,20 @@ const Index = () => {
             </div>
             
             <div className="hidden md:flex items-center gap-8">
-              <button 
-                className="text-[15px] text-foreground/70 hover:text-foreground transition-colors font-medium"
-              >
+              <button className="text-[15px] text-foreground/70 hover:text-foreground transition-colors font-medium">
                 Features
               </button>
-              <button 
-                onClick={() => navigate("/pricing")}
-                className="text-[15px] text-foreground/70 hover:text-foreground transition-colors font-medium"
-              >
+              <button onClick={() => navigate("/pricing")} className="text-[15px] text-foreground/70 hover:text-foreground transition-colors font-medium">
                 Pricing
               </button>
-              <button 
-                onClick={() => navigate("/auth")}
-                className="text-[15px] text-foreground/70 hover:text-foreground transition-colors font-medium"
-              >
+              <button onClick={() => navigate("/auth")} className="text-[15px] text-foreground/70 hover:text-foreground transition-colors font-medium">
                 Login
               </button>
             </div>
 
             <div className="flex items-center gap-3">
               <ThemeToggle />
-              <Button 
-                onClick={() => navigate("/auth")}
-                className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90 px-6 shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all hover:scale-105"
-              >
+              <Button onClick={() => navigate("/auth")} className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90 px-6 shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all hover:scale-105">
                 Get started
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
@@ -172,7 +140,7 @@ const Index = () => {
                 bg-primary/10 border border-primary/20 backdrop-blur-sm
                 hover:bg-primary/15 transition-all group cursor-pointer">
                 <Sparkles className="h-4 w-4 text-primary animate-pulse" />
-                <span className="text-sm font-medium text-foreground">AI-Powered Workforce Management</span>
+                <span className="text-sm font-medium text-foreground">Smart workforce management</span>
                 <ArrowRight className="h-3 w-3 text-primary group-hover:translate-x-1 transition-transform" />
               </div>
               
@@ -193,19 +161,11 @@ const Index = () => {
               </div>
               
               <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-                <Button 
-                  size="lg" 
-                  onClick={() => navigate("/auth")} 
-                  className="text-lg px-8 py-6 bg-primary hover:bg-primary/90 shadow-2xl shadow-primary/20 hover:shadow-primary/30 transition-all hover:scale-105 group"
-                >
+                <Button size="lg" onClick={() => navigate("/auth")} className="text-lg px-8 py-6 bg-primary hover:bg-primary/90 shadow-2xl shadow-primary/20 hover:shadow-primary/30 transition-all hover:scale-105 group">
                   Start Free Trial
                   <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                 </Button>
-                <Button 
-                  size="lg" 
-                  variant="outline" 
-                  className="text-lg px-8 py-6 backdrop-blur-sm border-2 hover:bg-accent/50 hover:scale-105 transition-all group"
-                >
+                <Button size="lg" variant="outline" className="text-lg px-8 py-6 backdrop-blur-sm border-2 hover:bg-accent/50 hover:scale-105 transition-all group">
                   <MousePointer2 className="mr-2 h-5 w-5 group-hover:scale-110 transition-transform" />
                   Watch Demo
                 </Button>
@@ -216,10 +176,7 @@ const Index = () => {
                   <CheckCircle className="h-4 w-4 text-primary" />
                   <span>No credit card required</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-primary" />
-                  <span>14-day free trial</span>
-                </div>
+                
               </div>
             </div>
 
@@ -233,11 +190,7 @@ const Index = () => {
                   hover:border-primary/50 transition-all duration-500
                   hover:shadow-2xl hover:shadow-primary/10">
                   <div className="absolute inset-0 bg-gradient-to-br from-transparent via-primary/5 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                  <img 
-                    src={dashboardMockup} 
-                    alt="Dashboard"
-                    className="w-full h-full object-cover object-top opacity-90 group-hover:opacity-100 transition-all duration-500 group-hover:scale-105"
-                  />
+                  <img src={dashboardMockup} alt="Dashboard" className="w-full h-full object-cover object-top opacity-90 group-hover:opacity-100 transition-all duration-500 group-hover:scale-105" />
                   <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-background/90 via-background/50 to-transparent">
                     <h3 className="text-2xl font-bold mb-2">Real-Time Dashboard</h3>
                     <p className="text-muted-foreground">Complete visibility into team productivity</p>
@@ -252,11 +205,7 @@ const Index = () => {
                   border border-border/50 backdrop-blur-sm
                   hover:border-green-500/50 transition-all duration-500
                   hover:shadow-2xl hover:shadow-green-500/10">
-                  <img 
-                    src={timesheetMockup} 
-                    alt="Timesheet"
-                    className="w-full h-full object-cover object-top opacity-90 group-hover:opacity-100 transition-all duration-500 group-hover:scale-105"
-                  />
+                  <img src={timesheetMockup} alt="Timesheet" className="w-full h-full object-cover object-top opacity-90 group-hover:opacity-100 transition-all duration-500 group-hover:scale-105" />
                   <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-background/90 to-transparent">
                     <h3 className="text-lg font-bold">Smart Entry</h3>
                   </div>
@@ -269,11 +218,7 @@ const Index = () => {
                   border border-border/50 backdrop-blur-sm
                   hover:border-orange-500/50 transition-all duration-500
                   hover:shadow-2xl hover:shadow-orange-500/10">
-                  <img 
-                    src={approvalsMockup} 
-                    alt="Approvals"
-                    className="w-full h-full object-cover object-top opacity-90 group-hover:opacity-100 transition-all duration-500 group-hover:scale-105"
-                  />
+                  <img src={approvalsMockup} alt="Approvals" className="w-full h-full object-cover object-top opacity-90 group-hover:opacity-100 transition-all duration-500 group-hover:scale-105" />
                   <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-background/90 to-transparent">
                     <h3 className="text-lg font-bold">Quick Approvals</h3>
                   </div>
@@ -286,11 +231,7 @@ const Index = () => {
                   border border-border/50 backdrop-blur-sm
                   hover:border-blue-500/50 transition-all duration-500
                   hover:shadow-2xl hover:shadow-blue-500/10">
-                  <img 
-                    src={analyticsMockup} 
-                    alt="Analytics"
-                    className="w-full h-full object-cover object-top opacity-90 group-hover:opacity-100 transition-all duration-500 group-hover:scale-105"
-                  />
+                  <img src={analyticsMockup} alt="Analytics" className="w-full h-full object-cover object-top opacity-90 group-hover:opacity-100 transition-all duration-500 group-hover:scale-105" />
                   <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-background/90 to-transparent">
                     <h3 className="text-lg font-bold">Advanced Analytics</h3>
                   </div>
@@ -314,13 +255,10 @@ const Index = () => {
 
             <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 ${isFeaturesVisible ? 'animate-fade-in' : 'opacity-0'}`}>
               {features.map((feature, index) => {
-                const Icon = feature.icon;
-                return (
-                  <div
-                    key={index}
-                    className="group relative"
-                    style={{ animationDelay: `${index * 100}ms` }}
-                  >
+              const Icon = feature.icon;
+              return <div key={index} className="group relative" style={{
+                animationDelay: `${index * 100}ms`
+              }}>
                     <div className="relative p-8 rounded-2xl bg-card border border-border
                       hover:border-primary/50 transition-all duration-500
                       hover:shadow-2xl hover:shadow-primary/5 hover:-translate-y-2">
@@ -331,9 +269,8 @@ const Index = () => {
                       <h3 className="text-xl font-bold mb-3">{feature.title}</h3>
                       <p className="text-muted-foreground">{feature.description}</p>
                     </div>
-                  </div>
-                );
-              })}
+                  </div>;
+            })}
             </div>
           </div>
         </section>
@@ -346,8 +283,7 @@ const Index = () => {
               <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-purple-500/5" />
               <div className="relative p-12 sm:p-16">
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
-                  {stats.map((stat, index) => (
-                    <div key={index} className="text-center group">
+                  {stats.map((stat, index) => <div key={index} className="text-center group">
                       <div className="text-4xl sm:text-5xl lg:text-6xl font-black mb-2 
                         bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent
                         group-hover:scale-110 transition-transform duration-300">
@@ -356,8 +292,7 @@ const Index = () => {
                       <div className="text-sm sm:text-base text-muted-foreground font-medium">
                         {stat.label}
                       </div>
-                    </div>
-                  ))}
+                    </div>)}
                 </div>
               </div>
             </div>
@@ -384,13 +319,9 @@ const Index = () => {
                 </p>
                 
                 <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-4">
-                  <Button 
-                    size="lg" 
-                    onClick={() => navigate("/auth")} 
-                    className="text-lg px-10 py-7 bg-primary hover:bg-primary/90 
+                  <Button size="lg" onClick={() => navigate("/auth")} className="text-lg px-10 py-7 bg-primary hover:bg-primary/90 
                       shadow-2xl shadow-primary/30 hover:shadow-primary/40 
-                      transition-all hover:scale-105 group"
-                  >
+                      transition-all hover:scale-105 group">
                     Start Free Trial
                     <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                   </Button>
@@ -431,8 +362,6 @@ const Index = () => {
           </div>
         </footer>
       </div>
-    </div>
-  );
+    </div>;
 };
-
 export default Index;
