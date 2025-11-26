@@ -1,5 +1,18 @@
 import { useAuth } from "@/contexts/AuthContext";
-import { Clock, Users, FileText, Settings, Upload, LogOut } from "lucide-react";
+import { 
+  Clock, 
+  Users, 
+  FileText, 
+  Settings, 
+  Upload, 
+  LogOut,
+  Building2,
+  FolderKanban,
+  Layers,
+  BarChart3,
+  ClipboardCheck,
+  UsersRound
+} from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -56,18 +69,18 @@ export function AppSidebar() {
 
     if (role === "manager") {
       baseItems.push(
-        { to: "/approvals", icon: FileText, label: "Approvals" },
-        { to: "/team", icon: Users, label: "Team" }
+        { to: "/approvals", icon: ClipboardCheck, label: "Approvals" },
+        { to: "/team", icon: UsersRound, label: "Team" }
       );
     }
 
     if (role === "org_admin") {
       baseItems.push(
-        { to: "/organizations", icon: Users, label: "Organizations" },
-        { to: "/programs", icon: Users, label: "Programs" },
-        { to: "/departments", icon: Users, label: "Departments" },
+        { to: "/organizations", icon: Building2, label: "Organizations" },
+        { to: "/programs", icon: FolderKanban, label: "Programs" },
+        { to: "/departments", icon: Layers, label: "Departments" },
         { to: "/users", icon: Users, label: "Users" },
-        { to: "/reports", icon: FileText, label: "Reports" },
+        { to: "/reports", icon: BarChart3, label: "Reports" },
         { to: "/bulk-import", icon: Upload, label: "Bulk Import" },
         { to: "/settings", icon: Settings, label: "Settings" }
       );
@@ -75,9 +88,9 @@ export function AppSidebar() {
 
     if (role === "program_manager") {
       baseItems.push(
-        { to: "/programs", icon: Users, label: "Programs" },
-        { to: "/departments", icon: Users, label: "Departments" },
-        { to: "/reports", icon: FileText, label: "Reports" }
+        { to: "/programs", icon: FolderKanban, label: "Programs" },
+        { to: "/departments", icon: Layers, label: "Departments" },
+        { to: "/reports", icon: BarChart3, label: "Reports" }
       );
     }
 
@@ -88,34 +101,34 @@ export function AppSidebar() {
 
   return (
     <Sidebar 
-      variant="sidebar"
-      collapsible="icon"
-      className="border-r bg-sidebar"
+      variant="floating"
+      collapsible="offcanvas"
+      className="bg-white/[0.03] dark:bg-black/[0.1] backdrop-blur-[60px] border border-white/[0.08] dark:border-white/[0.05] rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
     >
-      <SidebarHeader className="border-b border-border p-4">
+      <SidebarHeader className="border-b border-white/[0.08] p-4">
         <NavLink to="/dashboard" className="flex items-center gap-2">
           <Clock className="h-6 w-6 text-primary" />
-          <span className="text-lg font-semibold text-foreground">
+          <span className="text-lg font-semibold italic text-foreground">
             ClockWise
           </span>
         </NavLink>
       </SidebarHeader>
 
-      <SidebarContent className="px-2 py-4">
+      <SidebarContent className="px-3 py-4">
         <SidebarGroup>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="gap-1">
               {items.map((item) => (
                 <SidebarMenuItem key={item.to}>
                   <SidebarMenuButton asChild>
                     <NavLink
                       to={item.to}
                       end
-                      className="flex items-center gap-3 px-3 py-2 rounded-md transition-colors
-                        hover:bg-accent hover:text-accent-foreground"
-                      activeClassName="bg-accent text-accent-foreground font-medium border-l-2 border-primary"
+                      className="flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-[15px]
+                        hover:bg-white/[0.05] dark:hover:bg-white/[0.02]"
+                      activeClassName="bg-white/[0.08] dark:bg-white/[0.05] text-foreground font-medium border-l-2 border-primary"
                     >
-                      <item.icon className="h-4 w-4 flex-shrink-0" />
+                      <item.icon className="h-5 w-5 flex-shrink-0" />
                       <span>{item.label}</span>
                     </NavLink>
                   </SidebarMenuButton>
@@ -126,7 +139,7 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-border p-4">
+      <SidebarFooter className="border-t border-white/[0.08] p-4">
         <div className="text-sm text-muted-foreground mb-2 px-2 py-1.5 truncate">
           {userWithRole?.profile?.full_name}
         </div>
@@ -134,9 +147,9 @@ export function AppSidebar() {
           variant="ghost"
           size="sm"
           onClick={handleSignOut}
-          className="w-full justify-start gap-2 hover:bg-destructive/10 hover:text-destructive"
+          className="w-full justify-start gap-2 hover:bg-destructive/10 hover:text-destructive rounded-lg"
         >
-          <LogOut className="h-4 w-4" />
+          <LogOut className="h-5 w-5" />
           <span>Sign Out</span>
         </Button>
       </SidebarFooter>
