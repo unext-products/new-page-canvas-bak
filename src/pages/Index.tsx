@@ -86,32 +86,53 @@ const Index = () => {
 
       {/* Content */}
       <div className="relative z-10">
-        {/* Navigation */}
-        <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border/40 backdrop-blur-xl bg-background/60">
-          <div className="container mx-auto px-4 sm:px-6 py-3 sm:py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 sm:p-2 rounded-xl bg-gradient-to-br from-primary to-purple-500">
-                  <Clock className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
-                </div>
-                <span className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-primary via-purple-500 to-pink-500 bg-clip-text text-transparent">
-                  ClockWise
-                </span>
-              </div>
-              <div className="flex items-center gap-2 sm:gap-3">
-                <Button variant="ghost" size="sm" onClick={() => navigate("/pricing")} className="hover:scale-105 transition-transform hidden sm:inline-flex">
-                  Pricing
-                </Button>
-                <ThemeToggle />
-                <Button variant="ghost" size="sm" onClick={() => navigate("/auth")} className="hover:scale-105 transition-transform hidden sm:inline-flex">
-                  Login
-                </Button>
-                <Button size="sm" onClick={() => navigate("/auth")} className="bg-gradient-to-r from-primary to-purple-500 hover:opacity-90 transition-opacity">
-                  <span className="hidden sm:inline">Get Started</span>
-                  <span className="sm:hidden">Start</span>
-                  <ArrowRight className="ml-1 sm:ml-2 h-3 w-3 sm:h-4 sm:w-4" />
-                </Button>
-              </div>
+        {/* Navigation - Floating Glass Pill */}
+        <nav className="fixed top-4 left-4 right-4 z-50 flex justify-center">
+          <div className="glass-navbar flex items-center justify-between gap-6 px-6 py-3 
+            bg-white/[0.08] dark:bg-black/[0.15]
+            backdrop-blur-[60px] backdrop-saturate-[180%]
+            border border-white/[0.1] dark:border-white/[0.05]
+            shadow-[0_8px_32px_rgba(0,0,0,0.12)]
+            rounded-full max-w-4xl w-full">
+            
+            {/* Logo */}
+            <div className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-primary" />
+              <span className="font-semibold italic text-foreground">ClockWise</span>
+            </div>
+            
+            {/* Nav Links - centered */}
+            <div className="hidden sm:flex items-center gap-6">
+              <button 
+                onClick={() => navigate("/pricing")}
+                className="text-[15px] text-foreground/80 hover:text-foreground transition-colors"
+              >
+                Pricing
+              </button>
+              <button 
+                onClick={() => navigate("/auth")}
+                className="text-[15px] text-foreground/80 hover:text-foreground transition-colors"
+              >
+                Features
+              </button>
+              <button 
+                onClick={() => navigate("/auth")}
+                className="text-[15px] text-foreground/80 hover:text-foreground transition-colors"
+              >
+                Login
+              </button>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <ThemeToggle />
+              
+              {/* CTA Button - dark pill */}
+              <Button 
+                onClick={() => navigate("/auth")}
+                className="rounded-full bg-foreground text-background hover:bg-foreground/90 px-5"
+              >
+                Get started
+              </Button>
             </div>
           </div>
         </nav>
