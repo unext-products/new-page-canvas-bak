@@ -75,7 +75,7 @@ export function HeroSection() {
               
               {/* Screenshot */}
               <img 
-                src={dashboardMockup} 
+                src=https://storage.googleapis.com/gpt-engineer-file-uploads/P7Icg7a2xlZetEzwmhR3LcgfStn1/88ea943b-e43f-49e3-8ed3-34b4dd715cb4?Expires=1764220271&GoogleAccessId=go-api-on-aws%40gpt-engineer-390607.iam.gserviceaccount.com&Signature=oinHHd6DADLX8yBHKoS%2BFT3mG4ObJIWVROpA%2FXxsyYDqds7boCGAlZ7X4tsonrXJqxDi%2Fq2JAp%2FOKhaoDwxQdLeVtKvXR4w4VaSh4rWyvDRHMegmvAZKV1iF0NKZsDhvUY6khAeg%2FH3oob1RwXMR8ojgZ0%2F3qL%2B1EZorBvmAtxvjBRZPf4aVg8HSlGK1HbO9R%2F9NV5rFMlUWI6Vo1wh5wMM5Iaru8kCP%2B1SYK3Xf%2F4Y0mV%2Bb67PckIKqUPpG%2FwBG0Bbe%2BoTUWokuEm4CXNuEepyFSySOoyj9fwDs2o15tr5lH8MWE6xORh73kkffFDw%2BkF585IhIevqjV0sc7pXwWw%3D%3D
                 alt="ClockWise Dashboard - Time tracking interface showing today's logged hours and team completion rates"
                 className="w-full h-auto"
               />
