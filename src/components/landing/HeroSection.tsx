@@ -16,23 +16,20 @@ export function HeroSection() {
               <br />
               finally organized.
             </h1>
-            
+
             <p className="text-lg text-muted-foreground leading-relaxed max-w-md">
-              Replace spreadsheets, emails, and guesswork with one simple system for logging hours, getting approvals, and understanding where time goes.
+              Replace spreadsheets, emails, and guesswork with one simple system for logging hours, getting approvals,
+              and understanding where time goes.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4">
-              <Button 
-                size="lg" 
-                onClick={() => navigate("/auth")}
-                className="text-base px-8"
-              >
+              <Button size="lg" onClick={() => navigate("/auth")} className="text-base px-8">
                 Start Free Trial →
               </Button>
-              <Button 
-                size="lg" 
+              <Button
+                size="lg"
                 variant="outline"
-                onClick={() => document.getElementById('showcase')?.scrollIntoView({ behavior: 'smooth' })}
+                onClick={() => document.getElementById("showcase")?.scrollIntoView({ behavior: "smooth" })}
                 className="text-base"
               >
                 See it in action ↓
@@ -42,13 +39,21 @@ export function HeroSection() {
             <div className="flex flex-wrap gap-6 text-sm text-muted-foreground">
               <span className="flex items-center gap-2">
                 <svg className="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                    clipRule="evenodd"
+                  />
                 </svg>
                 Setup in 5 minutes
               </span>
               <span className="flex items-center gap-2">
                 <svg className="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                    clipRule="evenodd"
+                  />
                 </svg>
                 No credit card
               </span>
@@ -72,10 +77,10 @@ export function HeroSection() {
                   </div>
                 </div>
               </div>
-              
+
               {/* Screenshot */}
-              <img 
-                src=https://storage.googleapis.com/gpt-engineer-file-uploads/P7Icg7a2xlZetEzwmhR3LcgfStn1/88ea943b-e43f-49e3-8ed3-34b4dd715cb4?Expires=1764220271&GoogleAccessId=go-api-on-aws%40gpt-engineer-390607.iam.gserviceaccount.com&Signature=oinHHd6DADLX8yBHKoS%2BFT3mG4ObJIWVROpA%2FXxsyYDqds7boCGAlZ7X4tsonrXJqxDi%2Fq2JAp%2FOKhaoDwxQdLeVtKvXR4w4VaSh4rWyvDRHMegmvAZKV1iF0NKZsDhvUY6khAeg%2FH3oob1RwXMR8ojgZ0%2F3qL%2B1EZorBvmAtxvjBRZPf4aVg8HSlGK1HbO9R%2F9NV5rFMlUWI6Vo1wh5wMM5Iaru8kCP%2B1SYK3Xf%2F4Y0mV%2Bb67PckIKqUPpG%2FwBG0Bbe%2BoTUWokuEm4CXNuEepyFSySOoyj9fwDs2o15tr5lH8MWE6xORh73kkffFDw%2BkF585IhIevqjV0sc7pXwWw%3D%3D
+              <img
+                src={dashboardMockup}
                 alt="ClockWise Dashboard - Time tracking interface showing today's logged hours and team completion rates"
                 className="w-full h-auto"
               />
