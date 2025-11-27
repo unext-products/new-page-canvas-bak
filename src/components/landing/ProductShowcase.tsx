@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import dashboardMockup from "@/assets/dashboard-mockup.jpg";
-import timesheetMockup from "@/assets/timesheet-entry-mockup.jpg";
-import approvalsMockup from "@/assets/approvals-mockup.jpg";
-import analyticsMockup from "@/assets/analytics-mockup.jpg";
+import timesheetMockup from "@/assets/timesheet-entry-mockup.png";
+import approvalsMockup from "@/assets/approvals-mockup.png";
+import analyticsMockup from "@/assets/analytics-mockup.png";
 
 export function ProductShowcase() {
   const [activeTab, setActiveTab] = useState("dashboard");
