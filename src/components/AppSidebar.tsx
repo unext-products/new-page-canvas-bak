@@ -15,11 +15,12 @@ import {
   User
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { signOut } from "@/lib/supabase";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { useEffect } from "react";
 
 import {
   Sidebar,
@@ -33,6 +34,7 @@ import {
   SidebarFooter,
   SidebarHeader,
   SidebarSeparator,
+  useSidebar,
 } from "@/components/ui/sidebar";
 
 const roleLabels: Record<string, string> = {
@@ -52,7 +54,16 @@ const roleColors: Record<string, string> = {
 export function AppSidebar() {
   const { userWithRole } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
+  const { isMobile, setOpenMobile } = useSidebar();
+
+  // Close mobile sidebar on route change
+  useEffect(() => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  }, [location.pathname, isMobile, setOpenMobile]);
 
   const handleSignOut = async () => {
     const { error } = await signOut();
