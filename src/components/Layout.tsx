@@ -14,13 +14,17 @@ export function Layout({ children }: LayoutProps) {
         <AppSidebar />
         
         <div className="flex-1 flex flex-col w-full">
-          <header className="sticky top-0 z-50 h-12 border-b border-border/30 bg-background/80 backdrop-blur-md flex items-center px-4 gap-4">
-            <SidebarTrigger />
+          <header className="sticky top-0 z-50 h-14 border-b border-border/30 bg-background/80 backdrop-blur-md flex items-center px-4 gap-4">
+            <SidebarTrigger className="h-9 w-9" />
             <div className="flex-1" />
             <ThemeToggle />
           </header>
           
-          <main className="flex-1 p-6">{children}</main>
+          <main className="flex-1 p-6">
+            <div className="max-w-7xl mx-auto">
+              {children}
+            </div>
+          </main>
         </div>
       </div>
     </SidebarProvider>

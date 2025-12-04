@@ -10,13 +10,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-import { CheckCircle, XCircle, Clock, Calendar, User, Filter, X } from "lucide-react";
+import { CheckCircle, XCircle, Clock, Calendar, User, Filter, X, ClipboardCheck } from "lucide-react";
 import { format } from "date-fns";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { approvalNotesSchema } from "@/lib/validation";
 import { getUserErrorMessage } from "@/lib/errorHandler";
+import { PageHeader } from "@/components/PageHeader";
+import { EmptyState } from "@/components/EmptyState";
+import { PageSkeleton } from "@/components/PageSkeleton";
 
 interface TimesheetEntry {
   id: string;
@@ -345,9 +348,7 @@ export default function Approvals() {
   if (authLoading || loading) {
     return (
       <Layout>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-muted-foreground">Loading...</div>
-        </div>
+        <PageSkeleton type="table" />
       </Layout>
     );
   }
@@ -355,28 +356,27 @@ export default function Approvals() {
   return (
     <Layout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Pending Approvals</h1>
-            <p className="text-muted-foreground mt-1">
-              Review and approve timesheet entries from your team
-            </p>
-          </div>
-          {entries.length > 0 && (
-            <Badge variant="secondary" className="text-lg px-4 py-2">
-              {entries.length} pending
-            </Badge>
-          )}
-        </div>
+        <PageHeader
+          title="Pending Approvals"
+          description="Review and approve timesheet entries from your team"
+          icon={ClipboardCheck}
+          actions={
+            entries.length > 0 && (
+              <Badge variant="secondary" className="text-base px-4 py-1.5">
+                {entries.length} pending
+              </Badge>
+            )
+          }
+        />
 
         {entries.length === 0 ? (
           <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <CheckCircle className="h-12 w-12 text-success mb-4" />
-              <h3 className="text-lg font-semibold mb-2">All caught up!</h3>
-              <p className="text-muted-foreground text-center">
-                No pending approvals at the moment. All timesheets have been reviewed.
-              </p>
+            <CardContent className="py-0">
+              <EmptyState
+                icon={CheckCircle}
+                title="All caught up!"
+                description="No pending approvals at the moment. All timesheets have been reviewed."
+              />
             </CardContent>
           </Card>
         ) : (
