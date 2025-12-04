@@ -275,19 +275,31 @@ export default function Dashboard() {
     );
   }
 
+  const getRoleDescription = () => {
+    switch (userWithRole.role) {
+      case "member": return "Track your working hours and submit timesheets";
+      case "manager": return "Review and approve team timesheets";
+      case "org_admin": return "Manage users, departments, and reports";
+      case "program_manager": return "Manage programs and departments";
+      default: return "";
+    }
+  };
+
   return (
     <Layout>
-      <div className="max-w-7xl space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            {getWelcomeMessage()}
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            {userWithRole.role === "member" && "Track your working hours and submit timesheets"}
-            {userWithRole.role === "manager" && "Review and approve team timesheets"}
-            {userWithRole.role === "org_admin" && "Manage users, departments, and reports"}
-            {userWithRole.role === "program_manager" && "Manage programs and departments"}
-          </p>
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+            <Clock className="h-6 w-6 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              {getWelcomeMessage()}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {getRoleDescription()}
+            </p>
+          </div>
         </div>
 
         {userWithRole.role === "member" && (

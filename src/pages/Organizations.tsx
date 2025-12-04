@@ -10,8 +10,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Loader2, Building2, Plus, Pencil, Trash2 } from "lucide-react";
+import { Building2, Pencil } from "lucide-react";
 import { z } from "zod";
+import { PageHeader } from "@/components/PageHeader";
+import { PageSkeleton } from "@/components/PageSkeleton";
 
 const organizationSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -160,9 +162,7 @@ export default function Organizations() {
   if (!userWithRole || loading) {
     return (
       <Layout>
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin" />
-        </div>
+        <PageSkeleton type="form" />
       </Layout>
     );
   }
@@ -170,24 +170,21 @@ export default function Organizations() {
   return (
     <Layout>
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold">Your Organization</h1>
-          <Button onClick={openEditDialog}>
-            <Pencil className="mr-2 h-4 w-4" />
-            Edit Details
-          </Button>
-        </div>
+        <PageHeader
+          title={organization?.name || "Your Organization"}
+          description={`Code: ${organization?.code}`}
+          icon={Building2}
+          actions={
+            <Button onClick={openEditDialog}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Edit Details
+            </Button>
+          }
+        />
 
         <Card>
-          <CardHeader>
-            <div className="flex items-start justify-between">
-              <Building2 className="h-8 w-8 text-primary" />
-            </div>
-            <CardTitle className="text-2xl">{organization.name}</CardTitle>
-            <CardDescription>Code: {organization.code}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-3 gap-4">
+          <CardContent className="pt-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="text-center p-4 bg-muted rounded-lg">
                 <p className="text-2xl font-bold">{departmentCount}</p>
                 <p className="text-sm text-muted-foreground">Departments</p>
@@ -208,12 +205,10 @@ export default function Organizations() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Edit Organization</DialogTitle>
-              <DialogDescription>
-                Update your organization details
-              </DialogDescription>
+              <DialogDescription>Update your organization details</DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
+            <div className="space-y-4">
+              <div className="space-y-2">
                 <Label htmlFor="name">Name</Label>
                 <Input
                   id="name"
@@ -221,7 +216,7 @@ export default function Organizations() {
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 />
               </div>
-              <div className="grid gap-2">
+              <div className="space-y-2">
                 <Label htmlFor="code">Code</Label>
                 <Input
                   id="code"
@@ -231,9 +226,7 @@ export default function Organizations() {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
-                Cancel
-              </Button>
+              <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancel</Button>
               <Button onClick={handleEdit}>Save Changes</Button>
             </DialogFooter>
           </DialogContent>

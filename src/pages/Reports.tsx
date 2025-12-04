@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Download, Filter, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { Download, Filter, ChevronDown, ChevronLeft, ChevronRight, BarChart3 } from "lucide-react";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { DepartmentSelect } from "@/components/DepartmentSelect";
 import { MemberSelect } from "@/components/MemberSelect";
@@ -21,6 +21,8 @@ import { CompletionMetricsCard } from "@/components/reports/CompletionMetricsCar
 import { ReportSummaryCards } from "@/components/reports/ReportSummaryCards";
 import { MemberCalendar } from "@/components/reports/MemberCalendar";
 import { DepartmentCalendar } from "@/components/reports/DepartmentCalendar";
+import { PageHeader } from "@/components/PageHeader";
+import { PageSkeleton } from "@/components/PageSkeleton";
 import { 
   fetchFacultyReport, 
   fetchDepartmentReport, 
@@ -159,40 +161,34 @@ export default function Reports() {
   if (loading) {
     return (
       <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-        </div>
+        <PageSkeleton type="dashboard" />
       </Layout>
     );
   }
 
   return (
     <Layout>
-      <div className="container mx-auto py-8 px-4 space-y-6">
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold">Reports & Analytics</h1>
-            <p className="text-muted-foreground">Comprehensive faculty and department reporting</p>
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button disabled={!hasData}>
-                <Download className="mr-2 h-4 w-4" />
-                Export
-                <ChevronDown className="ml-2 h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={handleExportCSV}>
-                Export to CSV
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleExportPDF}>
-                Export to PDF
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+      <div className="space-y-6">
+        <PageHeader
+          title="Reports & Analytics"
+          description="Comprehensive faculty and department reporting"
+          icon={BarChart3}
+          actions={
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button disabled={!hasData}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Export
+                  <ChevronDown className="ml-2 h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={handleExportCSV}>Export to CSV</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportPDF}>Export to PDF</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          }
+        />
 
         {/* Report Type Toggle */}
         <Card>
