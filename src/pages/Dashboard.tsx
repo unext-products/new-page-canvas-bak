@@ -4,13 +4,14 @@ import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Plus, Clock, CheckCircle, XCircle, AlertCircle, Users, Building2, TrendingUp, Activity } from "lucide-react";
+import { Plus, Clock, CheckCircle, XCircle, AlertCircle, Users, Building2, TrendingUp, Activity, CalendarDays, UserCheck, Target } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ActivityBreakdownChart } from "@/components/reports/ActivityBreakdownChart";
 import { CompletionMetricsCard } from "@/components/reports/CompletionMetricsCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export default function Dashboard() {
   const { userWithRole } = useAuth();
@@ -37,6 +38,18 @@ export default function Dashboard() {
     strugglingDepartments: [] as any[],
     activityBreakdown: [] as any[],
     recentActivity: [] as any[],
+  });
+  const [hodStats, setHodStats] = useState({
+    teamMembers: 0,
+    pendingApprovals: 0,
+    weeklyHours: 0,
+    expectedWeeklyHours: 0,
+    completionRate: 0,
+    activityBreakdown: [] as any[],
+    teamPerformance: [] as any[],
+    recentActivity: [] as any[],
+    todayLeaves: [] as any[],
+    todayWorking: 0,
   });
   const [loading, setLoading] = useState(true);
 
@@ -124,18 +137,160 @@ export default function Dashboard() {
       setRecentEntries(recent || []);
     }
 
-    // Load pending approvals for Manager
+    // Load HOD/Manager dashboard data
     if (userWithRole.role === "manager" && userWithRole.departmentId) {
-      const { data: pending } = await supabase
-        .from("timesheet_entries")
-        .select("*")
-        .eq("department_id", userWithRole.departmentId)
-        .eq("status", "submitted");
-
-      setStats((prev) => ({ ...prev, pending: pending?.length || 0 }));
+      await loadHodDashboardData(userWithRole.departmentId);
+      setLoading(false);
+      return;
     }
     
     setLoading(false);
+  };
+
+  const loadHodDashboardData = async (departmentId: string) => {
+    const today = new Date().toISOString().split("T")[0];
+    const startOfWeek = new Date();
+    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay() + 1); // Monday
+    const weekStart = startOfWeek.toISOString().split("T")[0];
+    
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(endOfWeek.getDate() + 6);
+    const weekEnd = endOfWeek.toISOString().split("T")[0];
+
+    // Fetch team members in department
+    const { data: teamRoles } = await supabase
+      .from("user_roles")
+      .select("user_id")
+      .eq("department_id", departmentId)
+      .eq("role", "faculty");
+
+    const teamUserIds = teamRoles?.map(r => r.user_id) || [];
+
+    // Fetch team profiles
+    const { data: teamProfiles } = await supabase
+      .from("profiles")
+      .select("id, full_name, is_active")
+      .in("id", teamUserIds.length > 0 ? teamUserIds : ["no-id"]);
+
+    // Fetch pending approvals
+    const { data: pendingEntries } = await supabase
+      .from("timesheet_entries")
+      .select("*")
+      .eq("department_id", departmentId)
+      .eq("status", "submitted");
+
+    // Fetch this week's entries
+    const { data: weekEntries } = await supabase
+      .from("timesheet_entries")
+      .select("*, profiles(full_name)")
+      .eq("department_id", departmentId)
+      .gte("entry_date", weekStart)
+      .lte("entry_date", weekEnd);
+
+    // Fetch today's leaves
+    const { data: todayLeavesRaw } = await supabase
+      .from("leave_days")
+      .select("*")
+      .eq("department_id", departmentId)
+      .eq("leave_date", today);
+
+    // Get profiles for leave users
+    const leaveUserIds = todayLeavesRaw?.map(l => l.user_id) || [];
+    const { data: leaveProfiles } = await supabase
+      .from("profiles")
+      .select("id, full_name")
+      .in("id", leaveUserIds.length > 0 ? leaveUserIds : ["no-id"]);
+    
+    const leaveProfileMap = new Map(leaveProfiles?.map(p => [p.id, p.full_name]) || []);
+
+    // Calculate weekly hours
+    const totalWeeklyMinutes = weekEntries?.reduce((sum, e) => sum + e.duration_minutes, 0) || 0;
+    const teamCount = teamUserIds.length;
+    const expectedMinutes = teamCount * 5 * 480; // 5 days * 8 hours per team member
+    const completionRate = expectedMinutes > 0 ? (totalWeeklyMinutes / expectedMinutes) * 100 : 0;
+
+    // Activity breakdown
+    const activityMap = new Map();
+    weekEntries?.forEach(entry => {
+      const type = entry.activity_type;
+      if (!type) return;
+      if (!activityMap.has(type)) {
+        activityMap.set(type, { minutes: 0, count: 0 });
+      }
+      const current = activityMap.get(type);
+      activityMap.set(type, {
+        minutes: current.minutes + entry.duration_minutes,
+        count: current.count + 1,
+      });
+    });
+
+    const activityBreakdown = Array.from(activityMap.entries()).map(([type, data]) => ({
+      activityType: type,
+      hours: data.minutes / 60,
+      percentage: totalWeeklyMinutes > 0 ? (data.minutes / totalWeeklyMinutes) * 100 : 0,
+      count: data.count,
+    }));
+
+    // Team performance - per member stats
+    const memberStatsMap = new Map();
+    teamProfiles?.forEach(profile => {
+      memberStatsMap.set(profile.id, {
+        id: profile.id,
+        name: profile.full_name,
+        isActive: profile.is_active,
+        minutes: 0,
+        entryCount: 0,
+      });
+    });
+
+    weekEntries?.forEach(entry => {
+      const userId = entry.user_id;
+      if (memberStatsMap.has(userId)) {
+        const current = memberStatsMap.get(userId);
+        memberStatsMap.set(userId, {
+          ...current,
+          minutes: current.minutes + entry.duration_minutes,
+          entryCount: current.entryCount + 1,
+        });
+      }
+    });
+
+    const teamPerformance = Array.from(memberStatsMap.values())
+      .map(member => ({
+        ...member,
+        hours: member.minutes / 60,
+        expectedHours: 40, // 5 days * 8 hours
+        completionRate: (member.minutes / 2400) * 100, // 40 hours = 2400 minutes
+      }))
+      .sort((a, b) => b.completionRate - a.completionRate);
+
+    // Recent activity (last 10 entries from team)
+    const { data: recentActivity } = await supabase
+      .from("timesheet_entries")
+      .select("*, profiles(full_name)")
+      .eq("department_id", departmentId)
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    // Calculate today working (team members not on leave)
+    const onLeaveIds = new Set(todayLeavesRaw?.map(l => l.user_id) || []);
+    const todayWorking = teamCount - onLeaveIds.size;
+
+    setHodStats({
+      teamMembers: teamCount,
+      pendingApprovals: pendingEntries?.length || 0,
+      weeklyHours: totalWeeklyMinutes / 60,
+      expectedWeeklyHours: expectedMinutes / 60,
+      completionRate: Math.round(completionRate),
+      activityBreakdown,
+      teamPerformance,
+      recentActivity: recentActivity || [],
+      todayLeaves: todayLeavesRaw?.map(l => ({
+        ...l,
+        userName: leaveProfileMap.get(l.user_id) || "Unknown",
+      })) || [],
+      todayWorking,
+    });
   };
 
   const loadAdminDashboardData = async () => {
@@ -411,19 +566,282 @@ export default function Dashboard() {
         )}
 
         {userWithRole.role === "manager" && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Pending Approvals</CardTitle>
-              <CardDescription>
-                You have {stats.pending} timesheet{stats.pending !== 1 ? "s" : ""} waiting for review
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button onClick={() => navigate("/approvals")}>
-                View Approvals
-              </Button>
-            </CardContent>
-          </Card>
+          <>
+            {loading ? (
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+                {[1, 2, 3, 4].map((i) => (
+                  <Card key={i}>
+                    <CardHeader className="pb-2">
+                      <Skeleton className="h-4 w-24" />
+                    </CardHeader>
+                    <CardContent>
+                      <Skeleton className="h-8 w-20" />
+                      <Skeleton className="h-3 w-32 mt-2" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <>
+                {/* Key Metrics Cards */}
+                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">Team Members</CardTitle>
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{hodStats.teamMembers}</div>
+                      <p className="text-xs text-muted-foreground mt-1">In your department</p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">Pending Approvals</CardTitle>
+                      <AlertCircle className={`h-4 w-4 ${hodStats.pendingApprovals > 0 ? 'text-warning' : 'text-muted-foreground'}`} />
+                    </CardHeader>
+                    <CardContent>
+                      <div className={`text-2xl font-bold ${hodStats.pendingApprovals > 0 ? 'text-warning' : ''}`}>
+                        {hodStats.pendingApprovals}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">Awaiting your review</p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">Weekly Hours</CardTitle>
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-success">
+                        {Math.round(hodStats.weeklyHours)}h
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        / {Math.round(hodStats.expectedWeeklyHours)}h expected
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">Today's Status</CardTitle>
+                      <UserCheck className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{hodStats.todayWorking}</div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Working • {hodStats.todayLeaves.length} on leave
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Department Health Card */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Target className="h-5 w-5" />
+                      Department Performance
+                    </CardTitle>
+                    <CardDescription>Weekly completion overview</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Completion Rate</p>
+                        <p className={`text-4xl font-bold ${hodStats.completionRate >= 90 ? 'text-success' : hodStats.completionRate >= 70 ? 'text-warning' : 'text-destructive'}`}>
+                          {hodStats.completionRate}%
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-muted-foreground">Status</p>
+                        <p className="text-lg font-semibold">
+                          {hodStats.completionRate >= 90 ? '✓ On Track' : hodStats.completionRate >= 70 ? '⚠ Good' : '⚠ Needs Attention'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>Actual: {Math.round(hodStats.weeklyHours)}h</span>
+                        <span>Expected: {Math.round(hodStats.expectedWeeklyHours)}h</span>
+                      </div>
+                      <Progress value={hodStats.completionRate} className="h-2" />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  {/* Team Performance Table */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Users className="h-5 w-5" />
+                        Team Performance
+                      </CardTitle>
+                      <CardDescription>Weekly hours by team member</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {hodStats.teamPerformance.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">No team members found.</p>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Name</TableHead>
+                                <TableHead className="text-right">Hours</TableHead>
+                                <TableHead className="text-right">Progress</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {hodStats.teamPerformance.slice(0, 5).map((member) => (
+                                <TableRow key={member.id}>
+                                  <TableCell className="font-medium">
+                                    <div className="flex items-center gap-2">
+                                      {member.completionRate >= 90 && (
+                                        <span className="text-xs bg-success/10 text-success px-1.5 py-0.5 rounded">★</span>
+                                      )}
+                                      {member.name}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {member.hours.toFixed(1)}h
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <div className="flex items-center justify-end gap-2">
+                                      <Progress 
+                                        value={Math.min(member.completionRate, 100)} 
+                                        className="h-2 w-16"
+                                      />
+                                      <span className={`text-xs font-medium ${member.completionRate >= 90 ? 'text-success' : member.completionRate >= 70 ? 'text-warning' : 'text-muted-foreground'}`}>
+                                        {Math.round(member.completionRate)}%
+                                      </span>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Activity Breakdown */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Activity Distribution</CardTitle>
+                      <CardDescription>This week's activity breakdown</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {hodStats.activityBreakdown.length > 0 ? (
+                        <ActivityBreakdownChart data={hodStats.activityBreakdown} />
+                      ) : (
+                        <p className="text-sm text-muted-foreground">No activity data available yet.</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Today's Leave & Recent Activity */}
+                <div className="grid gap-4 md:grid-cols-2">
+                  {/* Today's Leave */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <CalendarDays className="h-5 w-5" />
+                        Today's Attendance
+                      </CardTitle>
+                      <CardDescription>Team availability for today</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {hodStats.todayLeaves.length === 0 ? (
+                        <div className="text-center py-4">
+                          <CheckCircle className="h-8 w-8 text-success mx-auto mb-2" />
+                          <p className="text-sm text-muted-foreground">All team members available today!</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {hodStats.todayLeaves.map((leave: any) => (
+                            <div key={leave.id} className="flex items-center justify-between py-2 border-b last:border-0">
+                              <div>
+                                <p className="font-medium text-sm">{leave.userName}</p>
+                                <p className="text-xs text-muted-foreground capitalize">
+                                  {leave.leave_type.replace("_", " ")}
+                                </p>
+                              </div>
+                              <span className="text-xs bg-warning/10 text-warning px-2 py-1 rounded">On Leave</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Recent Activity */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Activity className="h-5 w-5" />
+                        Recent Submissions
+                      </CardTitle>
+                      <CardDescription>Latest entries from your team</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {hodStats.recentActivity.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">No recent activity.</p>
+                      ) : (
+                        <div className="space-y-3">
+                          {hodStats.recentActivity.slice(0, 5).map((entry: any) => (
+                            <div key={entry.id} className="flex items-center justify-between py-2 border-b last:border-0">
+                              <div className="flex-1">
+                                <p className="font-medium text-sm">{entry.profiles?.full_name || "Unknown"}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {entry.activity_type} • {formatMinutes(entry.duration_minutes)}
+                                </p>
+                              </div>
+                              <div className="flex flex-col items-end gap-1">
+                                <StatusBadge status={entry.status} />
+                                <p className="text-xs text-muted-foreground">
+                                  {new Date(entry.entry_date).toLocaleDateString()}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Quick Actions */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Quick Actions</CardTitle>
+                    <CardDescription>Manage your department</CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex flex-wrap gap-2">
+                    {hodStats.pendingApprovals > 0 && (
+                      <Button onClick={() => navigate("/approvals")}>
+                        <AlertCircle className="mr-2 h-4 w-4" />
+                        Review Approvals ({hodStats.pendingApprovals})
+                      </Button>
+                    )}
+                    <Button variant={hodStats.pendingApprovals > 0 ? "outline" : "default"} onClick={() => navigate("/reports")}>
+                      <TrendingUp className="mr-2 h-4 w-4" />
+                      View Reports
+                    </Button>
+                    <Button variant="outline" onClick={() => navigate("/timesheet")}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      My Timesheet
+                    </Button>
+                  </CardContent>
+                </Card>
+              </>
+            )}
+          </>
         )}
 
         {userWithRole.role === "org_admin" && (
