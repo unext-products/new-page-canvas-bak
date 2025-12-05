@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, Users, Layers } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, Layers, FolderKanban } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { departmentSchema } from "@/lib/validation";
 import { getUserErrorMessage } from "@/lib/errorHandler";
@@ -18,6 +18,13 @@ import { PageHeader } from "@/components/PageHeader";
 import { PageSkeleton } from "@/components/PageSkeleton";
 import { EmptyState } from "@/components/EmptyState";
 
+interface ProgramWithUsers {
+  id: string;
+  name: string;
+  code: string;
+  userCount: number;
+}
+
 interface Department {
   id: string;
   name: string;
@@ -25,6 +32,8 @@ interface Department {
   organization_id: string;
   created_at: string;
   userCount?: number;
+  programCount?: number;
+  programs?: ProgramWithUsers[];
 }
 
 export default function Departments() {
@@ -76,6 +85,8 @@ export default function Departments() {
   const fetchDepartments = async () => {
     try {
       setIsLoading(true);
+      
+      // Fetch departments
       const { data: deptData, error: deptError } = await supabase
         .from("departments")
         .select("*")
@@ -83,23 +94,55 @@ export default function Departments() {
 
       if (deptError) throw deptError;
 
-      // Fetch user counts for each department
-      const { data: userCounts, error: countError } = await supabase
+      // Fetch programs
+      const { data: programsData, error: programsError } = await supabase
+        .from("programs")
+        .select("id, name, code, department_id");
+
+      if (programsError) throw programsError;
+
+      // Fetch user roles to count users per department and per program
+      const { data: userRoles, error: rolesError } = await supabase
         .from("user_roles")
-        .select("department_id");
+        .select("department_id, program_id");
 
-      if (countError) throw countError;
+      if (rolesError) throw rolesError;
 
-      const countMap = userCounts?.reduce((acc, ur) => {
+      // Count users per department
+      const deptUserCounts = userRoles?.reduce((acc, ur) => {
         if (ur.department_id) {
           acc[ur.department_id] = (acc[ur.department_id] || 0) + 1;
         }
         return acc;
       }, {} as Record<string, number>);
 
+      // Count users per program
+      const programUserCounts = userRoles?.reduce((acc, ur) => {
+        if (ur.program_id) {
+          acc[ur.program_id] = (acc[ur.program_id] || 0) + 1;
+        }
+        return acc;
+      }, {} as Record<string, number>);
+
+      // Group programs by department with user counts
+      const programsByDept = programsData?.reduce((acc, prog) => {
+        if (prog.department_id) {
+          if (!acc[prog.department_id]) acc[prog.department_id] = [];
+          acc[prog.department_id].push({
+            id: prog.id,
+            name: prog.name,
+            code: prog.code,
+            userCount: programUserCounts?.[prog.id] || 0
+          });
+        }
+        return acc;
+      }, {} as Record<string, ProgramWithUsers[]>);
+
       const departmentsWithCounts = deptData?.map(dept => ({
         ...dept,
-        userCount: countMap?.[dept.id] || 0,
+        userCount: deptUserCounts?.[dept.id] || 0,
+        programCount: programsByDept?.[dept.id]?.length || 0,
+        programs: programsByDept?.[dept.id] || [],
       })) || [];
 
       setDepartments(departmentsWithCounts);
@@ -307,9 +350,31 @@ export default function Departments() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Users className="h-4 w-4" />
-                    <span>{dept.userCount} {dept.userCount === 1 ? 'user' : 'users'}</span>
+                  <div className="space-y-3">
+                    {/* Department users count */}
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Users className="h-4 w-4" />
+                      <span>{dept.userCount} {dept.userCount === 1 ? 'user' : 'users'}</span>
+                    </div>
+                    
+                    {/* Programs count */}
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <FolderKanban className="h-4 w-4" />
+                      <span>{dept.programCount} {dept.programCount === 1 ? 'program' : 'programs'}</span>
+                    </div>
+                    
+                    {/* Programs breakdown */}
+                    {dept.programs && dept.programs.length > 0 && (
+                      <div className="pt-3 border-t border-border/50 space-y-2">
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Programs</p>
+                        {dept.programs.map(prog => (
+                          <div key={prog.id} className="flex justify-between items-center text-sm pl-2">
+                            <span className="text-foreground/80">{prog.name}</span>
+                            <span className="text-muted-foreground text-xs">{prog.userCount} {prog.userCount === 1 ? 'user' : 'users'}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -396,9 +461,14 @@ export default function Departments() {
               <AlertDialogTitle>Are you sure?</AlertDialogTitle>
               <AlertDialogDescription>
                 This will permanently delete the department "{selectedDepartment?.name}".
-                {selectedDepartment && selectedDepartment.userCount > 0 && (
+                {selectedDepartment && (selectedDepartment.userCount || 0) > 0 && (
                   <span className="block mt-2 text-destructive font-semibold">
                     Warning: This department has {selectedDepartment.userCount} user(s) assigned to it.
+                  </span>
+                )}
+                {selectedDepartment && (selectedDepartment.programCount || 0) > 0 && (
+                  <span className="block mt-1 text-destructive font-semibold">
+                    Warning: This department has {selectedDepartment.programCount} program(s).
                   </span>
                 )}
               </AlertDialogDescription>
