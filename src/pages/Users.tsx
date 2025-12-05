@@ -22,7 +22,7 @@ import { ProgramSelect } from "@/components/ProgramSelect";
 import { userCreateSchema, type UserCreateInput } from "@/lib/validation";
 import { getUserErrorMessage } from "@/lib/errorHandler";
 import type { UserRole } from "@/lib/supabase";
-import { displayToDbRole } from "@/lib/roleMapping";
+import { displayToDbRole, toDisplayRole, roleLabels, type DbRole } from "@/lib/roleMapping";
 import { PageHeader } from "@/components/PageHeader";
 import { PageSkeleton } from "@/components/PageSkeleton";
 
@@ -130,7 +130,7 @@ export default function Users() {
         return {
           ...profile,
           email: emailMap.get(profile.id) || undefined,
-          role: roleData?.role || null,
+          role: toDisplayRole(roleData?.role as DbRole) || null,
           department_id: roleData?.department_id || null,
           department_name: roleData?.department_id ? deptMap.get(roleData.department_id) || null : null,
         };
@@ -175,9 +175,12 @@ export default function Users() {
         program_id: formData.program_id || undefined,
       });
 
-      // Call edge function to create user
+      // Call edge function to create user - convert display role to DB role
       const { data, error } = await supabase.functions.invoke('admin-create-user', {
-        body: validatedData,
+        body: {
+          ...validatedData,
+          role: displayToDbRole[validatedData.role],
+        },
       });
 
       if (error) throw error;
@@ -638,9 +641,10 @@ export default function Users() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Roles</SelectItem>
-              <SelectItem value="admin">Admin</SelectItem>
-              <SelectItem value="hod">HOD</SelectItem>
-              <SelectItem value="faculty">Faculty</SelectItem>
+              <SelectItem value="org_admin">{roleLabels.org_admin}</SelectItem>
+              <SelectItem value="program_manager">{roleLabels.program_manager}</SelectItem>
+              <SelectItem value="manager">{roleLabels.manager}</SelectItem>
+              <SelectItem value="member">{roleLabels.member}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -673,7 +677,7 @@ export default function Users() {
                   <TableCell>
                     {user.role ? (
                       <Badge variant={getRoleBadgeVariant(user.role)}>
-                        {user.role.toUpperCase()}
+                        {roleLabels[user.role]}
                       </Badge>
                     ) : (
                       <span className="text-muted-foreground">No role</span>
