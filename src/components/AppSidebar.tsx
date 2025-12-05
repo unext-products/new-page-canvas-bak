@@ -89,7 +89,8 @@ export function AppSidebar() {
     if (role === "manager") {
       items.push(
         { to: "/approvals", icon: ClipboardCheck, label: "Approvals", group: "Management" },
-        { to: "/team", icon: UsersRound, label: "Team", group: "Management" }
+        { to: "/team", icon: UsersRound, label: "Team", group: "Management" },
+        { to: "/settings", icon: Settings, label: "Settings", group: "Tools" }
       );
     }
 

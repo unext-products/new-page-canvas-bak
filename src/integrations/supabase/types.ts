@@ -14,6 +14,98 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_categories: {
+        Row: {
+          code: string
+          created_at: string
+          department_id: string | null
+          description: string | null
+          display_order: number
+          id: string
+          is_active: boolean
+          name: string
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          department_id?: string | null
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          name: string
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          department_id?: string | null
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_categories_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_categories_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      department_settings: {
+        Row: {
+          created_at: string
+          daily_target_minutes: number | null
+          department_id: string
+          id: string
+          submission_window_days: number | null
+          time_format: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          daily_target_minutes?: number | null
+          department_id: string
+          id?: string
+          submission_window_days?: number | null
+          time_format?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          daily_target_minutes?: number | null
+          department_id?: string
+          id?: string
+          submission_window_days?: number | null
+          time_format?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "department_settings_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: true
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       departments: {
         Row: {
           code: string
