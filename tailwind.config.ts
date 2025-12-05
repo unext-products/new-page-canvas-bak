@@ -13,6 +13,10 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+        display: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -70,6 +74,16 @@ export default {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        xl: "calc(var(--radius) + 4px)",
+        "2xl": "calc(var(--radius) + 8px)",
+      },
+      boxShadow: {
+        'premium-sm': 'var(--shadow-sm)',
+        'premium': 'var(--shadow-md)',
+        'premium-lg': 'var(--shadow-lg)',
+        'premium-xl': 'var(--shadow-xl)',
+        'premium-2xl': 'var(--shadow-2xl)',
+        'primary-glow': 'var(--shadow-primary)',
       },
       keyframes: {
         "accordion-down": {
@@ -150,23 +164,14 @@ export default {
             transform: "scale(1.05)",
           },
         },
-        "float-slow": {
-          "0%, 100%": {
-            transform: "translate(0, 0) rotate(0deg)",
+        "slide-up": {
+          "0%": {
+            opacity: "0",
+            transform: "translateY(10px)",
           },
-          "33%": {
-            transform: "translate(30px, -30px) rotate(120deg)",
-          },
-          "66%": {
-            transform: "translate(-20px, 20px) rotate(240deg)",
-          },
-        },
-        "dots-float": {
-          "0%, 100%": {
-            transform: "translateY(0px)",
-          },
-          "50%": {
-            transform: "translateY(-10px)",
+          "100%": {
+            opacity: "1",
+            transform: "translateY(0)",
           },
         },
       },
@@ -180,12 +185,13 @@ export default {
         "float": "float 6s ease-in-out infinite",
         "shimmer": "shimmer 2s ease-in-out infinite",
         "pulse-glow": "pulse-glow 3s ease-in-out infinite",
-        "float-slow": "float-slow 20s ease-in-out infinite",
-        "dots-float": "dots-float 3s ease-in-out infinite",
+        "slide-up": "slide-up 0.4s ease-out",
       },
       backgroundImage: {
         "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
         "gradient-mesh": "var(--gradient-mesh)",
+        "gradient-primary": "var(--gradient-primary)",
+        "gradient-subtle": "var(--gradient-subtle)",
       },
     },
   },
