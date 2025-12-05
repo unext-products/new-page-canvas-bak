@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { StatusBadge } from "@/components/StatusBadge";
-import { Plus, Trash2, Calendar, FileText } from "lucide-react";
+import { Plus, Trash2, Calendar, FileText, HelpCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { timesheetEntrySchema } from "@/lib/validation";
 import { getUserErrorMessage } from "@/lib/errorHandler";
@@ -19,6 +19,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { useConfetti } from "@/hooks/useConfetti";
 import { SaveIndicator, SaveStatus } from "@/components/SaveIndicator";
+import { OnboardingTour, useOnboardingTour } from "@/components/OnboardingTour";
 
 type ActivityType = "class" | "quiz" | "invigilation" | "admin" | "other";
 
@@ -27,10 +28,12 @@ export default function Timesheet() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { fireConfetti } = useConfetti();
+  const { resetTour, hasSeen } = useOnboardingTour();
   const [entries, setEntries] = useState<any[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  const [runTour, setRunTour] = useState(false);
   
   // Form state
   const [entryDate, setEntryDate] = useState(new Date().toISOString().split("T")[0]);
@@ -272,6 +275,7 @@ export default function Timesheet() {
 
   return (
     <Layout>
+      <OnboardingTour run={runTour} onComplete={() => setRunTour(false)} />
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -284,9 +288,23 @@ export default function Timesheet() {
             </div>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          {hasSeen() && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="hidden sm:flex"
+              onClick={() => {
+                resetTour();
+                setRunTour(true);
+              }}
+              title="Take tour"
+            >
+              <HelpCircle className="h-4 w-4" />
+            </Button>
+          )}
           <Dialog open={leaveDialogOpen} onOpenChange={setLeaveDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" className="w-full sm:w-auto">
+              <Button variant="outline" className="w-full sm:w-auto" data-tour="mark-leave">
                 <Calendar className="mr-2 h-4 w-4" />
                 Mark Leave
               </Button>
@@ -341,7 +359,7 @@ export default function Timesheet() {
           </Dialog>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="w-full sm:w-auto">
+                <Button className="w-full sm:w-auto" data-tour="new-entry">
                   <Plus className="mr-2 h-4 w-4" />
                   New Entry
                 </Button>
@@ -451,7 +469,7 @@ export default function Timesheet() {
           </div>
         </div>
 
-        <Card>
+        <Card data-tour="entries-list">
           <CardHeader>
             <CardTitle>All Entries</CardTitle>
             <CardDescription>Your timesheet history</CardDescription>
