@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLabels } from "@/contexts/LabelContext";
 import { useDepartmentSettings } from "@/hooks/useDepartmentSettings";
 import { Loader2, Info, RotateCcw } from "lucide-react";
+import MemberTargetsSettings from "./MemberTargetsSettings";
 
 interface Department {
   id: string;
@@ -371,6 +372,9 @@ export default function TimesheetSettings() {
           )}
         </CardContent>
       </Card>
+
+      {/* Member Targets Section */}
+      {canEdit && <MemberTargetsSettings />}
 
       {!canEdit && (
         <p className="text-sm text-muted-foreground">
