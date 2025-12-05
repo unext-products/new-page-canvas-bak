@@ -18,19 +18,21 @@ serve(async (req) => {
     const authHeader = req.headers.get('authorization');
 
     if (!authHeader) {
-      throw new Error('No authorization header');
+      console.error('No authorization header provided');
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    // Create clients
-    const supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
-    const userClient = createClient(
-      supabaseUrl,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
+    // Extract JWT token from Bearer header
+    const token = authHeader.replace('Bearer ', '');
 
-    // Verify user is admin
-    const { data: { user }, error: authError } = await userClient.auth.getUser();
+    // Create admin client with service role key
+    const supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Verify user using the token directly
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
     if (authError || !user) {
       console.error('Auth error:', authError);
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
