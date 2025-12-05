@@ -17,6 +17,8 @@ import { timesheetEntrySchema } from "@/lib/validation";
 import { getUserErrorMessage } from "@/lib/errorHandler";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
+import { useConfetti } from "@/hooks/useConfetti";
+import { SaveIndicator, SaveStatus } from "@/components/SaveIndicator";
 
 type ActivityType = "class" | "quiz" | "invigilation" | "admin" | "other";
 
@@ -24,9 +26,11 @@ export default function Timesheet() {
   const { userWithRole } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { fireConfetti } = useConfetti();
   const [entries, setEntries] = useState<any[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   
   // Form state
   const [entryDate, setEntryDate] = useState(new Date().toISOString().split("T")[0]);
@@ -129,6 +133,9 @@ export default function Timesheet() {
       const duration = calculateDuration(startTime, endTime);
 
       setLoading(true);
+      if (status === "draft") {
+        setSaveStatus("saving");
+      }
 
       const { error } = await supabase.from("timesheet_entries").insert({
         user_id: userWithRole.user.id,
@@ -147,15 +154,28 @@ export default function Timesheet() {
 
       if (error) throw error;
 
+      if (status === "draft") {
+        setSaveStatus("saved");
+        // Reset save status after 2 seconds
+        setTimeout(() => setSaveStatus("idle"), 2000);
+      } else {
+        // Fire confetti on successful submission!
+        fireConfetti();
+      }
+
       toast({
-        title: "Success",
-        description: status === "draft" ? "Entry saved as draft" : "Entry submitted for approval",
+        title: status === "submitted" ? "🎉 Submitted!" : "Saved",
+        description: status === "draft" ? "Entry saved as draft" : "Your timesheet has been submitted for approval",
       });
       setDialogOpen(false);
       resetForm();
       loadEntries();
     } catch (error: any) {
       setLoading(false);
+      if (saveStatus === "saving") {
+        setSaveStatus("error");
+        setTimeout(() => setSaveStatus("idle"), 3000);
+      }
       
       if (error.errors) {
         toast({
@@ -403,22 +423,27 @@ export default function Timesheet() {
                   />
                 </div>
 
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => handleSubmit("draft")}
-                    disabled={loading}
-                  >
-                    Save Draft
-                  </Button>
-                  <Button
-                    className="flex-1"
-                    onClick={() => handleSubmit("submitted")}
-                    disabled={loading}
-                  >
-                    Submit
-                  </Button>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <SaveIndicator status={saveStatus} />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => handleSubmit("draft")}
+                      disabled={loading}
+                    >
+                      Save Draft
+                    </Button>
+                    <Button
+                      className="flex-1"
+                      onClick={() => handleSubmit("submitted")}
+                      disabled={loading}
+                    >
+                      Submit
+                    </Button>
+                  </div>
                 </div>
               </div>
             </DialogContent>
