@@ -330,6 +330,10 @@ export type Database = {
         Args: { user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      is_same_organization: {
+        Args: { target_user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       activity_type: "class" | "quiz" | "invigilation" | "admin" | "other"
