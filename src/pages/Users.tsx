@@ -36,6 +36,7 @@ interface UserProfile {
   role?: UserRole | null;
   department_id?: string | null;
   department_name?: string | null;
+  program_id?: string | null;
 }
 
 export default function Users() {
@@ -97,7 +98,7 @@ export default function Users() {
       // Fetch user roles
       const { data: rolesData, error: rolesError } = await supabase
         .from("user_roles")
-        .select("user_id, role, department_id");
+        .select("user_id, role, department_id, program_id");
 
       if (rolesError) throw rolesError;
 
@@ -133,6 +134,7 @@ export default function Users() {
           role: toDisplayRole(roleData?.role as DbRole) || null,
           department_id: roleData?.department_id || null,
           department_name: roleData?.department_id ? deptMap.get(roleData.department_id) || null : null,
+          program_id: roleData?.program_id || null,
         };
       }) || [];
 
@@ -395,7 +397,7 @@ export default function Users() {
       phone: user.phone || "",
       role: user.role || "",
       department_id: user.department_id || "",
-      program_id: "",
+      program_id: user.program_id || "",
       is_active: user.is_active,
       password: "",
       confirmPassword: "",
