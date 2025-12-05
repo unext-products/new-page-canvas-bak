@@ -20,8 +20,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { useConfetti } from "@/hooks/useConfetti";
 import { SaveIndicator, SaveStatus } from "@/components/SaveIndicator";
 import { OnboardingTour, useOnboardingTour } from "@/components/OnboardingTour";
-
-type ActivityType = "class" | "quiz" | "invigilation" | "admin" | "other";
+import { useActivityCategories } from "@/hooks/useActivityCategories";
 
 export default function Timesheet() {
   const { userWithRole } = useAuth();
@@ -29,6 +28,7 @@ export default function Timesheet() {
   const navigate = useNavigate();
   const { fireConfetti } = useConfetti();
   const { resetTour, hasSeen } = useOnboardingTour();
+  const { categories, loading: categoriesLoading } = useActivityCategories(userWithRole?.departmentId);
   const [entries, setEntries] = useState<any[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -39,7 +39,7 @@ export default function Timesheet() {
   const [entryDate, setEntryDate] = useState(new Date().toISOString().split("T")[0]);
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("10:00");
-  const [activityType, setActivityType] = useState<ActivityType>("class");
+  const [activityType, setActivityType] = useState("");
   const [activitySubtype, setActivitySubtype] = useState("");
   const [notes, setNotes] = useState("");
 
@@ -58,6 +58,13 @@ export default function Timesheet() {
       loadLeaveDays();
     }
   }, [userWithRole, navigate]);
+
+  // Set initial activity type when categories load
+  useEffect(() => {
+    if (categories.length > 0 && !activityType) {
+      setActivityType(categories[0].code);
+    }
+  }, [categories]);
 
   const loadEntries = async () => {
     if (!userWithRole) return;
@@ -218,7 +225,7 @@ export default function Timesheet() {
     setEntryDate(new Date().toISOString().split("T")[0]);
     setStartTime("09:00");
     setEndTime("10:00");
-    setActivityType("class");
+    setActivityType(categories[0]?.code || "");
     setActivitySubtype("");
     setNotes("");
   };
@@ -406,16 +413,16 @@ export default function Timesheet() {
 
                 <div className="space-y-2">
                   <Label htmlFor="activityType">Activity Type</Label>
-                  <Select value={activityType} onValueChange={(value: ActivityType) => setActivityType(value)}>
+                  <Select value={activityType} onValueChange={setActivityType}>
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="Select activity type" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="class">Class</SelectItem>
-                      <SelectItem value="quiz">Quiz</SelectItem>
-                      <SelectItem value="invigilation">Invigilation</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
+                      {categories.map((cat) => (
+                        <SelectItem key={cat.code} value={cat.code}>
+                          {cat.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

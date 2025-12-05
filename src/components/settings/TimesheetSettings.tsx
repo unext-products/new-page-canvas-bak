@@ -7,59 +7,65 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Loader2 } from "lucide-react";
+import { useLabels } from "@/contexts/LabelContext";
+import { useDepartmentSettings } from "@/hooks/useDepartmentSettings";
+import { Loader2, Info, RotateCcw } from "lucide-react";
 
-interface TimesheetSettingsData {
-  daily_target_minutes: number;
-  submission_window_days: number;
-  time_format: "12h" | "24h";
+interface Department {
+  id: string;
+  name: string;
 }
 
 export default function TimesheetSettings() {
   const { userWithRole } = useAuth();
+  const { entityLabel } = useLabels();
   const { toast } = useToast();
-  const [loading, setLoading] = useState(true);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [selectedScope, setSelectedScope] = useState<"organization" | string>("organization");
   const [saving, setSaving] = useState(false);
-  const [settings, setSettings] = useState<TimesheetSettingsData>({
-    daily_target_minutes: 480,
-    submission_window_days: 7,
-    time_format: "12h",
-  });
 
   const isOrgAdmin = userWithRole?.role === "org_admin";
+  const isHod = userWithRole?.role === "manager";
+  const canEdit = isOrgAdmin || isHod;
+
+  // For HOD, lock to their department
+  const effectiveDepartmentId = isHod ? userWithRole?.departmentId : (selectedScope !== "organization" ? selectedScope : null);
+  
+  const { settings, loading, updateDepartmentSetting, resetDepartmentSetting, refetch } = useDepartmentSettings(effectiveDepartmentId);
+
+  // Local state for form
+  const [localSettings, setLocalSettings] = useState({
+    daily_target_minutes: 480,
+    submission_window_days: 7,
+    time_format: "12h" as "12h" | "24h",
+  });
 
   useEffect(() => {
-    fetchSettings();
-  }, []);
+    if (isOrgAdmin) {
+      fetchDepartments();
+    }
+  }, [isOrgAdmin]);
 
-  const fetchSettings = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("settings")
-        .select("key, value")
-        .in("key", ["daily_target_minutes", "submission_window_days", "time_format"]);
+  useEffect(() => {
+    setLocalSettings({
+      daily_target_minutes: settings.daily_target_minutes,
+      submission_window_days: settings.submission_window_days,
+      time_format: settings.time_format,
+    });
+  }, [settings]);
 
-      if (error) throw error;
+  const fetchDepartments = async () => {
+    const { data, error } = await supabase
+      .from("departments")
+      .select("id, name")
+      .order("name");
 
-      const newSettings = { ...settings };
-      data?.forEach((item) => {
-        if (item.key === "daily_target_minutes") {
-          newSettings.daily_target_minutes = item.value as number;
-        } else if (item.key === "submission_window_days") {
-          newSettings.submission_window_days = item.value as number;
-        } else if (item.key === "time_format") {
-          newSettings.time_format = item.value as "12h" | "24h";
-        }
-      });
-      setSettings(newSettings);
-    } catch (error) {
-      console.error("Error fetching settings:", error);
-    } finally {
-      setLoading(false);
+    if (!error && data) {
+      setDepartments(data);
     }
   };
 
-  const updateSetting = async (key: string, value: number | string) => {
+  const updateOrgSetting = async (key: string, value: number | string) => {
     setSaving(true);
     try {
       const { error } = await supabase
@@ -71,7 +77,7 @@ export default function TimesheetSettings() {
 
       toast({
         title: "Settings updated",
-        description: "Your changes have been saved.",
+        description: "Organization-wide settings have been saved.",
       });
     } catch (error) {
       console.error("Error updating setting:", error);
@@ -85,13 +91,59 @@ export default function TimesheetSettings() {
     }
   };
 
-  const handleDailyTargetChange = (hours: number, minutes: number) => {
-    const totalMinutes = hours * 60 + minutes;
-    setSettings({ ...settings, daily_target_minutes: totalMinutes });
+  const handleSaveDepartmentSetting = async (key: "daily_target_minutes" | "submission_window_days" | "time_format", value: number | string) => {
+    if (!effectiveDepartmentId) {
+      // Organization-wide setting
+      await updateOrgSetting(key, value);
+    } else {
+      // Department-specific setting
+      setSaving(true);
+      const { error } = await updateDepartmentSetting(effectiveDepartmentId, key, value);
+      setSaving(false);
+
+      if (error) {
+        toast({
+          title: "Error",
+          description: "Failed to update setting.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Settings updated",
+          description: `${entityLabel("department")} settings have been saved.`,
+        });
+      }
+    }
   };
 
-  const hours = Math.floor(settings.daily_target_minutes / 60);
-  const minutes = settings.daily_target_minutes % 60;
+  const handleResetToOrgDefault = async (key: "daily_target_minutes" | "submission_window_days" | "time_format") => {
+    if (!effectiveDepartmentId) return;
+
+    setSaving(true);
+    const { error } = await resetDepartmentSetting(effectiveDepartmentId, key);
+    setSaving(false);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to reset setting.",
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Reset successful",
+        description: "Setting will now use organization default.",
+      });
+    }
+  };
+
+  const handleDailyTargetChange = (hours: number, minutes: number) => {
+    const totalMinutes = hours * 60 + minutes;
+    setLocalSettings({ ...localSettings, daily_target_minutes: totalMinutes });
+  };
+
+  const hours = Math.floor(localSettings.daily_target_minutes / 60);
+  const minutes = localSettings.daily_target_minutes % 60;
 
   if (loading) {
     return (
@@ -105,6 +157,52 @@ export default function TimesheetSettings() {
 
   return (
     <div className="space-y-6">
+      {/* Info Card */}
+      <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/20">
+        <CardContent className="pt-6">
+          <div className="flex gap-3">
+            <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+            <div className="text-sm text-blue-700 dark:text-blue-300">
+              <p className="font-medium mb-1">About Timesheet Settings</p>
+              <p className="text-blue-600 dark:text-blue-400">
+                {isOrgAdmin 
+                  ? `Set organization-wide defaults or customize settings for specific ${entityLabel("department", true).toLowerCase()}. Department-specific settings override the organization defaults.`
+                  : `Customize timesheet settings for your ${entityLabel("department").toLowerCase()}. These settings will override the organization defaults for members in your ${entityLabel("department").toLowerCase()}.`
+                }
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Scope Selector - Only for Org Admin */}
+      {isOrgAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Scope</CardTitle>
+            <CardDescription>
+              Choose whether to edit organization-wide settings or department-specific ones
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Select value={selectedScope} onValueChange={(v) => setSelectedScope(v)}>
+              <SelectTrigger className="w-full max-w-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="organization">Organization-wide (Default)</SelectItem>
+                {departments.map((dept) => (
+                  <SelectItem key={dept.id} value={dept.id}>
+                    {entityLabel("department")}: {dept.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Daily Target */}
       <Card>
         <CardHeader>
           <CardTitle>Daily Target</CardTitle>
@@ -123,7 +221,7 @@ export default function TimesheetSettings() {
                 max="24"
                 value={hours}
                 onChange={(e) => handleDailyTargetChange(parseInt(e.target.value) || 0, minutes)}
-                disabled={!isOrgAdmin}
+                disabled={!canEdit}
                 className="w-24"
               />
             </div>
@@ -136,23 +234,42 @@ export default function TimesheetSettings() {
                 max="59"
                 value={minutes}
                 onChange={(e) => handleDailyTargetChange(hours, parseInt(e.target.value) || 0)}
-                disabled={!isOrgAdmin}
+                disabled={!canEdit}
                 className="w-24"
               />
             </div>
           </div>
-          {isOrgAdmin && (
-            <Button
-              onClick={() => updateSetting("daily_target_minutes", settings.daily_target_minutes)}
-              disabled={saving}
-            >
-              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save
-            </Button>
+          {effectiveDepartmentId && settings.isOverride.daily_target_minutes && (
+            <p className="text-sm text-amber-600 dark:text-amber-400 flex items-center gap-2">
+              <Info className="h-4 w-4" />
+              Custom value for this {entityLabel("department").toLowerCase()}
+            </p>
+          )}
+          {canEdit && (
+            <div className="flex gap-2">
+              <Button
+                onClick={() => handleSaveDepartmentSetting("daily_target_minutes", localSettings.daily_target_minutes)}
+                disabled={saving}
+              >
+                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Save
+              </Button>
+              {effectiveDepartmentId && settings.isOverride.daily_target_minutes && (
+                <Button
+                  variant="outline"
+                  onClick={() => handleResetToOrgDefault("daily_target_minutes")}
+                  disabled={saving}
+                >
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                  Reset to Default
+                </Button>
+              )}
+            </div>
           )}
         </CardContent>
       </Card>
 
+      {/* Submission Window */}
       <Card>
         <CardHeader>
           <CardTitle>Submission Window</CardTitle>
@@ -164,14 +281,14 @@ export default function TimesheetSettings() {
           <div className="space-y-2">
             <Label htmlFor="window">Days</Label>
             <Select
-              value={settings.submission_window_days.toString()}
+              value={localSettings.submission_window_days.toString()}
               onValueChange={(value) => {
-                setSettings({ ...settings, submission_window_days: parseInt(value) });
-                if (isOrgAdmin) {
-                  updateSetting("submission_window_days", parseInt(value));
+                setLocalSettings({ ...localSettings, submission_window_days: parseInt(value) });
+                if (canEdit) {
+                  handleSaveDepartmentSetting("submission_window_days", parseInt(value));
                 }
               }}
-              disabled={!isOrgAdmin}
+              disabled={!canEdit}
             >
               <SelectTrigger className="w-48">
                 <SelectValue />
@@ -185,9 +302,27 @@ export default function TimesheetSettings() {
               </SelectContent>
             </Select>
           </div>
+          {effectiveDepartmentId && settings.isOverride.submission_window_days && (
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-amber-600 dark:text-amber-400 flex items-center gap-2">
+                <Info className="h-4 w-4" />
+                Custom value for this {entityLabel("department").toLowerCase()}
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleResetToOrgDefault("submission_window_days")}
+                disabled={saving}
+              >
+                <RotateCcw className="mr-2 h-3 w-3" />
+                Reset
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
+      {/* Time Format */}
       <Card>
         <CardHeader>
           <CardTitle>Time Format</CardTitle>
@@ -199,14 +334,14 @@ export default function TimesheetSettings() {
           <div className="space-y-2">
             <Label htmlFor="format">Format</Label>
             <Select
-              value={settings.time_format}
+              value={localSettings.time_format}
               onValueChange={(value: "12h" | "24h") => {
-                setSettings({ ...settings, time_format: value });
-                if (isOrgAdmin) {
-                  updateSetting("time_format", value);
+                setLocalSettings({ ...localSettings, time_format: value });
+                if (canEdit) {
+                  handleSaveDepartmentSetting("time_format", value);
                 }
               }}
-              disabled={!isOrgAdmin}
+              disabled={!canEdit}
             >
               <SelectTrigger className="w-48">
                 <SelectValue />
@@ -217,12 +352,29 @@ export default function TimesheetSettings() {
               </SelectContent>
             </Select>
           </div>
+          {effectiveDepartmentId && settings.isOverride.time_format && (
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-amber-600 dark:text-amber-400 flex items-center gap-2">
+                <Info className="h-4 w-4" />
+                Custom value for this {entityLabel("department").toLowerCase()}
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleResetToOrgDefault("time_format")}
+                disabled={saving}
+              >
+                <RotateCcw className="mr-2 h-3 w-3" />
+                Reset
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {!isOrgAdmin && (
+      {!canEdit && (
         <p className="text-sm text-muted-foreground">
-          Only organization administrators can modify these settings.
+          Only organization administrators and {entityLabel("department").toLowerCase()} managers can modify these settings.
         </p>
       )}
     </div>
