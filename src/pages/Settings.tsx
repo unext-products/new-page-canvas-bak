@@ -7,10 +7,11 @@ import TimesheetSettings from "@/components/settings/TimesheetSettings";
 import OrganizationSettings from "@/components/settings/OrganizationSettings";
 import AppearanceSettings from "@/components/settings/AppearanceSettings";
 import AccountSettings from "@/components/settings/AccountSettings";
-import { Clock, Building2, Palette, User } from "lucide-react";
+import LabelSettings from "@/components/settings/LabelSettings";
+import { Clock, Building2, Palette, User, Tag } from "lucide-react";
 
 export default function Settings() {
-  const { user, loading } = useAuth();
+  const { user, loading, userWithRole } = useAuth();
 
   if (loading) {
     return null;
@@ -19,6 +20,8 @@ export default function Settings() {
   if (!user) {
     return <Navigate to="/auth" replace />;
   }
+
+  const isOrgAdmin = userWithRole?.role === "org_admin";
 
   return (
     <Layout>
@@ -29,7 +32,7 @@ export default function Settings() {
         />
 
         <Tabs defaultValue="timesheet" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 h-auto p-1">
+          <TabsList className={`grid w-full h-auto p-1 ${isOrgAdmin ? "grid-cols-5" : "grid-cols-4"}`}>
             <TabsTrigger value="timesheet" className="flex items-center gap-2 py-2.5">
               <Clock className="h-4 w-4" />
               <span className="hidden sm:inline">Timesheet</span>
@@ -38,6 +41,12 @@ export default function Settings() {
               <Building2 className="h-4 w-4" />
               <span className="hidden sm:inline">Organization</span>
             </TabsTrigger>
+            {isOrgAdmin && (
+              <TabsTrigger value="labels" className="flex items-center gap-2 py-2.5">
+                <Tag className="h-4 w-4" />
+                <span className="hidden sm:inline">Labels</span>
+              </TabsTrigger>
+            )}
             <TabsTrigger value="appearance" className="flex items-center gap-2 py-2.5">
               <Palette className="h-4 w-4" />
               <span className="hidden sm:inline">Appearance</span>
@@ -55,6 +64,12 @@ export default function Settings() {
           <TabsContent value="organization">
             <OrganizationSettings />
           </TabsContent>
+
+          {isOrgAdmin && (
+            <TabsContent value="labels">
+              <LabelSettings />
+            </TabsContent>
+          )}
 
           <TabsContent value="appearance">
             <AppearanceSettings />

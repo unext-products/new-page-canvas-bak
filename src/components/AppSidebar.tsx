@@ -1,4 +1,5 @@
 import { useAuth } from "@/contexts/AuthContext";
+import { useLabels } from "@/contexts/LabelContext";
 import { 
   Clock, 
   Users, 
@@ -37,13 +38,6 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-const roleLabels: Record<string, string> = {
-  member: "Member",
-  manager: "Manager",
-  org_admin: "Admin",
-  program_manager: "Program Manager",
-};
-
 const roleColors: Record<string, string> = {
   member: "bg-muted text-muted-foreground",
   manager: "bg-primary/10 text-primary",
@@ -53,6 +47,7 @@ const roleColors: Record<string, string> = {
 
 export function AppSidebar() {
   const { userWithRole } = useAuth();
+  const { roleLabel, entityLabel } = useLabels();
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -101,8 +96,8 @@ export function AppSidebar() {
     if (role === "org_admin") {
       items.push(
         { to: "/organizations", icon: Building2, label: "Organization", group: "Administration" },
-        { to: "/departments", icon: Layers, label: "Departments", group: "Administration" },
-        { to: "/programs", icon: FolderKanban, label: "Programs", group: "Administration" },
+        { to: "/departments", icon: Layers, label: entityLabel("department", true), group: "Administration" },
+        { to: "/programs", icon: FolderKanban, label: entityLabel("program", true), group: "Administration" },
         { to: "/users", icon: Users, label: "Users", group: "Administration" },
         { to: "/reports", icon: BarChart3, label: "Reports", group: "Analytics" },
         { to: "/bulk-import", icon: Upload, label: "Bulk Import", group: "Tools" },
@@ -112,8 +107,8 @@ export function AppSidebar() {
 
     if (role === "program_manager") {
       items.push(
-        { to: "/programs", icon: FolderKanban, label: "Programs", group: "Management" },
-        { to: "/departments", icon: Layers, label: "Departments", group: "Management" },
+        { to: "/programs", icon: FolderKanban, label: entityLabel("program", true), group: "Management" },
+        { to: "/departments", icon: Layers, label: entityLabel("department", true), group: "Management" },
         { to: "/reports", icon: BarChart3, label: "Reports", group: "Analytics" }
       );
     }
@@ -199,7 +194,7 @@ export function AppSidebar() {
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium truncate">{userName}</p>
             <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 h-4 ${roleColors[userRole]}`}>
-              {roleLabels[userRole] || userRole}
+              {roleLabel(userRole)}
             </Badge>
           </div>
         </div>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { useLabels } from "@/contexts/LabelContext";
 
 interface Department {
   id: string;
@@ -18,6 +19,7 @@ interface DepartmentSelectProps {
 export function DepartmentSelect({ value, onValueChange, includeAll = false, disabled = false }: DepartmentSelectProps) {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { entityLabel } = useLabels();
 
   useEffect(() => {
     fetchDepartments();
@@ -42,10 +44,10 @@ export function DepartmentSelect({ value, onValueChange, includeAll = false, dis
   return (
     <Select value={value} onValueChange={onValueChange} disabled={isLoading || disabled}>
       <SelectTrigger>
-        <SelectValue placeholder={isLoading ? "Loading..." : "Select department"} />
+        <SelectValue placeholder={isLoading ? "Loading..." : `Select ${entityLabel("department").toLowerCase()}`} />
       </SelectTrigger>
       <SelectContent>
-        {includeAll && <SelectItem value="all">All Departments</SelectItem>}
+        {includeAll && <SelectItem value="all">All {entityLabel("department", true)}</SelectItem>}
         {departments.map((dept) => (
           <SelectItem key={dept.id} value={dept.id}>
             {dept.name} ({dept.code})

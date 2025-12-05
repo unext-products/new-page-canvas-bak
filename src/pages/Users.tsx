@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLabels } from "@/contexts/LabelContext";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Layout } from "@/components/Layout";
@@ -22,7 +23,7 @@ import { ProgramSelect } from "@/components/ProgramSelect";
 import { userCreateSchema, type UserCreateInput } from "@/lib/validation";
 import { getUserErrorMessage } from "@/lib/errorHandler";
 import type { UserRole } from "@/lib/supabase";
-import { displayToDbRole, toDisplayRole, roleLabels, type DbRole } from "@/lib/roleMapping";
+import { displayToDbRole, toDisplayRole, type DbRole } from "@/lib/roleMapping";
 import { PageHeader } from "@/components/PageHeader";
 import { PageSkeleton } from "@/components/PageSkeleton";
 
@@ -41,6 +42,7 @@ interface UserProfile {
 
 export default function Users() {
   const { userWithRole, loading } = useAuth();
+  const { roleLabel, entityLabel } = useLabels();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -643,10 +645,10 @@ export default function Users() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Roles</SelectItem>
-              <SelectItem value="org_admin">{roleLabels.org_admin}</SelectItem>
-              <SelectItem value="program_manager">{roleLabels.program_manager}</SelectItem>
-              <SelectItem value="manager">{roleLabels.manager}</SelectItem>
-              <SelectItem value="member">{roleLabels.member}</SelectItem>
+              <SelectItem value="org_admin">{roleLabel("org_admin")}</SelectItem>
+              <SelectItem value="program_manager">{roleLabel("program_manager")}</SelectItem>
+              <SelectItem value="manager">{roleLabel("manager")}</SelectItem>
+              <SelectItem value="member">{roleLabel("member")}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -679,7 +681,7 @@ export default function Users() {
                   <TableCell>
                     {user.role ? (
                       <Badge variant={getRoleBadgeVariant(user.role)}>
-                        {roleLabels[user.role]}
+                        {roleLabel(user.role)}
                       </Badge>
                     ) : (
                       <span className="text-muted-foreground">No role</span>
