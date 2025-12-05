@@ -39,7 +39,7 @@ export default function Timesheet() {
   // Leave management state
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [leaveDate, setLeaveDate] = useState(new Date().toISOString().split("T")[0]);
-  const [leaveType, setLeaveType] = useState<"casual" | "sick" | "earned">("casual");
+  const [leaveType, setLeaveType] = useState<"casual_leave" | "sick_leave" | "vacation" | "personal" | "compensatory" | "other">("casual_leave");
   const [leaveComments, setLeaveComments] = useState("");
   const [userLeaveDays, setUserLeaveDays] = useState<Set<string>>(new Set());
 
@@ -244,7 +244,7 @@ export default function Timesheet() {
       });
       setLeaveDialogOpen(false);
       setLeaveDate(new Date().toISOString().split("T")[0]);
-      setLeaveType("casual");
+      setLeaveType("casual_leave");
       setLeaveComments("");
       loadLeaveDays();
     }
@@ -295,9 +295,12 @@ export default function Timesheet() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="casual">Casual Leave</SelectItem>
-                      <SelectItem value="sick">Sick Leave</SelectItem>
-                      <SelectItem value="earned">Earned Leave</SelectItem>
+                      <SelectItem value="casual_leave">Casual Leave</SelectItem>
+                      <SelectItem value="sick_leave">Sick Leave</SelectItem>
+                      <SelectItem value="vacation">Vacation</SelectItem>
+                      <SelectItem value="personal">Personal Leave</SelectItem>
+                      <SelectItem value="compensatory">Compensatory Off</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
