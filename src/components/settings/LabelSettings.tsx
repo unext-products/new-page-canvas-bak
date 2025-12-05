@@ -7,7 +7,9 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLabels, OrganizationLabels } from "@/contexts/LabelContext";
-import { Tag, RotateCcw, Save } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tag, RotateCcw, Save, Info, Building, ChevronDown, Check, Minus } from "lucide-react";
 
 const defaultLabels: OrganizationLabels = {
   role_org_admin: "Organization Admin",
@@ -26,6 +28,7 @@ export default function LabelSettings() {
   const { toast } = useToast();
   const [formData, setFormData] = useState<OrganizationLabels>(labels);
   const [isSaving, setIsSaving] = useState(false);
+  const [permissionsOpen, setPermissionsOpen] = useState(false);
 
   useEffect(() => {
     setFormData(labels);
@@ -94,6 +97,106 @@ export default function LabelSettings() {
 
   return (
     <div className="space-y-6">
+      {/* Role Explanations */}
+      <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/20">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-blue-700 dark:text-blue-400 text-base">
+            <Info className="h-5 w-5" />
+            Understanding Roles
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="space-y-3 text-sm text-blue-900 dark:text-blue-200">
+            <div>
+              <strong>Organization Admin</strong> — Full access to manage users, departments, programs, settings, and view all reports across the organization.
+            </div>
+            <div>
+              <strong>Program Manager</strong> — Can view and manage programs within their assigned department, and view program-level reports.
+            </div>
+            <div>
+              <strong>Manager</strong> — Approves or rejects timesheets for their department, manages department members, and views department reports.
+            </div>
+            <div>
+              <strong>Member</strong> — Submits timesheets, views their own data, and can request leave.
+            </div>
+          </div>
+
+          <Collapsible open={permissionsOpen} onOpenChange={setPermissionsOpen} className="mt-4">
+            <CollapsibleTrigger className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors">
+              <ChevronDown className={`h-4 w-4 transition-transform ${permissionsOpen ? "rotate-180" : ""}`} />
+              View detailed permissions
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-3">
+              <div className="rounded-md border border-blue-200 dark:border-blue-800 overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-blue-100/50 dark:bg-blue-900/30">
+                      <TableHead className="text-blue-900 dark:text-blue-200">Permission</TableHead>
+                      <TableHead className="text-center text-blue-900 dark:text-blue-200">Member</TableHead>
+                      <TableHead className="text-center text-blue-900 dark:text-blue-200">Manager</TableHead>
+                      <TableHead className="text-center text-blue-900 dark:text-blue-200">Program Mgr</TableHead>
+                      <TableHead className="text-center text-blue-900 dark:text-blue-200">Org Admin</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody className="text-blue-800 dark:text-blue-300">
+                    <TableRow>
+                      <TableCell>Submit timesheets</TableCell>
+                      <TableCell className="text-center"><Check className="h-4 w-4 mx-auto text-green-600" /></TableCell>
+                      <TableCell className="text-center"><Check className="h-4 w-4 mx-auto text-green-600" /></TableCell>
+                      <TableCell className="text-center"><Check className="h-4 w-4 mx-auto text-green-600" /></TableCell>
+                      <TableCell className="text-center"><Check className="h-4 w-4 mx-auto text-green-600" /></TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>Approve timesheets</TableCell>
+                      <TableCell className="text-center"><Minus className="h-4 w-4 mx-auto text-muted-foreground" /></TableCell>
+                      <TableCell className="text-center text-xs">Dept only</TableCell>
+                      <TableCell className="text-center"><Minus className="h-4 w-4 mx-auto text-muted-foreground" /></TableCell>
+                      <TableCell className="text-center"><Check className="h-4 w-4 mx-auto text-green-600" /></TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>View reports</TableCell>
+                      <TableCell className="text-center text-xs">Own</TableCell>
+                      <TableCell className="text-center text-xs">Dept</TableCell>
+                      <TableCell className="text-center text-xs">Program</TableCell>
+                      <TableCell className="text-center"><Check className="h-4 w-4 mx-auto text-green-600" /></TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>Manage users</TableCell>
+                      <TableCell className="text-center"><Minus className="h-4 w-4 mx-auto text-muted-foreground" /></TableCell>
+                      <TableCell className="text-center text-xs">Dept only</TableCell>
+                      <TableCell className="text-center"><Minus className="h-4 w-4 mx-auto text-muted-foreground" /></TableCell>
+                      <TableCell className="text-center"><Check className="h-4 w-4 mx-auto text-green-600" /></TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>Manage departments</TableCell>
+                      <TableCell className="text-center"><Minus className="h-4 w-4 mx-auto text-muted-foreground" /></TableCell>
+                      <TableCell className="text-center"><Minus className="h-4 w-4 mx-auto text-muted-foreground" /></TableCell>
+                      <TableCell className="text-center"><Minus className="h-4 w-4 mx-auto text-muted-foreground" /></TableCell>
+                      <TableCell className="text-center"><Check className="h-4 w-4 mx-auto text-green-600" /></TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>Manage programs</TableCell>
+                      <TableCell className="text-center"><Minus className="h-4 w-4 mx-auto text-muted-foreground" /></TableCell>
+                      <TableCell className="text-center"><Minus className="h-4 w-4 mx-auto text-muted-foreground" /></TableCell>
+                      <TableCell className="text-center text-xs">Assigned</TableCell>
+                      <TableCell className="text-center"><Check className="h-4 w-4 mx-auto text-green-600" /></TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>Manage settings</TableCell>
+                      <TableCell className="text-center"><Minus className="h-4 w-4 mx-auto text-muted-foreground" /></TableCell>
+                      <TableCell className="text-center"><Minus className="h-4 w-4 mx-auto text-muted-foreground" /></TableCell>
+                      <TableCell className="text-center"><Minus className="h-4 w-4 mx-auto text-muted-foreground" /></TableCell>
+                      <TableCell className="text-center"><Check className="h-4 w-4 mx-auto text-green-600" /></TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        </CardContent>
+      </Card>
+
+      {/* Role Labels Form */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -154,6 +257,31 @@ export default function LabelSettings() {
         </CardContent>
       </Card>
 
+      {/* Entity Hierarchy Explanation */}
+      <Card className="border-green-200 bg-green-50/50 dark:border-green-900 dark:bg-green-950/20">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-green-700 dark:text-green-400 text-base">
+            <Building className="h-5 w-5" />
+            Organization Structure
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="text-sm space-y-3 text-green-900 dark:text-green-200">
+            <p>Your organization follows this hierarchy:</p>
+            <div className="font-mono bg-green-100/50 dark:bg-green-900/30 p-3 rounded-md text-xs border border-green-200 dark:border-green-800">
+              <div>Organization</div>
+              <div className="ml-4">└── Departments <span className="text-green-600 dark:text-green-400">(e.g., "Engineering", "Marketing")</span></div>
+              <div className="ml-8">└── Programs <span className="text-green-600 dark:text-green-400">(e.g., "Project Alpha", "Course 101")</span></div>
+              <div className="ml-12">└── Members assigned here</div>
+            </div>
+            <p className="text-green-700 dark:text-green-400">
+              Rename these to match your organization's terminology (e.g., Department → School, Program → Course).
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Entity Labels Form */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
