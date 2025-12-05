@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLabels } from "@/contexts/LabelContext";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Layout } from "@/components/Layout";
@@ -38,6 +39,7 @@ interface Department {
 
 export default function Departments() {
   const { userWithRole, loading } = useAuth();
+  const { entityLabel } = useLabels();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -304,13 +306,13 @@ export default function Departments() {
     <Layout>
       <div className="space-y-6">
         <PageHeader
-          title="Department Management"
-          description="Manage departments and view statistics"
+          title={`${entityLabel("department")} Management`}
+          description={`Manage ${entityLabel("department", true).toLowerCase()} and view statistics`}
           icon={Layers}
           actions={
             <Button onClick={() => setCreateDialogOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
-              Add Department
+              Add {entityLabel("department")}
             </Button>
           }
         />
@@ -320,10 +322,10 @@ export default function Departments() {
             <CardContent className="py-0">
               <EmptyState
                 icon={Layers}
-                title="No departments yet"
-                description="Create your first department to get started"
+                title={`No ${entityLabel("department", true).toLowerCase()} yet`}
+                description={`Create your first ${entityLabel("department").toLowerCase()} to get started`}
                 action={{
-                  label: "Add Department",
+                  label: `Add ${entityLabel("department")}`,
                   onClick: () => setCreateDialogOpen(true)
                 }}
               />
@@ -360,13 +362,13 @@ export default function Departments() {
                     {/* Programs count */}
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <FolderKanban className="h-4 w-4" />
-                      <span>{dept.programCount} {dept.programCount === 1 ? 'program' : 'programs'}</span>
+                      <span>{dept.programCount} {dept.programCount === 1 ? entityLabel("program").toLowerCase() : entityLabel("program", true).toLowerCase()}</span>
                     </div>
                     
                     {/* Programs breakdown */}
                     {dept.programs && dept.programs.length > 0 && (
                       <div className="pt-3 border-t border-border/50 space-y-2">
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Programs</p>
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{entityLabel("program", true)}</p>
                         {dept.programs.map(prog => (
                           <div key={prog.id} className="flex justify-between items-center text-sm pl-2">
                             <span className="text-foreground/80">{prog.name}</span>
@@ -386,12 +388,12 @@ export default function Departments() {
         <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Create Department</DialogTitle>
-              <DialogDescription>Add a new department to the system</DialogDescription>
+              <DialogTitle>Create {entityLabel("department")}</DialogTitle>
+              <DialogDescription>Add a new {entityLabel("department").toLowerCase()} to the system</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Department Name</Label>
+                <Label htmlFor="name">{entityLabel("department")} Name</Label>
                 <Input
                   id="name"
                   value={formData.name}
@@ -400,7 +402,7 @@ export default function Departments() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="code">Department Code</Label>
+                <Label htmlFor="code">{entityLabel("department")} Code</Label>
                 <Input
                   id="code"
                   value={formData.code}
@@ -421,12 +423,12 @@ export default function Departments() {
         <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Edit Department</DialogTitle>
-              <DialogDescription>Update department information</DialogDescription>
+              <DialogTitle>Edit {entityLabel("department")}</DialogTitle>
+              <DialogDescription>Update {entityLabel("department").toLowerCase()} information</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="edit-name">Department Name</Label>
+                <Label htmlFor="edit-name">{entityLabel("department")} Name</Label>
                 <Input
                   id="edit-name"
                   value={formData.name}
@@ -434,7 +436,7 @@ export default function Departments() {
                 />
               </div>
               <div>
-                <Label htmlFor="edit-code">Department Code</Label>
+                <Label htmlFor="edit-code">{entityLabel("department")} Code</Label>
                 <Input
                   id="edit-code"
                   value={formData.code}
@@ -460,15 +462,15 @@ export default function Departments() {
             <AlertDialogHeader>
               <AlertDialogTitle>Are you sure?</AlertDialogTitle>
               <AlertDialogDescription>
-                This will permanently delete the department "{selectedDepartment?.name}".
+                This will permanently delete the {entityLabel("department").toLowerCase()} "{selectedDepartment?.name}".
                 {selectedDepartment && (selectedDepartment.userCount || 0) > 0 && (
                   <span className="block mt-2 text-destructive font-semibold">
-                    Warning: This department has {selectedDepartment.userCount} user(s) assigned to it.
+                    Warning: This {entityLabel("department").toLowerCase()} has {selectedDepartment.userCount} user(s) assigned to it.
                   </span>
                 )}
                 {selectedDepartment && (selectedDepartment.programCount || 0) > 0 && (
                   <span className="block mt-1 text-destructive font-semibold">
-                    Warning: This department has {selectedDepartment.programCount} program(s).
+                    Warning: This {entityLabel("department").toLowerCase()} has {selectedDepartment.programCount} {entityLabel("program", true).toLowerCase()}.
                   </span>
                 )}
               </AlertDialogDescription>

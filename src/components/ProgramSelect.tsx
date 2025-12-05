@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { useLabels } from "@/contexts/LabelContext";
 
 interface Program {
   id: string;
@@ -18,6 +19,7 @@ interface ProgramSelectProps {
 export function ProgramSelect({ value, onValueChange, departmentId, disabled = false }: ProgramSelectProps) {
   const [programs, setPrograms] = useState<Program[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { entityLabel } = useLabels();
 
   useEffect(() => {
     if (departmentId) {
@@ -52,9 +54,9 @@ export function ProgramSelect({ value, onValueChange, departmentId, disabled = f
     <Select value={value} onValueChange={onValueChange} disabled={isLoading || disabled || !departmentId}>
       <SelectTrigger>
         <SelectValue placeholder={
-          !departmentId ? "Select a department first" : 
+          !departmentId ? `Select a ${entityLabel("department").toLowerCase()} first` : 
           isLoading ? "Loading..." : 
-          "Select program"
+          `Select ${entityLabel("program").toLowerCase()}`
         } />
       </SelectTrigger>
       <SelectContent>

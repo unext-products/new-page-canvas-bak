@@ -87,6 +87,59 @@ export type Database = {
           },
         ]
       }
+      organization_labels: {
+        Row: {
+          created_at: string
+          entity_department: string
+          entity_department_plural: string
+          entity_program: string
+          entity_program_plural: string
+          id: string
+          organization_id: string
+          role_manager: string
+          role_member: string
+          role_org_admin: string
+          role_program_manager: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          entity_department?: string
+          entity_department_plural?: string
+          entity_program?: string
+          entity_program_plural?: string
+          id?: string
+          organization_id: string
+          role_manager?: string
+          role_member?: string
+          role_org_admin?: string
+          role_program_manager?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          entity_department?: string
+          entity_department_plural?: string
+          entity_program?: string
+          entity_program_plural?: string
+          id?: string
+          organization_id?: string
+          role_manager?: string
+          role_member?: string
+          role_org_admin?: string
+          role_program_manager?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_labels_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
           code: string

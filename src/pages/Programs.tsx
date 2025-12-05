@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLabels } from "@/contexts/LabelContext";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { Layout } from "@/components/Layout";
@@ -43,6 +44,7 @@ interface Department {
 
 export default function Programs() {
   const { userWithRole } = useAuth();
+  const { entityLabel } = useLabels();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [programs, setPrograms] = useState<Program[]>([]);
@@ -216,8 +218,8 @@ export default function Programs() {
     <Layout>
       <div className="space-y-6">
         <PageHeader
-          title="Programs"
-          description="Manage programs within organizations"
+          title={entityLabel("program", true)}
+          description={`Manage ${entityLabel("program", true).toLowerCase()} within organizations`}
           icon={FolderKanban}
           actions={
             <Button onClick={() => {
@@ -226,7 +228,7 @@ export default function Programs() {
               setDialogOpen(true);
             }}>
               <Plus className="mr-2 h-4 w-4" />
-              Add Program
+              Add {entityLabel("program")}
             </Button>
           }
         />
@@ -236,10 +238,10 @@ export default function Programs() {
             <CardContent className="py-0">
               <EmptyState
                 icon={FolderKanban}
-                title="No programs yet"
-                description="Create your first program to get started"
+                title={`No ${entityLabel("program", true).toLowerCase()} yet`}
+                description={`Create your first ${entityLabel("program").toLowerCase()} to get started`}
                 action={{
-                  label: "Add Program",
+                  label: `Add ${entityLabel("program")}`,
                   onClick: () => setDialogOpen(true)
                 }}
               />
@@ -262,10 +264,10 @@ export default function Programs() {
                     </div>
                   </div>
                   <CardTitle>{program.name}</CardTitle>
-                  <CardDescription>
+                <CardDescription>
                     Code: {program.code}
                     <br />
-                    Department: {program.departments?.name || "N/A"}
+                    {entityLabel("department")}: {program.departments?.name || "N/A"}
                   </CardDescription>
                 </CardHeader>
               </Card>
@@ -277,14 +279,14 @@ export default function Programs() {
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{selectedProgram ? "Edit" : "Create"} Program</DialogTitle>
+              <DialogTitle>{selectedProgram ? "Edit" : "Create"} {entityLabel("program")}</DialogTitle>
               <DialogDescription>
-                {selectedProgram ? "Update the program details" : "Add a new program to an organization"}
+                {selectedProgram ? `Update the ${entityLabel("program").toLowerCase()} details` : `Add a new ${entityLabel("program").toLowerCase()} to an organization`}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="department">Department</Label>
+                <Label htmlFor="department">{entityLabel("department")}</Label>
                 <DepartmentSelect
                   value={formData.department_id}
                   onValueChange={(value) => setFormData({ ...formData, department_id: value })}
@@ -324,7 +326,7 @@ export default function Programs() {
             <AlertDialogHeader>
               <AlertDialogTitle>Are you sure?</AlertDialogTitle>
               <AlertDialogDescription>
-                This will permanently delete the program "{selectedProgram?.name}". This action cannot be undone.
+                This will permanently delete the {entityLabel("program").toLowerCase()} "{selectedProgram?.name}". This action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
