@@ -101,8 +101,8 @@ export function AppSidebar() {
     if (role === "org_admin") {
       items.push(
         { to: "/organizations", icon: Building2, label: "Organization", group: "Administration" },
-        { to: "/programs", icon: FolderKanban, label: "Programs", group: "Administration" },
         { to: "/departments", icon: Layers, label: "Departments", group: "Administration" },
+        { to: "/programs", icon: FolderKanban, label: "Programs", group: "Administration" },
         { to: "/users", icon: Users, label: "Users", group: "Administration" },
         { to: "/reports", icon: BarChart3, label: "Reports", group: "Analytics" },
         { to: "/bulk-import", icon: Upload, label: "Bulk Import", group: "Tools" },
