@@ -17,6 +17,7 @@ import Departments from "./pages/Departments";
 import Reports from "./pages/Reports";
 import BulkImport from "./pages/BulkImport";
 import Pricing from "./pages/Pricing";
+import Team from "./pages/Team";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -42,6 +43,7 @@ const App = () => (
               <Route path="/reports" element={<Reports />} />
               <Route path="/bulk-import" element={<BulkImport />} />
               <Route path="/pricing" element={<Pricing />} />
+              <Route path="/team" element={<Team />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
