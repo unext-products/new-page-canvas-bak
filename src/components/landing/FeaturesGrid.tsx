@@ -1,6 +1,6 @@
 import { Clock, CheckCircle, BarChart3, Users, Zap, Shield } from "lucide-react";
-import timesheetMockup from "@/assets/timesheet-entry-mockup.jpg";
-import analyticsMockup from "@/assets/analytics-mockup.jpg";
+import timesheetMockup from "@/assets/timesheet-entry-mockup.png";
+import reportMockup from "@/assets/report-mockup.png";
 
 const features = [
   {
@@ -64,9 +64,9 @@ export function FeaturesGrid() {
               Export weekly summaries, spot trends, share insights with stakeholders. All in a few clicks.
             </p>
             <div className="flex-1 rounded-lg overflow-hidden border border-landing-border mt-auto">
-              <img 
-                src={analyticsMockup} 
-                alt="Analytics dashboard showing time tracking reports" 
+            <img 
+                src={reportMockup} 
+                alt="Reports dashboard showing time tracking analytics" 
                 className="w-full h-full object-cover"
               />
             </div>
