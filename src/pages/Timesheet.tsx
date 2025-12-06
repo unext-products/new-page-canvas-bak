@@ -51,9 +51,10 @@ export default function Timesheet() {
   const [userLeaveDays, setUserLeaveDays] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    if (userWithRole?.role !== "member") {
+    const allowedRoles = ["member", "manager", "program_manager"];
+    if (userWithRole && !allowedRoles.includes(userWithRole.role || "")) {
       navigate("/dashboard");
-    } else {
+    } else if (userWithRole) {
       loadEntries();
       loadLeaveDays();
     }

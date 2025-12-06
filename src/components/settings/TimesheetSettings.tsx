@@ -56,9 +56,19 @@ export default function TimesheetSettings() {
   }, [settings]);
 
   const fetchDepartments = async () => {
+    // Get user's organization first
+    const { data: userRole } = await supabase
+      .from("user_roles")
+      .select("organization_id")
+      .eq("user_id", userWithRole?.user?.id)
+      .single();
+    
+    if (!userRole?.organization_id) return;
+    
     const { data, error } = await supabase
       .from("departments")
       .select("id, name")
+      .eq("organization_id", userRole.organization_id)
       .order("name");
 
     if (!error && data) {
