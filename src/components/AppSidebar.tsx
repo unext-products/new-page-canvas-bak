@@ -88,6 +88,8 @@ export function AppSidebar() {
 
     if (role === "manager") {
       items.push(
+        { to: "/timesheet", icon: FileText, label: "Timesheet", group: "Work" },
+        { to: "/bulk-import", icon: Upload, label: "Bulk Upload", group: "Work" },
         { to: "/approvals", icon: ClipboardCheck, label: "Approvals", group: "Management" },
         { to: "/team", icon: UsersRound, label: "Team", group: "Management" },
         { to: "/settings", icon: Settings, label: "Settings", group: "Tools" }
@@ -100,6 +102,7 @@ export function AppSidebar() {
         { to: "/departments", icon: Layers, label: entityLabel("department", true), group: "Administration" },
         { to: "/programs", icon: FolderKanban, label: entityLabel("program", true), group: "Administration" },
         { to: "/users", icon: Users, label: "Users", group: "Administration" },
+        { to: "/approvals", icon: ClipboardCheck, label: "Approvals", group: "Management" },
         { to: "/reports", icon: BarChart3, label: "Reports", group: "Analytics" },
         { to: "/bulk-import", icon: Upload, label: "Bulk Import", group: "Tools" },
         { to: "/settings", icon: Settings, label: "Settings", group: "Tools" }
@@ -108,6 +111,8 @@ export function AppSidebar() {
 
     if (role === "program_manager") {
       items.push(
+        { to: "/timesheet", icon: FileText, label: "Timesheet", group: "Work" },
+        { to: "/bulk-import", icon: Upload, label: "Bulk Upload", group: "Work" },
         { to: "/programs", icon: FolderKanban, label: entityLabel("program", true), group: "Management" },
         { to: "/departments", icon: Layers, label: entityLabel("department", true), group: "Management" },
         { to: "/reports", icon: BarChart3, label: "Reports", group: "Analytics" }

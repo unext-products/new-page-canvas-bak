@@ -61,29 +61,89 @@ export default function Approvals() {
   const { toast } = useToast();
   const navigate = useNavigate();
 
+  // Allow manager and org_admin to access approvals
+  const allowedApproverRoles = ["manager", "org_admin"];
+  
   useEffect(() => {
-    if (!authLoading && userWithRole?.role !== "manager") {
+    if (!authLoading && !allowedApproverRoles.includes(userWithRole?.role || "")) {
       navigate("/dashboard");
     }
   }, [authLoading, userWithRole, navigate]);
 
   useEffect(() => {
-    if (userWithRole?.role === "manager" && userWithRole?.departmentId) {
+    if (allowedApproverRoles.includes(userWithRole?.role || "")) {
       fetchEntries();
     }
   }, [userWithRole]);
+  const getOrgId = async (): Promise<string | null> => {
+    const { data } = await supabase
+      .from("user_roles")
+      .select("organization_id")
+      .eq("user_id", userWithRole!.user.id)
+      .single();
+    return data?.organization_id || null;
+  };
 
   const fetchEntries = async () => {
     try {
       setLoading(true);
-      const { data: entriesData, error: entriesError } = await supabase
-        .from("timesheet_entries")
-        .select("id, entry_date, start_time, end_time, duration_minutes, activity_type, activity_subtype, notes, user_id")
-        .eq("department_id", userWithRole!.departmentId)
-        .eq("status", "submitted")
-        .order("entry_date", { ascending: false });
-
-      if (entriesError) throw entriesError;
+      
+      let entriesData: any[] = [];
+      
+      if (userWithRole?.role === "manager" && userWithRole?.departmentId) {
+        // Manager: fetch entries from members and program_managers in their department
+        // First get user_ids of members and program_managers in the department
+        const { data: deptUsers } = await supabase
+          .from("user_roles")
+          .select("user_id, role")
+          .eq("department_id", userWithRole.departmentId)
+          .in("role", ["faculty", "program_manager"]);
+        
+        const userIds = deptUsers?.map(u => u.user_id) || [];
+        
+        if (userIds.length > 0) {
+          const { data, error } = await supabase
+            .from("timesheet_entries")
+            .select("id, entry_date, start_time, end_time, duration_minutes, activity_type, activity_subtype, notes, user_id")
+            .in("user_id", userIds)
+            .eq("status", "submitted")
+            .order("entry_date", { ascending: false });
+          
+          if (error) throw error;
+          entriesData = data || [];
+        }
+      } else if (userWithRole?.role === "org_admin") {
+        // Org Admin: fetch entries from managers (HODs) in their organization
+        const { data: orgDepts } = await supabase
+          .from("departments")
+          .select("id")
+          .eq("organization_id", await getOrgId());
+        
+        const deptIds = orgDepts?.map(d => d.id) || [];
+        
+        if (deptIds.length > 0) {
+          // Get HOD user_ids
+          const { data: hodUsers } = await supabase
+            .from("user_roles")
+            .select("user_id")
+            .in("department_id", deptIds)
+            .eq("role", "hod");
+          
+          const hodUserIds = hodUsers?.map(u => u.user_id) || [];
+          
+          if (hodUserIds.length > 0) {
+            const { data, error } = await supabase
+              .from("timesheet_entries")
+              .select("id, entry_date, start_time, end_time, duration_minutes, activity_type, activity_subtype, notes, user_id")
+              .in("user_id", hodUserIds)
+              .eq("status", "submitted")
+              .order("entry_date", { ascending: false });
+            
+            if (error) throw error;
+            entriesData = data || [];
+          }
+        }
+      }
 
       // Fetch profiles for all users
       const userIds = [...new Set(entriesData?.map(e => e.user_id) || [])];
