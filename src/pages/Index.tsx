@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { NavBar } from "@/components/landing/NavBar";
 import { HeroSection } from "@/components/landing/HeroSection";
-import { LogoBar } from "@/components/landing/LogoBar";
+
 import { FeaturesGrid } from "@/components/landing/FeaturesGrid";
 import { HowItWorksMinimal } from "@/components/landing/HowItWorksMinimal";
 import { Testimonial } from "@/components/landing/Testimonial";
@@ -28,7 +28,7 @@ export default function Index() {
     <div className="min-h-screen bg-landing-dark">
       <NavBar />
       <HeroSection />
-      <LogoBar />
+      
       <FeaturesGrid />
       <HowItWorksMinimal />
       <Testimonial />
