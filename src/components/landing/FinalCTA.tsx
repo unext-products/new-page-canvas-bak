@@ -1,43 +1,31 @@
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
-import { toast } from "sonner";
+import { ArrowRight } from "lucide-react";
 
 export function FinalCTA() {
-  const [email, setEmail] = useState("");
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (email) {
-      toast.success("Great! Redirecting to signup...");
-      setTimeout(() => navigate("/auth"), 500);
-    }
-  };
-
   return (
-    <section className="py-32 px-6">
-      <div className="max-w-2xl mx-auto text-center space-y-8">
-        <h2 className="text-4xl font-bold">Ready to simplify time tracking?</h2>
+    <section className="py-32 px-6 bg-landing-dark">
+      <div className="max-w-2xl mx-auto text-center">
+        <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-white mb-6 font-display">
+          Ready to take control
+          <br />
+          of your team's time?
+        </h2>
         
-        <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
-          <Input
-            type="email"
-            placeholder="your@email.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="flex-1 h-12"
-          />
-          <Button type="submit" size="lg" className="sm:w-auto">
-            Start Free Trial
-          </Button>
-        </form>
-        
-        <p className="text-sm text-muted-foreground">
-          No credit card required. 14-day trial.
+        <p className="text-landing-secondary mb-10">
+          Start your free trial today. No credit card required.
         </p>
+        
+        <Button 
+          size="lg" 
+          onClick={() => navigate("/auth")}
+          className="h-14 px-10 text-base font-medium bg-white text-landing-dark hover:bg-white/90 transition-all"
+        >
+          Start for free
+          <ArrowRight className="ml-2 h-4 w-4" />
+        </Button>
       </div>
     </section>
   );

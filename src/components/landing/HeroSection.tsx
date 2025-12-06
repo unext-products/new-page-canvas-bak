@@ -1,100 +1,67 @@
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import { ArrowRight, Play } from "lucide-react";
 import dashboardMockup from "@/assets/dashboard-mockup.jpg";
-import { Clock, CheckCircle2, Zap } from "lucide-react";
 
 export function HeroSection() {
   const navigate = useNavigate();
 
   return (
-    <section className="relative pt-32 pb-24 px-6">
-      <div className="max-w-6xl mx-auto">
-        <div className="grid lg:grid-cols-[45%_55%] gap-16 items-center">
-          {/* Left - Copy */}
-          <div className="space-y-8">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium">
-              <Zap className="w-4 h-4" />
-              <span>Now with AI-powered insights</span>
-            </div>
-            
-            <h1 className="text-5xl lg:text-6xl font-bold leading-[1.1] tracking-tight font-display">
-              Your team's time,
-              <br />
-              <span className="text-gradient">finally organized.</span>
-            </h1>
-
-            <p className="text-lg text-muted-foreground leading-relaxed max-w-md">
-              Replace spreadsheets, emails, and guesswork with one simple system for logging hours, getting approvals,
-              and understanding where time goes.
-            </p>
-
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Button 
-                size="lg" 
-                onClick={() => navigate("/auth")} 
-                className="text-base px-8 shadow-primary-glow"
-              >
-                Start Free Trial
-                <span className="ml-1">→</span>
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                onClick={() => document.getElementById("showcase")?.scrollIntoView({ behavior: "smooth" })}
-                className="text-base"
-              >
-                See it in action
-                <span className="ml-1">↓</span>
-              </Button>
-            </div>
-
-            <div className="flex flex-wrap gap-6 pt-2">
-              <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                <CheckCircle2 className="w-4 h-4 text-success" />
-                Setup in 5 minutes
-              </span>
-              <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                <CheckCircle2 className="w-4 h-4 text-success" />
-                No credit card required
-              </span>
-              <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                <CheckCircle2 className="w-4 h-4 text-success" />
-                Free for small teams
-              </span>
-            </div>
+    <section className="relative min-h-screen flex flex-col justify-center pt-24 pb-16 px-6 overflow-hidden">
+      {/* Background gradient */}
+      <div className="absolute inset-0 bg-landing-dark" />
+      
+      {/* Subtle gradient orb */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/3 w-[800px] h-[600px] bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
+      
+      <div className="relative max-w-6xl mx-auto w-full">
+        {/* Copy section */}
+        <div className="max-w-3xl mx-auto text-center mb-16">
+          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-[-0.03em] text-white leading-[1.1] mb-6 font-display">
+            Time tracking
+            <br />
+            that works.
+          </h1>
+          
+          <p className="text-lg sm:text-xl text-landing-secondary max-w-xl mx-auto mb-10 leading-relaxed">
+            Stop chasing timesheets. Your team logs hours in seconds. 
+            You get full visibility, instant approvals, and reports that actually help.
+          </p>
+          
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button 
+              size="lg" 
+              onClick={() => navigate("/auth")}
+              className="h-12 px-8 text-base font-medium bg-white text-landing-dark hover:bg-white/90 transition-all"
+            >
+              Start for free
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+            <Button 
+              size="lg" 
+              variant="outline"
+              onClick={() => document.getElementById("features")?.scrollIntoView({ behavior: "smooth" })}
+              className="h-12 px-8 text-base font-medium border-landing-border text-white hover:bg-white/5 transition-all"
+            >
+              <Play className="mr-2 h-4 w-4" />
+              Watch demo
+            </Button>
           </div>
-
-          {/* Right - Product Screenshot */}
-          <div className="relative lg:translate-x-4">
-            {/* Glow effect behind mockup */}
-            <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-primary/5 blur-3xl rounded-full scale-90 opacity-60" />
-            
-            <div className="relative rounded-2xl overflow-hidden shadow-premium-2xl border border-border/50 bg-card transform lg:rotate-1 hover:rotate-0 transition-all duration-500 hover:shadow-primary-glow/20">
-              {/* Browser Chrome */}
-              <div className="bg-muted/50 border-b border-border/50 px-4 py-3 flex items-center gap-3">
-                <div className="flex gap-2">
-                  <div className="w-3 h-3 rounded-full bg-destructive/70" />
-                  <div className="w-3 h-3 rounded-full bg-warning/70" />
-                  <div className="w-3 h-3 rounded-full bg-success/70" />
-                </div>
-                <div className="flex-1 flex justify-center">
-                  <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-background rounded-lg text-xs text-muted-foreground border border-border/50">
-                    <svg className="w-3 h-3 text-success" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                    </svg>
-                    <span className="font-medium">app.clockwise.com</span>
-                  </div>
-                </div>
-                <div className="w-14" />
-              </div>
-
-              {/* Screenshot */}
-              <img
-                src={dashboardMockup}
-                alt="ClockWise Dashboard - Time tracking interface showing today's logged hours and team completion rates"
-                className="w-full h-auto"
-              />
-            </div>
+        </div>
+        
+        {/* Product screenshot */}
+        <div className="relative max-w-5xl mx-auto">
+          {/* Glow behind image */}
+          <div className="absolute inset-0 bg-gradient-to-t from-primary/20 via-primary/5 to-transparent blur-3xl scale-95 opacity-60" />
+          
+          <div className="relative rounded-xl overflow-hidden border border-landing-border shadow-2xl">
+            <img
+              src={dashboardMockup}
+              alt="ClockWise Dashboard - Modern time tracking interface"
+              className="w-full h-auto"
+            />
+            {/* Overlay gradient at bottom */}
+            <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-landing-dark to-transparent" />
           </div>
         </div>
       </div>
