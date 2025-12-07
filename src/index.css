@@ -168,33 +168,33 @@ All colors MUST be HSL.
 }
 
 @layer utilities {
-  /* Landing page dark theme */
+  /* Landing page dark theme - Deep Navy */
   .bg-landing-dark {
-    background-color: hsl(240 10% 4%);
+    background-color: hsl(222 47% 7%);
   }
   
   .bg-landing-darker {
-    background-color: hsl(240 10% 3%);
+    background-color: hsl(222 47% 5%);
   }
   
   .bg-landing-card {
-    background-color: hsl(240 10% 6%);
+    background-color: hsl(222 47% 10%);
   }
   
   .text-landing-secondary {
-    color: hsl(240 5% 65%);
+    color: hsl(215 20% 65%);
   }
   
   .text-landing-muted {
-    color: hsl(240 5% 45%);
+    color: hsl(215 15% 45%);
   }
   
   .border-landing-border {
-    border-color: hsl(240 5% 15%);
+    border-color: hsl(222 30% 18%);
   }
   
   .border-landing-border-hover {
-    border-color: hsl(240 5% 25%);
+    border-color: hsl(222 30% 28%);
   }
 
   /* Glassmorphism utilities */
