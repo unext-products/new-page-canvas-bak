@@ -31,7 +31,7 @@ export function HeroSection() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button 
               size="lg" 
-              onClick={() => navigate("/auth")}
+              onClick={() => navigate("/auth?signup=true")}
               className="h-12 px-8 text-base font-medium bg-white text-landing-dark hover:bg-white/90 transition-all"
             >
               Start for free
