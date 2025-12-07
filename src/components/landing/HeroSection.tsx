@@ -39,9 +39,9 @@ export function HeroSection() {
             </Button>
             <Button 
               size="lg" 
-              variant="outline"
+              variant="ghost"
               onClick={() => document.getElementById("features")?.scrollIntoView({ behavior: "smooth" })}
-              className="h-12 px-8 text-base font-medium border-landing-border text-white hover:bg-white/5 transition-all"
+              className="h-12 px-8 text-base font-medium border border-landing-border text-white hover:bg-white/10 hover:text-white transition-all"
             >
               <Play className="mr-2 h-4 w-4" />
               Watch demo
