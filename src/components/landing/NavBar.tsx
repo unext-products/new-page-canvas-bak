@@ -44,7 +44,7 @@ export function NavBar() {
         
         {/* CTA button */}
         <Button 
-          onClick={() => navigate("/auth")}
+          onClick={() => navigate("/auth?signup=true")}
           className="text-sm bg-landing-dark text-white hover:bg-landing-darker rounded-full px-5 h-9"
         >
           Get started
