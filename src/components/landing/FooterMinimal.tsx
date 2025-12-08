@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Clock } from "lucide-react";
+import { Logo } from "@/components/Logo";
 
 const footerLinks = {
   Product: [
@@ -25,12 +25,7 @@ export function FooterMinimal() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
-            <Link to="/" className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                <Clock className="h-4 w-4 text-white" />
-              </div>
-              <span className="text-lg font-semibold text-white">ClockWise</span>
-            </Link>
+            <Logo to="/" variant="light" className="mb-4" />
             <p className="text-sm text-landing-muted max-w-xs">
               Modern time tracking for teams that value simplicity.
             </p>

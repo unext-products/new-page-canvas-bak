@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { signIn, signUp } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
-import { Clock, CheckCircle2, BarChart3, Shield, ArrowLeft } from "lucide-react";
+import { CheckCircle2, BarChart3, Shield, ArrowLeft, Clock } from "lucide-react";
 import { getUserErrorMessage } from "@/lib/errorHandler";
+import { Logo } from "@/components/Logo";
 
 export default function Auth() {
   const [searchParams] = useSearchParams();
@@ -92,12 +93,7 @@ export default function Auth() {
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 px-6 py-4">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <Clock className="h-4 w-4 text-white" />
-            </div>
-            <span className="text-lg font-semibold text-white">ClockWise</span>
-          </Link>
+          <Logo to="/" variant="light" />
           
           <Link 
             to="/" 
@@ -143,11 +139,8 @@ export default function Auth() {
         <div className="w-full lg:w-1/2 flex items-center justify-center p-6 lg:p-12">
           <div className="w-full max-w-md">
             {/* Mobile Logo */}
-            <div className="flex lg:hidden items-center justify-center gap-2 mb-8">
-              <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
-                <Clock className="h-5 w-5 text-white" />
-              </div>
-              <span className="text-xl font-semibold text-white">ClockWise</span>
+            <div className="flex lg:hidden items-center justify-center mb-8">
+              <Logo to="/" variant="light" size="lg" />
             </div>
 
             {/* Form Card */}
