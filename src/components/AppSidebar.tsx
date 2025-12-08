@@ -12,10 +12,10 @@ import {
   Layers,
   BarChart3,
   ClipboardCheck,
-  UsersRound,
-  User
+  UsersRound
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
+import { Logo } from "@/components/Logo";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { signOut } from "@/lib/supabase";
@@ -146,14 +146,7 @@ export function AppSidebar() {
       className="glass-navbar border-border/40 rounded-2xl m-2"
     >
       <SidebarHeader className="p-4">
-        <NavLink to="/dashboard" className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-            <Clock className="h-4 w-4 text-primary-foreground" />
-          </div>
-          <span className="text-lg font-semibold text-foreground">
-            ClockWise
-          </span>
-        </NavLink>
+        <Logo to="/dashboard" variant="dark" />
       </SidebarHeader>
 
       <SidebarSeparator />
