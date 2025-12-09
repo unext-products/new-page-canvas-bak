@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,6 +20,7 @@ import { getUserErrorMessage } from "@/lib/errorHandler";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { PageSkeleton } from "@/components/PageSkeleton";
+import { useApprovalSettings } from "@/hooks/useApprovalSettings";
 
 interface TimesheetEntry {
   id: string;
@@ -39,6 +40,7 @@ interface TimesheetEntry {
 
 export default function Approvals() {
   const { userWithRole, loading: authLoading } = useAuth();
+  const { settings, loading: settingsLoading, getApprovableRoles } = useApprovalSettings();
   const [entries, setEntries] = useState<TimesheetEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -64,40 +66,57 @@ export default function Approvals() {
   // Allow manager and org_admin to access approvals
   const allowedApproverRoles = ["manager", "org_admin"];
   
+  // Check if current user can approve anyone based on settings
+  const approvableRoles = useMemo(() => {
+    if (!userWithRole?.role) return [];
+    return getApprovableRoles(userWithRole.role);
+  }, [userWithRole?.role, getApprovableRoles]);
+  
   useEffect(() => {
     if (!authLoading && !allowedApproverRoles.includes(userWithRole?.role || "")) {
       navigate("/dashboard");
     }
   }, [authLoading, userWithRole, navigate]);
-
-  useEffect(() => {
-    if (allowedApproverRoles.includes(userWithRole?.role || "")) {
-      fetchEntries();
-    }
-  }, [userWithRole]);
-  const getOrgId = async (): Promise<string | null> => {
+  const getOrgId = useCallback(async (): Promise<string | null> => {
     const { data } = await supabase
       .from("user_roles")
       .select("organization_id")
       .eq("user_id", userWithRole!.user.id)
       .single();
     return data?.organization_id || null;
-  };
+  }, [userWithRole]);
 
-  const fetchEntries = async () => {
+  const fetchEntries = useCallback(async () => {
+    if (!userWithRole?.role || settingsLoading) return;
+    
     try {
       setLoading(true);
       
       let entriesData: any[] = [];
+      const rolesToApprove = approvableRoles;
       
-      if (userWithRole?.role === "manager" && userWithRole?.departmentId) {
-        // Manager: fetch entries from members and program_managers in their department
-        // First get user_ids of members and program_managers in the department
+      // Map display roles to db roles for querying
+      type DbRole = "admin" | "faculty" | "hod" | "org_admin" | "program_manager";
+      const dbRolesToApprove: DbRole[] = rolesToApprove.map(role => {
+        if (role === "faculty") return "faculty";
+        if (role === "program_manager") return "program_manager";
+        if (role === "hod") return "hod";
+        return role as DbRole;
+      });
+      
+      if (dbRolesToApprove.length === 0) {
+        setEntries([]);
+        setLoading(false);
+        return;
+      }
+      
+      if (userWithRole.role === "manager" && userWithRole.departmentId) {
+        // Manager: fetch entries from roles they can approve in their department
         const { data: deptUsers } = await supabase
           .from("user_roles")
           .select("user_id, role")
           .eq("department_id", userWithRole.departmentId)
-          .in("role", ["faculty", "program_manager"]);
+          .in("role", dbRolesToApprove);
         
         const userIds = deptUsers?.map(u => u.user_id) || [];
         
@@ -112,58 +131,66 @@ export default function Approvals() {
           if (error) throw error;
           entriesData = data || [];
         }
-      } else if (userWithRole?.role === "org_admin") {
-        // Org Admin: fetch entries from managers (HODs) in their organization
-        const { data: orgDepts } = await supabase
-          .from("departments")
-          .select("id")
-          .eq("organization_id", await getOrgId());
+      } else if (userWithRole.role === "org_admin") {
+        // Org Admin: fetch entries from roles they can approve in their organization
+        const orgId = await getOrgId();
         
-        const deptIds = orgDepts?.map(d => d.id) || [];
-        
-        if (deptIds.length > 0) {
-          // Get HOD user_ids
-          const { data: hodUsers } = await supabase
-            .from("user_roles")
-            .select("user_id")
-            .in("department_id", deptIds)
-            .eq("role", "hod");
+        if (orgId) {
+          const { data: orgDepts } = await supabase
+            .from("departments")
+            .select("id")
+            .eq("organization_id", orgId);
           
-          const hodUserIds = hodUsers?.map(u => u.user_id) || [];
+          const deptIds = orgDepts?.map(d => d.id) || [];
           
-          if (hodUserIds.length > 0) {
-            const { data, error } = await supabase
-              .from("timesheet_entries")
-              .select("id, entry_date, start_time, end_time, duration_minutes, activity_type, activity_subtype, notes, user_id")
-              .in("user_id", hodUserIds)
-              .eq("status", "submitted")
-              .order("entry_date", { ascending: false });
+          if (deptIds.length > 0) {
+            // Get user_ids of roles org_admin can approve
+            const { data: usersToApprove } = await supabase
+              .from("user_roles")
+              .select("user_id")
+              .in("department_id", deptIds)
+              .in("role", dbRolesToApprove);
             
-            if (error) throw error;
-            entriesData = data || [];
+            const userIds = usersToApprove?.map(u => u.user_id) || [];
+            
+            if (userIds.length > 0) {
+              const { data, error } = await supabase
+                .from("timesheet_entries")
+                .select("id, entry_date, start_time, end_time, duration_minutes, activity_type, activity_subtype, notes, user_id")
+                .in("user_id", userIds)
+                .eq("status", "submitted")
+                .order("entry_date", { ascending: false });
+              
+              if (error) throw error;
+              entriesData = data || [];
+            }
           }
         }
       }
 
       // Fetch profiles for all users
       const userIds = [...new Set(entriesData?.map(e => e.user_id) || [])];
-      const { data: profilesData, error: profilesError } = await supabase
-        .from("profiles")
-        .select("id, full_name, avatar_url")
-        .in("id", userIds);
+      if (userIds.length > 0) {
+        const { data: profilesData, error: profilesError } = await supabase
+          .from("profiles")
+          .select("id, full_name, avatar_url")
+          .in("id", userIds);
 
-      if (profilesError) throw profilesError;
+        if (profilesError) throw profilesError;
 
-      // Create a map of user profiles
-      const profilesMap = new Map(profilesData?.map(p => [p.id, p]) || []);
+        // Create a map of user profiles
+        const profilesMap = new Map(profilesData?.map(p => [p.id, p]) || []);
 
-      // Merge entries with profiles
-      const entriesWithProfiles = entriesData?.map(entry => ({
-        ...entry,
-        profiles: profilesMap.get(entry.user_id) || { full_name: "Unknown", avatar_url: null }
-      })) || [];
+        // Merge entries with profiles
+        const entriesWithProfiles = entriesData?.map(entry => ({
+          ...entry,
+          profiles: profilesMap.get(entry.user_id) || { full_name: "Unknown", avatar_url: null }
+        })) || [];
 
-      setEntries(entriesWithProfiles as TimesheetEntry[]);
+        setEntries(entriesWithProfiles as TimesheetEntry[]);
+      } else {
+        setEntries([]);
+      }
     } catch (error) {
       console.error("Error fetching entries:", error);
       toast({
@@ -174,7 +201,13 @@ export default function Approvals() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [userWithRole, settingsLoading, approvableRoles, getOrgId, toast]);
+
+  useEffect(() => {
+    if (allowedApproverRoles.includes(userWithRole?.role || "") && !settingsLoading) {
+      fetchEntries();
+    }
+  }, [userWithRole, settingsLoading, fetchEntries]);
 
   const handleAction = (entry: TimesheetEntry, action: "approve" | "reject") => {
     setSelectedEntry(entry);
