@@ -59,6 +59,8 @@ export function HeroSection() {
               src={dashboardMockup}
               alt="ClockWise Dashboard - Modern time tracking interface"
               className="w-full h-auto"
+              width={1920}
+              height={1126}
             />
             {/* Overlay gradient at bottom */}
             <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-landing-dark to-transparent" />

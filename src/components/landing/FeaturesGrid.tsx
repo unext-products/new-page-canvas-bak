@@ -68,6 +68,8 @@ export function FeaturesGrid() {
                 src={reportMockup} 
                 alt="Reports dashboard showing time tracking analytics" 
                 className="w-full h-full object-cover"
+                width={1920}
+                height={1124}
               />
             </div>
           </div>
@@ -113,6 +115,8 @@ export function FeaturesGrid() {
                 src={timesheetMockup} 
                 alt="Timesheet entry interface" 
                 className="w-full h-auto"
+                width={1920}
+                height={1071}
               />
             </div>
           </div>
