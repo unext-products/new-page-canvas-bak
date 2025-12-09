@@ -179,6 +179,53 @@ export type Database = {
           },
         ]
       }
+      organization_approval_settings: {
+        Row: {
+          created_at: string
+          id: string
+          manager_approved_by: string | null
+          manager_requires_approval: boolean
+          member_approved_by: string | null
+          member_requires_approval: boolean
+          organization_id: string
+          program_manager_approved_by: string | null
+          program_manager_requires_approval: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          manager_approved_by?: string | null
+          manager_requires_approval?: boolean
+          member_approved_by?: string | null
+          member_requires_approval?: boolean
+          organization_id: string
+          program_manager_approved_by?: string | null
+          program_manager_requires_approval?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          manager_approved_by?: string | null
+          manager_requires_approval?: boolean
+          member_approved_by?: string | null
+          member_requires_approval?: boolean
+          organization_id?: string
+          program_manager_approved_by?: string | null
+          program_manager_requires_approval?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_approval_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organization_labels: {
         Row: {
           created_at: string
