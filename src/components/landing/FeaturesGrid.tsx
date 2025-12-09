@@ -70,6 +70,8 @@ export function FeaturesGrid() {
                 className="w-full h-full object-cover"
                 width={1920}
                 height={1124}
+                loading="lazy"
+                decoding="async"
               />
             </div>
           </div>
@@ -117,6 +119,8 @@ export function FeaturesGrid() {
                 className="w-full h-auto"
                 width={1920}
                 height={1071}
+                loading="lazy"
+                decoding="async"
               />
             </div>
           </div>
