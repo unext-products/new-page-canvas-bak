@@ -1,3 +1,5 @@
+#testing 2-way sync with lovable
+
 # Welcome to your Lovable project
 
 ## Project info
