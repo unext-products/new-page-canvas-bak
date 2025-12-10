@@ -206,7 +206,8 @@ export default function Timesheet() {
             notes: validatedData.notes || null,
             status,
           })
-          .eq("id", editingEntry.id);
+          .eq("id", editingEntry.id)
+          .eq("user_id", userWithRole.user.id);
         error = result.error;
       } else {
         // Insert new entry
