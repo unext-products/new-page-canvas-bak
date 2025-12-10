@@ -19,7 +19,6 @@ import { getUserErrorMessage } from "@/lib/errorHandler";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { useConfetti } from "@/hooks/useConfetti";
-import { SaveIndicator, SaveStatus } from "@/components/SaveIndicator";
 import { OnboardingTour, useOnboardingTour } from "@/components/OnboardingTour";
 import { useActivityCategories } from "@/hooks/useActivityCategories";
 import { formatDisplayDate } from "@/lib/dateUtils";
@@ -37,7 +36,6 @@ export default function Timesheet() {
   const [leaveEntries, setLeaveEntries] = useState<any[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [runTour, setRunTour] = useState(false);
   const [editingEntry, setEditingEntry] = useState<any>(null);
   
@@ -230,9 +228,6 @@ export default function Timesheet() {
       const duration = calculateDuration(normalizedStartTime, normalizedEndTime);
 
       setLoading(true);
-      if (status === "draft") {
-        setSaveStatus("saving");
-      }
 
       let error;
 
@@ -275,20 +270,12 @@ export default function Timesheet() {
 
       if (error) throw error;
 
-      if (status === "draft") {
-        setSaveStatus("saved");
-        // Reset save status after 2 seconds
-        setTimeout(() => setSaveStatus("idle"), 2000);
-      } else {
-        // Fire confetti on successful submission!
-        fireConfetti();
-      }
+      // Fire confetti on successful submission!
+      fireConfetti();
 
       toast({
-        title: status === "submitted" ? "🎉 Submitted!" : "Saved",
-        description: status === "draft" 
-          ? (editingEntry ? "Entry updated as draft" : "Entry saved as draft")
-          : "Your timesheet has been submitted for approval",
+        title: "🎉 Submitted!",
+        description: "Your timesheet has been submitted for approval",
       });
       setDialogOpen(false);
       setEditingEntry(null);
@@ -296,10 +283,6 @@ export default function Timesheet() {
       loadEntries();
     } catch (error: any) {
       setLoading(false);
-      if (saveStatus === "saving") {
-        setSaveStatus("error");
-        setTimeout(() => setSaveStatus("idle"), 3000);
-      }
       
       if (error.errors) {
         toast({
@@ -624,27 +607,26 @@ export default function Timesheet() {
                   />
                 </div>
 
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <SaveIndicator status={saveStatus} />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      className="flex-1"
-                      onClick={() => handleSubmit("draft")}
-                      disabled={loading}
-                    >
-                      Save Draft
-                    </Button>
-                    <Button
-                      className="flex-1"
-                      onClick={() => handleSubmit("submitted")}
-                      disabled={loading}
-                    >
-                      Submit
-                    </Button>
-                  </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => {
+                      setDialogOpen(false);
+                      setEditingEntry(null);
+                      resetForm();
+                    }}
+                    disabled={loading}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    className="flex-1"
+                    onClick={() => handleSubmit("submitted")}
+                    disabled={loading}
+                  >
+                    Submit
+                  </Button>
                 </div>
               </div>
             </DialogContent>
