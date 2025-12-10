@@ -12,7 +12,8 @@ import {
   Layers,
   BarChart3,
   ClipboardCheck,
-  UsersRound
+  UsersRound,
+  CalendarDays
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { Logo } from "@/components/Logo";
@@ -82,6 +83,7 @@ export function AppSidebar() {
     if (role === "member") {
       items.push(
         { to: "/timesheet", icon: FileText, label: "Timesheet", group: "Work" },
+        { to: "/calendar", icon: CalendarDays, label: "Calendar", group: "Work" },
         { to: "/bulk-import", icon: Upload, label: "Bulk Upload", group: "Work" }
       );
     }
@@ -89,6 +91,7 @@ export function AppSidebar() {
     if (role === "manager") {
       items.push(
         { to: "/timesheet", icon: FileText, label: "Timesheet", group: "Work" },
+        { to: "/calendar", icon: CalendarDays, label: "Calendar", group: "Work" },
         { to: "/bulk-import", icon: Upload, label: "Bulk Upload", group: "Work" },
         { to: "/approvals", icon: ClipboardCheck, label: "Approvals", group: "Management" },
         { to: "/team", icon: UsersRound, label: "Team", group: "Management" },
@@ -112,6 +115,7 @@ export function AppSidebar() {
     if (role === "program_manager") {
       items.push(
         { to: "/timesheet", icon: FileText, label: "Timesheet", group: "Work" },
+        { to: "/calendar", icon: CalendarDays, label: "Calendar", group: "Work" },
         { to: "/bulk-import", icon: Upload, label: "Bulk Upload", group: "Work" },
         { to: "/programs", icon: FolderKanban, label: entityLabel("program", true), group: "Management" },
         { to: "/departments", icon: Layers, label: entityLabel("department", true), group: "Management" },

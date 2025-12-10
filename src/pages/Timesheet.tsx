@@ -12,7 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/StatusBadge";
-import { Plus, Trash2, Calendar, FileText, HelpCircle, Pencil } from "lucide-react";
+import { Plus, Trash2, Calendar, FileText, HelpCircle, Pencil, Upload } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { timesheetEntrySchema } from "@/lib/validation";
 import { getUserErrorMessage } from "@/lib/errorHandler";
@@ -22,6 +22,9 @@ import { useConfetti } from "@/hooks/useConfetti";
 import { SaveIndicator, SaveStatus } from "@/components/SaveIndicator";
 import { OnboardingTour, useOnboardingTour } from "@/components/OnboardingTour";
 import { useActivityCategories } from "@/hooks/useActivityCategories";
+import { formatDisplayDate } from "@/lib/dateUtils";
+import { DateRangeFilter, DateFilterType, DateRange } from "@/components/DateRangeFilter";
+import { startOfDay, endOfDay, isWithinInterval } from "date-fns";
 
 export default function Timesheet() {
   const { userWithRole } = useAuth();
@@ -52,6 +55,15 @@ export default function Timesheet() {
   const [leaveType, setLeaveType] = useState<"casual_leave" | "sick_leave" | "vacation" | "personal" | "compensatory" | "other">("casual_leave");
   const [leaveComments, setLeaveComments] = useState("");
   const [userLeaveDays, setUserLeaveDays] = useState<Set<string>>(new Set());
+  
+  // Date filter state
+  const [dateFilterType, setDateFilterType] = useState<DateFilterType>("month");
+  const [dateRange, setDateRange] = useState<DateRange>(() => {
+    const today = new Date();
+    const start = new Date(today.getFullYear(), today.getMonth(), 1);
+    const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    return { from: start, to: end };
+  });
 
   useEffect(() => {
     const allowedRoles = ["member", "manager", "program_manager"];
@@ -384,10 +396,21 @@ export default function Timesheet() {
       sortDate: leave.leave_date,
     }));
     
-    return [...timesheetItems, ...leaveItems].sort((a, b) => 
+    // Filter by date range
+    const filtered = [...timesheetItems, ...leaveItems].filter(item => {
+      const itemDate = new Date(item.sortDate);
+      return isWithinInterval(itemDate, { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to) });
+    });
+    
+    return filtered.sort((a, b) => 
       new Date(b.sortDate).getTime() - new Date(a.sortDate).getTime()
     );
-  }, [entries, leaveEntries]);
+  }, [entries, leaveEntries, dateRange]);
+
+  const handleDateFilterChange = (type: DateFilterType, range: DateRange) => {
+    setDateFilterType(type);
+    setDateRange(range);
+  };
 
   const handleMarkLeave = async () => {
     if (!userWithRole?.departmentId) {
@@ -631,13 +654,22 @@ export default function Timesheet() {
 
         <Card data-tour="entries-list">
           <CardHeader>
-            <CardTitle>All Entries</CardTitle>
-            <CardDescription>Your timesheet and leave history</CardDescription>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <CardTitle>All Entries</CardTitle>
+                <CardDescription>Your timesheet and leave history</CardDescription>
+              </div>
+              <DateRangeFilter 
+                value={dateFilterType} 
+                onChange={handleDateFilterChange}
+                customRange={dateRange}
+              />
+            </div>
           </CardHeader>
           <CardContent>
             {combinedEntries.length === 0 ? (
               <p className="text-center py-8 text-muted-foreground">
-                No entries yet. Click "New Entry" to get started.
+                No entries found for the selected period.
               </p>
             ) : (
               <div className="space-y-4">
@@ -649,11 +681,17 @@ export default function Timesheet() {
                     {item.type === 'timesheet' ? (
                       <>
                         <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-1">
+                          <div className="flex items-center gap-3 mb-1 flex-wrap">
                             <p className="font-medium">
-                              {new Date(item.entry_date).toLocaleDateString()}
+                              {formatDisplayDate(item.entry_date)}
                             </p>
                             <StatusBadge status={item.status} />
+                            {item.source === "bulk_upload" && (
+                              <Badge variant="outline" className="text-xs">
+                                <Upload className="h-3 w-3 mr-1" />
+                                Bulk
+                              </Badge>
+                            )}
                           </div>
                           <p className="text-sm text-muted-foreground">
                             {item.activity_type.charAt(0).toUpperCase() + item.activity_type.slice(1)}
@@ -671,24 +709,28 @@ export default function Timesheet() {
                             </p>
                           )}
                         </div>
-                        {item.status === "draft" && (
+                        {(item.status === "draft" || item.status === "submitted") && (
                           <div className="flex gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEdit(item)}
-                              title="Edit entry"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDelete(item.id)}
-                              title="Delete entry"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            {item.status === "draft" && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEdit(item)}
+                                title="Edit entry"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {(item.status === "draft" || item.status === "submitted") && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDelete(item.id)}
+                                title="Delete entry"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
                           </div>
                         )}
                       </>
@@ -696,7 +738,7 @@ export default function Timesheet() {
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-1">
                           <p className="font-medium">
-                            {new Date(item.leave_date).toLocaleDateString()}
+                            {formatDisplayDate(item.leave_date)}
                           </p>
                           <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
                             Leave

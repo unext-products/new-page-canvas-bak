@@ -20,6 +20,7 @@ import BulkImport from "./pages/BulkImport";
 import Pricing from "./pages/Pricing";
 import Team from "./pages/Team";
 import Settings from "./pages/Settings";
+import CalendarPage from "./pages/Calendar";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,6 +39,7 @@ const App = () => (
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/timesheet" element={<Timesheet />} />
+                <Route path="/calendar" element={<CalendarPage />} />
                 <Route path="/approvals" element={<Approvals />} />
                 <Route path="/users" element={<Users />} />
                 <Route path="/organizations" element={<Organizations />} />
