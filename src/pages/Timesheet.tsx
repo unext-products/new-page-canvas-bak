@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { StatusBadge } from "@/components/StatusBadge";
-import { Plus, Trash2, Calendar, FileText, HelpCircle } from "lucide-react";
+import { Plus, Trash2, Calendar, FileText, HelpCircle, Pencil } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { timesheetEntrySchema } from "@/lib/validation";
 import { getUserErrorMessage } from "@/lib/errorHandler";
@@ -34,6 +34,7 @@ export default function Timesheet() {
   const [loading, setLoading] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [runTour, setRunTour] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<any>(null);
   
   // Form state
   const [entryDate, setEntryDate] = useState(new Date().toISOString().split("T")[0]);
@@ -110,6 +111,37 @@ export default function Timesheet() {
     return endMinutes - startMinutes;
   };
 
+  // Check if new entry overlaps with existing entries (excluding rejected ones)
+  const checkTimeOverlap = (date: string, start: string, end: string, excludeId?: string): boolean => {
+    const newStartMinutes = timeToMinutes(start);
+    const newEndMinutes = timeToMinutes(end);
+
+    // Filter entries for the same date, excluding rejected entries and the entry being edited
+    const relevantEntries = entries.filter(
+      (entry) =>
+        entry.entry_date === date &&
+        entry.status !== "rejected" &&
+        entry.id !== excludeId
+    );
+
+    for (const entry of relevantEntries) {
+      const existingStartMinutes = timeToMinutes(entry.start_time);
+      const existingEndMinutes = timeToMinutes(entry.end_time);
+
+      // Check for overlap: new entry starts before existing ends AND new entry ends after existing starts
+      if (newStartMinutes < existingEndMinutes && newEndMinutes > existingStartMinutes) {
+        return true; // Overlap detected
+      }
+    }
+
+    return false;
+  };
+
+  const timeToMinutes = (time: string): number => {
+    const [hours, minutes] = time.split(":").map(Number);
+    return hours * 60 + minutes;
+  };
+
   const handleSubmit = async (status: "draft" | "submitted") => {
     if (!userWithRole?.departmentId) {
       toast({
@@ -130,6 +162,16 @@ export default function Timesheet() {
       return;
     }
 
+    // Check for overlapping time entries
+    if (checkTimeOverlap(entryDate, startTime, endTime, editingEntry?.id)) {
+      toast({
+        title: "Time Overlap Detected",
+        description: "This time slot overlaps with an existing entry. Please choose a different time.",
+        variant: "destructive",
+      });
+      return; // Dialog remains open
+    }
+
     try {
       // Validate form data
       const validatedData = timesheetEntrySchema.parse({
@@ -148,18 +190,40 @@ export default function Timesheet() {
         setSaveStatus("saving");
       }
 
-      const { error } = await supabase.from("timesheet_entries").insert({
-        user_id: userWithRole.user.id,
-        department_id: userWithRole.departmentId,
-        entry_date: validatedData.entry_date,
-        start_time: validatedData.start_time,
-        end_time: validatedData.end_time,
-        duration_minutes: duration,
-        activity_type: validatedData.activity_type,
-        activity_subtype: validatedData.activity_subtype || null,
-        notes: validatedData.notes || null,
-        status,
-      });
+      let error;
+
+      if (editingEntry) {
+        // Update existing entry
+        const result = await supabase
+          .from("timesheet_entries")
+          .update({
+            entry_date: validatedData.entry_date,
+            start_time: validatedData.start_time,
+            end_time: validatedData.end_time,
+            duration_minutes: duration,
+            activity_type: validatedData.activity_type,
+            activity_subtype: validatedData.activity_subtype || null,
+            notes: validatedData.notes || null,
+            status,
+          })
+          .eq("id", editingEntry.id);
+        error = result.error;
+      } else {
+        // Insert new entry
+        const result = await supabase.from("timesheet_entries").insert({
+          user_id: userWithRole.user.id,
+          department_id: userWithRole.departmentId,
+          entry_date: validatedData.entry_date,
+          start_time: validatedData.start_time,
+          end_time: validatedData.end_time,
+          duration_minutes: duration,
+          activity_type: validatedData.activity_type,
+          activity_subtype: validatedData.activity_subtype || null,
+          notes: validatedData.notes || null,
+          status,
+        });
+        error = result.error;
+      }
 
       setLoading(false);
 
@@ -176,9 +240,12 @@ export default function Timesheet() {
 
       toast({
         title: status === "submitted" ? "🎉 Submitted!" : "Saved",
-        description: status === "draft" ? "Entry saved as draft" : "Your timesheet has been submitted for approval",
+        description: status === "draft" 
+          ? (editingEntry ? "Entry updated as draft" : "Entry saved as draft")
+          : "Your timesheet has been submitted for approval",
       });
       setDialogOpen(false);
+      setEditingEntry(null);
       resetForm();
       loadEntries();
     } catch (error: any) {
@@ -197,7 +264,7 @@ export default function Timesheet() {
       } else {
         toast({
           title: "Error",
-          description: getUserErrorMessage(error, "create timesheet entry"),
+          description: getUserErrorMessage(error, editingEntry ? "update timesheet entry" : "create timesheet entry"),
           variant: "destructive",
         });
       }
@@ -229,6 +296,26 @@ export default function Timesheet() {
     setActivityType(categories[0]?.code || "");
     setActivitySubtype("");
     setNotes("");
+    setEditingEntry(null);
+  };
+
+  const handleEdit = (entry: any) => {
+    setEditingEntry(entry);
+    setEntryDate(entry.entry_date);
+    setStartTime(entry.start_time);
+    setEndTime(entry.end_time);
+    setActivityType(entry.activity_type);
+    setActivitySubtype(entry.activity_subtype || "");
+    setNotes(entry.notes || "");
+    setDialogOpen(true);
+  };
+
+  const handleDialogClose = (open: boolean) => {
+    setDialogOpen(open);
+    if (!open) {
+      setEditingEntry(null);
+      resetForm();
+    }
   };
 
   const formatMinutes = (minutes: number) => {
@@ -365,7 +452,7 @@ export default function Timesheet() {
               </div>
             </DialogContent>
           </Dialog>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <Dialog open={dialogOpen} onOpenChange={handleDialogClose}>
               <DialogTrigger asChild>
                 <Button className="w-full sm:w-auto" data-tour="new-entry">
                   <Plus className="mr-2 h-4 w-4" />
@@ -374,7 +461,7 @@ export default function Timesheet() {
               </DialogTrigger>
             <DialogContent className="max-w-md">
               <DialogHeader>
-                <DialogTitle>Add Timesheet Entry</DialogTitle>
+                <DialogTitle>{editingEntry ? "Edit Timesheet Entry" : "Add Timesheet Entry"}</DialogTitle>
                 <DialogDescription>
                   Fill in the details of your work activity
                 </DialogDescription>
@@ -518,13 +605,24 @@ export default function Timesheet() {
                       )}
                     </div>
                     {entry.status === "draft" && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(entry.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEdit(entry)}
+                          title="Edit entry"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(entry.id)}
+                          title="Delete entry"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     )}
                   </div>
                 ))}
