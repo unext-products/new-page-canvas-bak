@@ -74,10 +74,17 @@ export async function validateMemberExcelRow(
     return { isValid: false, errors };
   }
 
-  // Validate date format
-  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-  if (!dateRegex.test(row.entry_date)) {
-    errors.push("entry_date must be in YYYY-MM-DD format");
+  // Validate date format (DD/MM/YYYY or YYYY-MM-DD)
+  const ddmmyyyy = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+  const isoFormat = /^\d{4}-\d{2}-\d{2}$/;
+  let normalizedDate = row.entry_date;
+  
+  const ddMatch = row.entry_date.match(ddmmyyyy);
+  if (ddMatch) {
+    // Convert DD/MM/YYYY to YYYY-MM-DD
+    normalizedDate = `${ddMatch[3]}-${ddMatch[2].padStart(2, '0')}-${ddMatch[1].padStart(2, '0')}`;
+  } else if (!isoFormat.test(row.entry_date)) {
+    errors.push("entry_date must be in DD/MM/YYYY format");
   }
 
   // Validate time format
@@ -121,14 +128,15 @@ export async function validateMemberExcelRow(
         data: {
           user_id: userId,
           department_id: departmentId,
-          entry_date: row.entry_date,
+          entry_date: normalizedDate,
           start_time: row.start_time,
           end_time: row.end_time,
           duration_minutes: durationMinutes,
           activity_type: row.activity_type.toLowerCase(),
           activity_subtype: row.activity_subtype || null,
           notes: row.notes || null,
-          status: 'submitted', // Faculty uploads go directly to approval
+          status: 'submitted',
+          source: 'bulk_upload',
         },
       };
     }
@@ -322,7 +330,7 @@ export async function fetchDepartments(): Promise<Map<string, string>> {
 export function generateMemberExcelTemplate(): Blob {
   const templateData = [
     {
-      entry_date: '2025-01-15',
+      entry_date: '15/01/2025',
       start_time: '09:00',
       end_time: '11:00',
       activity_type: 'class',
@@ -360,7 +368,7 @@ export function generateAdminExcelTemplate(): Blob {
   const templateData = [
     {
       faculty_email: 'faculty@example.com',
-      entry_date: '2025-01-15',
+      entry_date: '15/01/2025',
       start_time: '09:00',
       end_time: '11:00',
       activity_type: 'class',
