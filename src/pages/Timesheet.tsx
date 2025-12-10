@@ -237,7 +237,7 @@ export default function Timesheet() {
       let error;
 
       if (editingEntry) {
-        // Update existing entry - only drafts can be edited
+        // Update existing entry - drafts and pending entries can be edited
         const result = await supabase
           .from("timesheet_entries")
           .update({
@@ -252,7 +252,7 @@ export default function Timesheet() {
           })
           .eq("id", editingEntry.id)
           .eq("user_id", userWithRole.user.id)
-          .eq("status", "draft");
+          .in("status", ["draft", "submitted"]);
         error = result.error;
       } else {
         // Insert new entry
@@ -711,16 +711,14 @@ export default function Timesheet() {
                         </div>
                         {(item.status === "draft" || item.status === "submitted") && (
                           <div className="flex gap-1">
-                            {item.status === "draft" && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleEdit(item)}
-                                title="Edit entry"
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEdit(item)}
+                              title="Edit entry"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
                             {(item.status === "draft" || item.status === "submitted") && (
                               <Button
                                 variant="ghost"
