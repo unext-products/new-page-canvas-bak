@@ -162,8 +162,22 @@ export default function Timesheet() {
       return;
     }
 
+    // Normalize time format for overlap check
+    const normalizeTimeFormat = (time: string): string => {
+      const parts = time.split(":");
+      if (parts.length === 2) {
+        const hour = parts[0].padStart(2, "0");
+        const min = parts[1].padStart(2, "0");
+        return `${hour}:${min}`;
+      }
+      return time;
+    };
+
+    const normalizedStart = normalizeTimeFormat(startTime);
+    const normalizedEnd = normalizeTimeFormat(endTime);
+
     // Check for overlapping time entries
-    if (checkTimeOverlap(entryDate, startTime, endTime, editingEntry?.id)) {
+    if (checkTimeOverlap(entryDate, normalizedStart, normalizedEnd, editingEntry?.id)) {
       toast({
         title: "Time Overlap Detected",
         description: "This time slot overlaps with an existing entry. Please choose a different time.",
@@ -173,17 +187,31 @@ export default function Timesheet() {
     }
 
     try {
+      // Normalize time format to HH:MM (pad single digit hours)
+      const normalizeTime = (time: string): string => {
+        const parts = time.split(":");
+        if (parts.length === 2) {
+          const hour = parts[0].padStart(2, "0");
+          const min = parts[1].padStart(2, "0");
+          return `${hour}:${min}`;
+        }
+        return time;
+      };
+
+      const normalizedStartTime = normalizeTime(startTime);
+      const normalizedEndTime = normalizeTime(endTime);
+
       // Validate form data
       const validatedData = timesheetEntrySchema.parse({
         entry_date: entryDate,
-        start_time: startTime,
-        end_time: endTime,
+        start_time: normalizedStartTime,
+        end_time: normalizedEndTime,
         activity_type: activityType,
         activity_subtype: activitySubtype,
         notes: notes,
       });
 
-      const duration = calculateDuration(startTime, endTime);
+      const duration = calculateDuration(normalizedStartTime, normalizedEndTime);
 
       setLoading(true);
       if (status === "draft") {
@@ -193,7 +221,7 @@ export default function Timesheet() {
       let error;
 
       if (editingEntry) {
-        // Update existing entry
+        // Update existing entry - only drafts can be edited
         const result = await supabase
           .from("timesheet_entries")
           .update({
@@ -207,7 +235,8 @@ export default function Timesheet() {
             status,
           })
           .eq("id", editingEntry.id)
-          .eq("user_id", userWithRole.user.id);
+          .eq("user_id", userWithRole.user.id)
+          .eq("status", "draft");
         error = result.error;
       } else {
         // Insert new entry
