@@ -36,12 +36,29 @@ interface TimesheetEntry {
     full_name: string;
     avatar_url: string | null;
   };
+  type: 'timesheet';
 }
+
+interface LeaveEntry {
+  id: string;
+  user_id: string;
+  leave_date: string;
+  leave_type: string;
+  comments: string | null;
+  profiles: {
+    full_name: string;
+    avatar_url: string | null;
+  };
+  type: 'leave';
+}
+
+type CombinedEntry = TimesheetEntry | LeaveEntry;
 
 export default function Approvals() {
   const { userWithRole, loading: authLoading } = useAuth();
   const { settings, loading: settingsLoading, getApprovableRoles } = useApprovalSettings();
   const [entries, setEntries] = useState<TimesheetEntry[]>([]);
+  const [leaveEntries, setLeaveEntries] = useState<LeaveEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<TimesheetEntry | null>(null);
@@ -168,28 +185,53 @@ export default function Approvals() {
         }
       }
 
-      // Fetch profiles for all users
+      // Fetch profiles for all users from timesheet entries
       const userIds = [...new Set(entriesData?.map(e => e.user_id) || [])];
+      
+      // Fetch leave entries for the same users
+      let leaveData: any[] = [];
       if (userIds.length > 0) {
+        const { data: leaves } = await supabase
+          .from('leave_days' as any)
+          .select('*')
+          .in('user_id', userIds)
+          .order('leave_date', { ascending: false });
+        leaveData = leaves || [];
+      }
+      
+      // Combine user IDs from both sources
+      const allUserIds = [...new Set([...userIds, ...leaveData.map((l: any) => l.user_id)])];
+      
+      if (allUserIds.length > 0) {
         const { data: profilesData, error: profilesError } = await supabase
           .from("profiles")
           .select("id, full_name, avatar_url")
-          .in("id", userIds);
+          .in("id", allUserIds);
 
         if (profilesError) throw profilesError;
 
         // Create a map of user profiles
         const profilesMap = new Map(profilesData?.map(p => [p.id, p]) || []);
 
-        // Merge entries with profiles
+        // Merge timesheet entries with profiles
         const entriesWithProfiles = entriesData?.map(entry => ({
           ...entry,
+          type: 'timesheet' as const,
           profiles: profilesMap.get(entry.user_id) || { full_name: "Unknown", avatar_url: null }
         })) || [];
 
+        // Merge leave entries with profiles
+        const leavesWithProfiles = leaveData.map((leave: any) => ({
+          ...leave,
+          type: 'leave' as const,
+          profiles: profilesMap.get(leave.user_id) || { full_name: "Unknown", avatar_url: null }
+        }));
+
         setEntries(entriesWithProfiles as TimesheetEntry[]);
+        setLeaveEntries(leavesWithProfiles as LeaveEntry[]);
       } else {
         setEntries([]);
+        setLeaveEntries([]);
       }
     } catch (error) {
       console.error("Error fetching entries:", error);
@@ -298,7 +340,39 @@ export default function Approvals() {
     }));
   }, [entries]);
 
-  // Filter entries based on selections
+  // Format leave type for display
+  const formatLeaveType = (type: string) => {
+    const labels: Record<string, string> = {
+      casual_leave: "Casual Leave",
+      sick_leave: "Sick Leave",
+      vacation: "Vacation",
+      personal: "Personal Leave",
+      compensatory: "Compensatory Off",
+      other: "Other Leave",
+    };
+    return labels[type] || type;
+  };
+
+  // Combine timesheet entries and leave entries for display
+  const combinedEntries = useMemo(() => {
+    const timesheetItems = entries.map(entry => ({
+      ...entry,
+      type: 'timesheet' as const,
+      sortDate: entry.entry_date,
+    }));
+    
+    const leaveItems = leaveEntries.map(leave => ({
+      ...leave,
+      type: 'leave' as const,
+      sortDate: leave.leave_date,
+    }));
+    
+    return [...timesheetItems, ...leaveItems].sort((a, b) => 
+      new Date(b.sortDate).getTime() - new Date(a.sortDate).getTime()
+    );
+  }, [entries, leaveEntries]);
+
+  // Filter entries based on selections (only applies to timesheet entries)
   const filteredEntries = useMemo(() => {
     return entries.filter(entry => {
       if (filterFaculty && entry.user_id !== filterFaculty) return false;
@@ -306,6 +380,33 @@ export default function Approvals() {
       return true;
     });
   }, [entries, filterFaculty, filterActivity]);
+
+  // Filter leave entries based on faculty selection
+  const filteredLeaveEntries = useMemo(() => {
+    return leaveEntries.filter(entry => {
+      if (filterFaculty && entry.user_id !== filterFaculty) return false;
+      return true;
+    });
+  }, [leaveEntries, filterFaculty]);
+
+  // Combined filtered entries for display
+  const filteredCombinedEntries = useMemo(() => {
+    const timesheetItems = filteredEntries.map(entry => ({
+      ...entry,
+      type: 'timesheet' as const,
+      sortDate: entry.entry_date,
+    }));
+    
+    const leaveItems = filteredLeaveEntries.map(leave => ({
+      ...leave,
+      type: 'leave' as const,
+      sortDate: leave.leave_date,
+    }));
+    
+    return [...timesheetItems, ...leaveItems].sort((a, b) => 
+      new Date(b.sortDate).getTime() - new Date(a.sortDate).getTime()
+    );
+  }, [filteredEntries, filteredLeaveEntries]);
 
   // Selection handlers
   const toggleEntrySelection = (entryId: string) => {
@@ -592,7 +693,7 @@ export default function Approvals() {
             </Card>
 
             {/* Entries List */}
-            {filteredEntries.length === 0 ? (
+            {filteredCombinedEntries.length === 0 ? (
               <Card>
                 <CardContent className="flex flex-col items-center justify-center py-12">
                   <Filter className="h-12 w-12 text-muted-foreground mb-4" />
@@ -607,95 +708,139 @@ export default function Approvals() {
               </Card>
             ) : (
               <div className="grid gap-4">
-                {filteredEntries.map((entry) => (
-                  <Card 
-                    key={entry.id}
-                    className={cn(
-                      "relative transition-all duration-200",
-                      selectedEntries.has(entry.id) && "border-primary bg-primary/5 shadow-md"
-                    )}
-                  >
-                    <div className="absolute top-4 left-4 z-10">
-                      <Checkbox
-                        checked={selectedEntries.has(entry.id)}
-                        onCheckedChange={() => toggleEntrySelection(entry.id)}
-                      />
-                    </div>
-                    <CardHeader className="pl-12">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3">
-                          <Avatar>
-                            <AvatarImage src={entry.profiles.avatar_url || undefined} />
-                            <AvatarFallback>
-                              {entry.profiles.full_name.split(" ").map(n => n[0]).join("")}
-                            </AvatarFallback>
-                          </Avatar>
+                {filteredCombinedEntries.map((item) => (
+                  item.type === 'timesheet' ? (
+                    <Card 
+                      key={item.id}
+                      className={cn(
+                        "relative transition-all duration-200",
+                        selectedEntries.has(item.id) && "border-primary bg-primary/5 shadow-md"
+                      )}
+                    >
+                      <div className="absolute top-4 left-4 z-10">
+                        <Checkbox
+                          checked={selectedEntries.has(item.id)}
+                          onCheckedChange={() => toggleEntrySelection(item.id)}
+                        />
+                      </div>
+                      <CardHeader className="pl-12">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-3">
+                            <Avatar>
+                              <AvatarImage src={item.profiles.avatar_url || undefined} />
+                              <AvatarFallback>
+                                {item.profiles.full_name.split(" ").map(n => n[0]).join("")}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <CardTitle className="text-base">{item.profiles.full_name}</CardTitle>
+                              <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
+                                <Calendar className="h-3 w-3" />
+                                {format(new Date(item.entry_date), "EEEE, MMM d, yyyy")}
+                              </div>
+                            </div>
+                          </div>
+                          <Badge variant="outline" className="bg-warning/10 text-warning-foreground border-warning/20">
+                            Pending Review
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-4 pl-12">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                           <div>
-                            <CardTitle className="text-base">{entry.profiles.full_name}</CardTitle>
-                            <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
-                              <Calendar className="h-3 w-3" />
-                              {format(new Date(entry.entry_date), "EEEE, MMM d, yyyy")}
+                            <div className="text-sm text-muted-foreground mb-1">Activity</div>
+                            <div className="font-medium capitalize">
+                              {item.activity_type.replace(/_/g, " ")}
+                              {item.activity_subtype && (
+                                <span className="text-muted-foreground"> • {item.activity_subtype}</span>
+                              )}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-sm text-muted-foreground mb-1">Time</div>
+                            <div className="font-medium flex items-center gap-1">
+                              <Clock className="h-4 w-4" />
+                              {formatTime(item.start_time)} - {formatTime(item.end_time)}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-sm text-muted-foreground mb-1">Duration</div>
+                            <div className="font-medium">
+                              {Math.floor(item.duration_minutes / 60)}h {item.duration_minutes % 60}m
                             </div>
                           </div>
                         </div>
-                        <Badge variant="outline" className="bg-warning/10 text-warning-foreground border-warning/20">
-                          Pending Review
-                        </Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4 pl-12">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                          <div className="text-sm text-muted-foreground mb-1">Activity</div>
-                          <div className="font-medium capitalize">
-                            {entry.activity_type.replace(/_/g, " ")}
-                            {entry.activity_subtype && (
-                              <span className="text-muted-foreground"> • {entry.activity_subtype}</span>
-                            )}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-muted-foreground mb-1">Time</div>
-                          <div className="font-medium flex items-center gap-1">
-                            <Clock className="h-4 w-4" />
-                            {formatTime(entry.start_time)} - {formatTime(entry.end_time)}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-muted-foreground mb-1">Duration</div>
-                          <div className="font-medium">
-                            {Math.floor(entry.duration_minutes / 60)}h {entry.duration_minutes % 60}m
-                          </div>
-                        </div>
-                      </div>
 
-                      {entry.notes && (
-                        <div>
-                          <div className="text-sm text-muted-foreground mb-1">Notes</div>
-                          <p className="text-sm bg-muted/50 rounded-md p-3">{entry.notes}</p>
-                        </div>
-                      )}
+                        {item.notes && (
+                          <div>
+                            <div className="text-sm text-muted-foreground mb-1">Notes</div>
+                            <p className="text-sm bg-muted/50 rounded-md p-3">{item.notes}</p>
+                          </div>
+                        )}
 
-                      <div className="flex gap-2 pt-2">
-                        <Button
-                          onClick={() => handleAction(entry, "approve")}
-                          className="flex-1"
-                          variant="default"
-                        >
-                          <CheckCircle className="h-4 w-4 mr-2" />
-                          Approve
-                        </Button>
-                        <Button
-                          onClick={() => handleAction(entry, "reject")}
-                          className="flex-1"
-                          variant="destructive"
-                        >
-                          <XCircle className="h-4 w-4 mr-2" />
-                          Reject
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
+                        <div className="flex gap-2 pt-2">
+                          <Button
+                            onClick={() => handleAction(item, "approve")}
+                            className="flex-1"
+                            variant="default"
+                          >
+                            <CheckCircle className="h-4 w-4 mr-2" />
+                            Approve
+                          </Button>
+                          <Button
+                            onClick={() => handleAction(item, "reject")}
+                            className="flex-1"
+                            variant="destructive"
+                          >
+                            <XCircle className="h-4 w-4 mr-2" />
+                            Reject
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <Card key={item.id} className="relative transition-all duration-200">
+                      <CardHeader>
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-3">
+                            <Avatar>
+                              <AvatarImage src={item.profiles.avatar_url || undefined} />
+                              <AvatarFallback>
+                                {item.profiles.full_name.split(" ").map(n => n[0]).join("")}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <CardTitle className="text-base">{item.profiles.full_name}</CardTitle>
+                              <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
+                                <Calendar className="h-3 w-3" />
+                                {format(new Date(item.leave_date), "EEEE, MMM d, yyyy")}
+                              </div>
+                            </div>
+                          </div>
+                          <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                            Leave
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div>
+                          <div className="text-sm text-muted-foreground mb-1">Leave Type</div>
+                          <div className="font-medium">{formatLeaveType(item.leave_type)}</div>
+                        </div>
+
+                        {item.comments && (
+                          <div>
+                            <div className="text-sm text-muted-foreground mb-1">Comments</div>
+                            <p className="text-sm bg-muted/50 rounded-md p-3">{item.comments}</p>
+                          </div>
+                        )}
+
+                        <div className="text-sm text-muted-foreground italic pt-2">
+                          Leave entries do not require approval
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )
                 ))}
               </div>
             )}
