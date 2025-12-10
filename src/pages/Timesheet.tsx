@@ -301,15 +301,24 @@ export default function Timesheet() {
   };
 
   const handleDelete = async (id: string) => {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("timesheet_entries")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .eq("user_id", userWithRole?.user.id)
+      .in("status", ["draft", "submitted"])
+      .select();
 
     if (error) {
       toast({
         title: "Error",
         description: getUserErrorMessage(error, "delete timesheet entry"),
+        variant: "destructive",
+      });
+    } else if (!data || data.length === 0) {
+      toast({
+        title: "Error",
+        description: "Could not delete entry. Only pending entries can be deleted.",
         variant: "destructive",
       });
     } else {
