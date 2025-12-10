@@ -1,13 +1,1 @@
-project_id = "eehsobimydhdbvlmjkux"
-
-[functions.admin-create-user]
-verify_jwt = true
-
-[functions.admin-list-users]
-verify_jwt = true
-
-[functions.admin-update-user]
-verify_jwt = true
-
-[functions.admin-delete-user]
-verify_jwt = true
+project_id = "txufiwzngzdspczttcqx"
