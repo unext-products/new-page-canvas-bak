@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Plus, Trash2, Calendar, FileText, HelpCircle, Pencil } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -30,6 +31,7 @@ export default function Timesheet() {
   const { resetTour, hasSeen } = useOnboardingTour();
   const { categories, loading: categoriesLoading } = useActivityCategories(userWithRole?.departmentId);
   const [entries, setEntries] = useState<any[]>([]);
+  const [leaveEntries, setLeaveEntries] = useState<any[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
@@ -95,11 +97,13 @@ export default function Timesheet() {
     // Type assertion to bypass TypeScript errors until types regenerate
     const { data } = await supabase
       .from('leave_days' as any)
-      .select('leave_date')
-      .eq('user_id', userWithRole.user.id);
+      .select('*')
+      .eq('user_id', userWithRole.user.id)
+      .order('leave_date', { ascending: false });
 
     if (data) {
       setUserLeaveDays(new Set(data.map((d: any) => d.leave_date)));
+      setLeaveEntries(data);
     }
   };
 
@@ -354,6 +358,37 @@ export default function Timesheet() {
     return `${hours}h ${mins}m`;
   };
 
+  const formatLeaveType = (type: string) => {
+    const labels: Record<string, string> = {
+      casual_leave: "Casual Leave",
+      sick_leave: "Sick Leave",
+      vacation: "Vacation",
+      personal: "Personal Leave",
+      compensatory: "Compensatory Off",
+      other: "Other Leave",
+    };
+    return labels[type] || type;
+  };
+
+  // Combine timesheet entries and leave entries for display
+  const combinedEntries = useMemo(() => {
+    const timesheetItems = entries.map(entry => ({
+      ...entry,
+      type: 'timesheet' as const,
+      sortDate: entry.entry_date,
+    }));
+    
+    const leaveItems = leaveEntries.map(leave => ({
+      ...leave,
+      type: 'leave' as const,
+      sortDate: leave.leave_date,
+    }));
+    
+    return [...timesheetItems, ...leaveItems].sort((a, b) => 
+      new Date(b.sortDate).getTime() - new Date(a.sortDate).getTime()
+    );
+  }, [entries, leaveEntries]);
+
   const handleMarkLeave = async () => {
     if (!userWithRole?.departmentId) {
       toast({
@@ -597,61 +632,82 @@ export default function Timesheet() {
         <Card data-tour="entries-list">
           <CardHeader>
             <CardTitle>All Entries</CardTitle>
-            <CardDescription>Your timesheet history</CardDescription>
+            <CardDescription>Your timesheet and leave history</CardDescription>
           </CardHeader>
           <CardContent>
-            {entries.length === 0 ? (
+            {combinedEntries.length === 0 ? (
               <p className="text-center py-8 text-muted-foreground">
                 No entries yet. Click "New Entry" to get started.
               </p>
             ) : (
               <div className="space-y-4">
-                {entries.map((entry) => (
+                {combinedEntries.map((item) => (
                   <div
-                    key={entry.id}
+                    key={item.id}
                     className="flex items-center justify-between border rounded-lg p-4"
                   >
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-1">
-                        <p className="font-medium">
-                          {new Date(entry.entry_date).toLocaleDateString()}
+                    {item.type === 'timesheet' ? (
+                      <>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-1">
+                            <p className="font-medium">
+                              {new Date(item.entry_date).toLocaleDateString()}
+                            </p>
+                            <StatusBadge status={item.status} />
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {item.activity_type.charAt(0).toUpperCase() + item.activity_type.slice(1)}
+                            {item.activity_subtype && ` • ${item.activity_subtype}`}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {item.start_time} - {item.end_time} ({formatMinutes(item.duration_minutes)})
+                          </p>
+                          {item.notes && (
+                            <p className="text-sm text-muted-foreground mt-1">{item.notes}</p>
+                          )}
+                          {item.approver_notes && (
+                            <p className="text-sm text-destructive mt-1">
+                              Note: {item.approver_notes}
+                            </p>
+                          )}
+                        </div>
+                        {item.status === "draft" && (
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEdit(item)}
+                              title="Edit entry"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDelete(item.id)}
+                              title="Delete entry"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-1">
+                          <p className="font-medium">
+                            {new Date(item.leave_date).toLocaleDateString()}
+                          </p>
+                          <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                            Leave
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {formatLeaveType(item.leave_type)}
                         </p>
-                        <StatusBadge status={entry.status} />
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        {entry.activity_type.charAt(0).toUpperCase() + entry.activity_type.slice(1)}
-                        {entry.activity_subtype && ` • ${entry.activity_subtype}`}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {entry.start_time} - {entry.end_time} ({formatMinutes(entry.duration_minutes)})
-                      </p>
-                      {entry.notes && (
-                        <p className="text-sm text-muted-foreground mt-1">{entry.notes}</p>
-                      )}
-                      {entry.approver_notes && (
-                        <p className="text-sm text-destructive mt-1">
-                          Note: {entry.approver_notes}
-                        </p>
-                      )}
-                    </div>
-                    {entry.status === "draft" && (
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEdit(entry)}
-                          title="Edit entry"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(entry.id)}
-                          title="Delete entry"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {item.comments && (
+                          <p className="text-sm text-muted-foreground mt-1">{item.comments}</p>
+                        )}
                       </div>
                     )}
                   </div>
