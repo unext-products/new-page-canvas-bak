@@ -301,29 +301,29 @@ export default function Timesheet() {
   };
 
   const handleDelete = async (id: string) => {
-    const { data, error } = await supabase
-      .from("timesheet_entries")
-      .delete()
-      .eq("id", id)
-      .eq("user_id", userWithRole?.user.id)
-      .in("status", ["draft", "submitted"])
-      .select();
+    try {
+      const { error } = await supabase
+        .from("timesheet_entries")
+        .delete()
+        .eq("id", id);
 
-    if (error) {
+      if (error) {
+        toast({
+          title: "Error",
+          description: getUserErrorMessage(error, "delete timesheet entry"),
+          variant: "destructive",
+        });
+      } else {
+        // Update local state immediately to remove the entry
+        setEntries(prev => prev.filter(e => e.id !== id));
+        toast({ title: "Success", description: "Entry deleted" });
+      }
+    } catch (err) {
       toast({
         title: "Error",
-        description: getUserErrorMessage(error, "delete timesheet entry"),
+        description: "Failed to delete entry",
         variant: "destructive",
       });
-    } else if (!data || data.length === 0) {
-      toast({
-        title: "Error",
-        description: "Could not delete entry. Only pending entries can be deleted.",
-        variant: "destructive",
-      });
-    } else {
-      toast({ title: "Success", description: "Entry deleted" });
-      loadEntries();
     }
   };
 
