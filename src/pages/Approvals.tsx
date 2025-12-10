@@ -207,7 +207,8 @@ export default function Approvals() {
     if (allowedApproverRoles.includes(userWithRole?.role || "") && !settingsLoading) {
       fetchEntries();
     }
-  }, [userWithRole, settingsLoading, fetchEntries]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userWithRole?.role, userWithRole?.departmentId, settingsLoading]);
 
   const handleAction = (entry: TimesheetEntry, action: "approve" | "reject") => {
     setSelectedEntry(entry);
