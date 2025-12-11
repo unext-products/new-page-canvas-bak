@@ -28,7 +28,6 @@ interface TimesheetEntry {
   entry_date: string;
   start_time: string;
   end_time: string;
-  duration_minutes: number;
   activity_type: string;
   activity_subtype: string | null;
   notes: string | null;

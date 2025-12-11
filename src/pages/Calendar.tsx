@@ -21,13 +21,13 @@ import { useConfetti } from "@/hooks/useConfetti";
 import { useActivityCategories } from "@/hooks/useActivityCategories";
 import { formatDisplayDate } from "@/lib/dateUtils";
 import { cn } from "@/lib/utils";
+import { calculateDurationMinutes } from "@/lib/timesheetUtils";
 
 interface TimesheetEntry {
   id: string;
   entry_date: string;
   start_time: string;
   end_time: string;
-  duration_minutes: number;
   activity_type: string;
   activity_subtype: string | null;
   notes: string | null;
@@ -250,7 +250,7 @@ export default function CalendarPage() {
     const dateKey = format(day, "yyyy-MM-dd");
     const dayEntries = entriesByDate.get(dateKey) || [];
     const leave = leavesByDate.get(dateKey);
-    const totalMinutes = dayEntries.reduce((sum, e) => sum + e.duration_minutes, 0);
+    const totalMinutes = dayEntries.reduce((sum, e) => sum + calculateDurationMinutes(e.start_time, e.end_time), 0);
     const hours = Math.floor(totalMinutes / 60);
     const mins = totalMinutes % 60;
 

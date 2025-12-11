@@ -16,12 +16,10 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 interface Category {
   id: string;
   name: string;
-  code: string;
   description: string | null;
   is_active: boolean;
-  display_order: number;
-  department_id: string | null;
-  organization_id: string;
+  organization_id: string | null;
+  created_at: string;
 }
 
 interface Department {
@@ -75,16 +73,10 @@ export default function CategorySettings() {
   const fetchCategories = async () => {
     setLoading(true);
     try {
-      let query = supabase
+      const query = supabase
         .from("activity_categories")
         .select("*")
-        .order("display_order", { ascending: true });
-
-      if (selectedScope === "organization") {
-        query = query.is("department_id", null);
-      } else {
-        query = query.eq("department_id", selectedScope);
-      }
+        .order("name", { ascending: true });
 
       const { data, error } = await query;
 
@@ -119,17 +111,10 @@ export default function CategorySettings() {
         user_id: userWithRole?.user.id,
       });
 
-      const maxOrder = categories.length > 0 
-        ? Math.max(...categories.map(c => c.display_order)) + 1 
-        : 1;
-
       const { error } = await supabase.from("activity_categories").insert({
         organization_id: orgData,
-        department_id: selectedScope === "organization" ? null : selectedScope,
         name: newName.trim(),
-        code: newCode.trim().toLowerCase().replace(/\s+/g, "_"),
         description: newDescription.trim() || null,
-        display_order: maxOrder,
       });
 
       if (error) throw error;
