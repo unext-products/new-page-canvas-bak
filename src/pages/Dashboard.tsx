@@ -170,6 +170,17 @@ export default function Dashboard() {
   };
 
   const loadHodDashboardData = async (departmentId: string) => {
+    // Fetch department name for HOD
+    const { data: deptData } = await supabase
+      .from("departments")
+      .select("name")
+      .eq("id", departmentId)
+      .maybeSingle();
+    
+    if (deptData) {
+      setUserDepartments([deptData.name]);
+    }
+
     const today = new Date().toISOString().split("T")[0];
     const startOfWeek = new Date();
     startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay() + 1); // Monday
@@ -491,7 +502,7 @@ export default function Dashboard() {
             <p className="text-sm text-muted-foreground">
               {getRoleDescription()}
             </p>
-            {userWithRole.role === "member" && userDepartments.length > 0 && (
+            {(userWithRole.role === "member" || userWithRole.role === "manager") && userDepartments.length > 0 && (
               <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
                 <Building2 className="h-3.5 w-3.5" />
                 <span>Department: {userDepartments.join(", ")}</span>
