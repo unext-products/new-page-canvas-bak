@@ -78,20 +78,28 @@ export default function Dashboard() {
 
     // Load today's total minutes for members
     if (userWithRole.role === "member") {
-      // Fetch user's departments
+      // Fetch user's departments from user_departments table
       const { data: userDepts } = await supabase
         .from("user_departments")
         .select("department_id")
         .eq("user_id", userWithRole.user.id);
 
+      let deptIds: string[] = [];
+      
       if (userDepts && userDepts.length > 0) {
-        const deptIds = userDepts.map(ud => ud.department_id);
+        deptIds = userDepts.map(ud => ud.department_id);
+      } else if (userWithRole.departmentId) {
+        // Fallback to user_roles.department_id if user_departments is empty
+        deptIds = [userWithRole.departmentId];
+      }
+
+      if (deptIds.length > 0) {
         const { data: deptDetails } = await supabase
           .from("departments")
-          .select("name")
+          .select("name, code")
           .in("id", deptIds);
         
-        setUserDepartments(deptDetails?.map(d => d.name) || []);
+        setUserDepartments(deptDetails?.map(d => `${d.name} (${d.code})`) || []);
       }
 
       const { data: entries } = await supabase
@@ -170,15 +178,15 @@ export default function Dashboard() {
   };
 
   const loadHodDashboardData = async (departmentId: string) => {
-    // Fetch department name for HOD
+    // Fetch department name and code for HOD
     const { data: deptData } = await supabase
       .from("departments")
-      .select("name")
+      .select("name, code")
       .eq("id", departmentId)
       .maybeSingle();
     
     if (deptData) {
-      setUserDepartments([deptData.name]);
+      setUserDepartments([`${deptData.name} (${deptData.code})`]);
     }
 
     const today = new Date().toISOString().split("T")[0];
