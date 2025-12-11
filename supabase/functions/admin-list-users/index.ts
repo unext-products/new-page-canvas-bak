@@ -43,7 +43,7 @@ serve(async (req) => {
 
     const { data: roleData, error: roleError } = await supabaseClient
       .from('user_roles')
-      .select('role')
+      .select('role, organization_id')
       .eq('user_id', user.id)
       .single();
 
@@ -55,7 +55,30 @@ serve(async (req) => {
       });
     }
 
-    // List users using admin API
+    // Get the admin's organization ID
+    const adminOrgId = roleData.organization_id;
+    if (!adminOrgId) {
+      console.error('Admin has no organization assigned');
+      return new Response(JSON.stringify({ error: 'Admin has no organization assigned' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Get user IDs that belong to the admin's organization
+    const { data: orgUsers, error: orgUsersError } = await supabaseClient
+      .from('user_roles')
+      .select('user_id')
+      .eq('organization_id', adminOrgId);
+
+    if (orgUsersError) {
+      console.error('Error fetching org users:', orgUsersError);
+      throw orgUsersError;
+    }
+
+    const orgUserIds = new Set(orgUsers?.map(u => u.user_id) || []);
+
+    // List all users using admin API
     const { data: authUsersData, error: listError } = await supabaseClient.auth.admin.listUsers();
 
     if (listError) {
@@ -63,10 +86,13 @@ serve(async (req) => {
       throw listError;
     }
 
-    console.log('Listed users successfully');
+    // Filter to only include users from the admin's organization
+    const filteredUsers = authUsersData.users.filter(u => orgUserIds.has(u.id));
+
+    console.log(`Listed ${filteredUsers.length} users for organization ${adminOrgId}`);
 
     return new Response(JSON.stringify({ 
-      users: authUsersData.users 
+      users: filteredUsers 
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
