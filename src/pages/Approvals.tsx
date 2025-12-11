@@ -21,6 +21,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { PageSkeleton } from "@/components/PageSkeleton";
 import { useApprovalSettings } from "@/hooks/useApprovalSettings";
+import { calculateDurationMinutes } from "@/lib/timesheetUtils";
 
 interface TimesheetEntry {
   id: string;
@@ -112,13 +113,10 @@ export default function Approvals() {
       const rolesToApprove = approvableRoles;
       
       // Map display roles to db roles for querying
-      type DbRole = "admin" | "faculty" | "hod" | "org_admin" | "program_manager";
-      const dbRolesToApprove: DbRole[] = rolesToApprove.map(role => {
-        if (role === "faculty") return "faculty";
-        if (role === "program_manager") return "program_manager";
-        if (role === "hod") return "hod";
-        return role as DbRole;
-      });
+      type DbRole = "faculty" | "hod" | "org_admin" | "program_manager";
+      const dbRolesToApprove: DbRole[] = rolesToApprove
+        .filter((role): role is DbRole => ["faculty", "hod", "org_admin", "program_manager"].includes(role))
+        .map(role => role as DbRole);
       
       if (dbRolesToApprove.length === 0) {
         setEntries([]);
@@ -139,7 +137,7 @@ export default function Approvals() {
         if (userIds.length > 0) {
           const { data, error } = await supabase
             .from("timesheet_entries")
-            .select("id, entry_date, start_time, end_time, duration_minutes, activity_type, activity_subtype, notes, user_id")
+            .select("id, entry_date, start_time, end_time, activity_type, activity_subtype, notes, user_id")
             .in("user_id", userIds)
             .eq("status", "submitted")
             .order("entry_date", { ascending: false });
@@ -172,7 +170,7 @@ export default function Approvals() {
             if (userIds.length > 0) {
               const { data, error } = await supabase
                 .from("timesheet_entries")
-                .select("id, entry_date, start_time, end_time, duration_minutes, activity_type, activity_subtype, notes, user_id")
+                .select("id, entry_date, start_time, end_time, activity_type, activity_subtype, notes, user_id")
                 .in("user_id", userIds)
                 .eq("status", "submitted")
                 .order("entry_date", { ascending: false });
@@ -765,7 +763,7 @@ export default function Approvals() {
                           <div>
                             <div className="text-sm text-muted-foreground mb-1">Duration</div>
                             <div className="font-medium">
-                              {Math.floor(item.duration_minutes / 60)}h {item.duration_minutes % 60}m
+                              {(() => { const mins = calculateDurationMinutes(item.start_time, item.end_time); return `${Math.floor(mins / 60)}h ${mins % 60}m`; })()}
                             </div>
                           </div>
                         </div>

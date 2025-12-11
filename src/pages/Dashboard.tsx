@@ -177,26 +177,26 @@ export default function Dashboard() {
       .select("id, full_name, is_active")
       .in("id", teamUserIds.length > 0 ? teamUserIds : ["no-id"]);
 
-    // Fetch pending approvals
+    // Fetch pending approvals - get entries from users in the department
     const { data: pendingEntries } = await supabase
       .from("timesheet_entries")
-      .select("*")
-      .eq("department_id", departmentId)
+      .select("id, start_time, end_time, user_id")
+      .in("user_id", teamUserIds.length > 0 ? teamUserIds : ["no-id"])
       .eq("status", "submitted");
 
-    // Fetch this week's entries
+    // Fetch this week's entries for team members
     const { data: weekEntries } = await supabase
       .from("timesheet_entries")
-      .select("*, profiles(full_name)")
-      .eq("department_id", departmentId)
+      .select("id, start_time, end_time, user_id, activity_type")
+      .in("user_id", teamUserIds.length > 0 ? teamUserIds : ["no-id"])
       .gte("entry_date", weekStart)
       .lte("entry_date", weekEnd);
 
-    // Fetch today's leaves
+    // Fetch today's leaves for team members
     const { data: todayLeavesRaw } = await supabase
       .from("leave_days")
       .select("*")
-      .eq("department_id", departmentId)
+      .in("user_id", teamUserIds.length > 0 ? teamUserIds : ["no-id"])
       .eq("leave_date", today);
 
     // Get profiles for leave users
@@ -208,8 +208,8 @@ export default function Dashboard() {
     
     const leaveProfileMap = new Map(leaveProfiles?.map(p => [p.id, p.full_name]) || []);
 
-    // Calculate weekly hours
-    const totalWeeklyMinutes = weekEntries?.reduce((sum, e) => sum + e.duration_minutes, 0) || 0;
+    // Calculate weekly hours using start_time/end_time
+    const totalWeeklyMinutes = weekEntries?.reduce((sum, e) => sum + getEntryDuration(e), 0) || 0;
     const teamCount = teamUserIds.length;
     const expectedMinutes = teamCount * 5 * 480; // 5 days * 8 hours per team member
     const completionRate = expectedMinutes > 0 ? (totalWeeklyMinutes / expectedMinutes) * 100 : 0;
@@ -223,8 +223,9 @@ export default function Dashboard() {
         activityMap.set(type, { minutes: 0, count: 0 });
       }
       const current = activityMap.get(type);
+      const entryMinutes = getEntryDuration(entry);
       activityMap.set(type, {
-        minutes: current.minutes + entry.duration_minutes,
+        minutes: current.minutes + entryMinutes,
         count: current.count + 1,
       });
     });
@@ -252,9 +253,10 @@ export default function Dashboard() {
       const userId = entry.user_id;
       if (memberStatsMap.has(userId)) {
         const current = memberStatsMap.get(userId);
+        const entryMinutes = getEntryDuration(entry);
         memberStatsMap.set(userId, {
           ...current,
-          minutes: current.minutes + entry.duration_minutes,
+          minutes: current.minutes + entryMinutes,
           entryCount: current.entryCount + 1,
         });
       }
@@ -272,8 +274,8 @@ export default function Dashboard() {
     // Recent activity (last 10 entries from team)
     const { data: recentActivity } = await supabase
       .from("timesheet_entries")
-      .select("*, profiles(full_name)")
-      .eq("department_id", departmentId)
+      .select("id, start_time, end_time, user_id, activity_type, entry_date, created_at")
+      .in("user_id", teamUserIds.length > 0 ? teamUserIds : ["no-id"])
       .order("created_at", { ascending: false })
       .limit(10);
 
@@ -307,32 +309,42 @@ export default function Dashboard() {
     endOfWeek.setDate(endOfWeek.getDate() + 6);
     const weekEnd = endOfWeek.toISOString().split("T")[0];
 
-    // Fetch total faculty count
+    // Fetch total faculty count and their department mappings
     const { data: users } = await supabase
       .from("user_roles")
-      .select("*")
+      .select("user_id, department_id")
       .eq("role", "faculty");
+
+    // Create user to department mapping
+    const userDeptMap = new Map<string, string>();
+    users?.forEach(u => {
+      if (u.department_id) userDeptMap.set(u.user_id, u.department_id);
+    });
 
     // Fetch total departments
     const { data: departments } = await supabase
       .from("departments")
-      .select("*");
+      .select("id, name");
+    
+    // Create department id to name mapping
+    const deptNameMap = new Map<string, string>();
+    departments?.forEach(d => deptNameMap.set(d.id, d.name));
 
     // Fetch pending approvals org-wide
     const { data: pendingEntries } = await supabase
       .from("timesheet_entries")
-      .select("*")
+      .select("id")
       .eq("status", "submitted");
 
     // Fetch this week's entries
     const { data: weekEntries } = await supabase
       .from("timesheet_entries")
-      .select("*, departments(name)")
+      .select("id, start_time, end_time, user_id, activity_type")
       .gte("entry_date", weekStart)
       .lte("entry_date", weekEnd);
 
     // Calculate weekly hours and activity breakdown
-    const totalWeeklyMinutes = weekEntries?.reduce((sum, e) => sum + e.duration_minutes, 0) || 0;
+    const totalWeeklyMinutes = weekEntries?.reduce((sum, e) => sum + getEntryDuration(e), 0) || 0;
     const expectedMinutes = (users?.length || 0) * 5 * 480; // 5 days * 8 hours
     const completionRate = expectedMinutes > 0 ? (totalWeeklyMinutes / expectedMinutes) * 100 : 0;
 
@@ -345,8 +357,9 @@ export default function Dashboard() {
         activityMap.set(type, { minutes: 0, count: 0 });
       }
       const current = activityMap.get(type);
+      const entryMinutes = getEntryDuration(entry);
       activityMap.set(type, {
-        minutes: current.minutes + entry.duration_minutes,
+        minutes: current.minutes + entryMinutes,
         count: current.count + 1,
       });
     });
@@ -358,16 +371,18 @@ export default function Dashboard() {
       count: data.count,
     }));
 
-    // Department performance
+    // Department performance - get department from user_roles mapping
     const deptMap = new Map();
     weekEntries?.forEach(entry => {
-      const deptId = entry.department_id;
-      const deptName = entry.departments?.name || "Unknown";
+      const deptId = userDeptMap.get(entry.user_id);
+      if (!deptId) return; // Skip if user has no department
+      const deptName = deptNameMap.get(deptId) || "Unknown";
       if (!deptMap.has(deptId)) {
         deptMap.set(deptId, { name: deptName, minutes: 0, facultyCount: new Set() });
       }
       const current = deptMap.get(deptId);
-      current.minutes += entry.duration_minutes;
+      const entryMinutes = getEntryDuration(entry);
+      current.minutes += entryMinutes;
       current.facultyCount.add(entry.user_id);
     });
 
@@ -390,7 +405,7 @@ export default function Dashboard() {
     // Recent activity (last 10 entries)
     const { data: recentActivity } = await supabase
       .from("timesheet_entries")
-      .select("*, profiles(full_name), departments(name)")
+      .select("id, start_time, end_time, user_id, activity_type, entry_date, created_at")
       .order("created_at", { ascending: false })
       .limit(10);
 
