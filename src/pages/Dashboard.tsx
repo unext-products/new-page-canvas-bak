@@ -32,6 +32,7 @@ export default function Dashboard() {
     weeklyCompletionRate: 0,
   });
   const [recentEntries, setRecentEntries] = useState<any[]>([]);
+  const [userDepartments, setUserDepartments] = useState<string[]>([]);
   const [adminStats, setAdminStats] = useState({
     totalUsers: 0,
     totalDepartments: 0,
@@ -77,6 +78,22 @@ export default function Dashboard() {
 
     // Load today's total minutes for members
     if (userWithRole.role === "member") {
+      // Fetch user's departments
+      const { data: userDepts } = await supabase
+        .from("user_departments")
+        .select("department_id")
+        .eq("user_id", userWithRole.user.id);
+
+      if (userDepts && userDepts.length > 0) {
+        const deptIds = userDepts.map(ud => ud.department_id);
+        const { data: deptDetails } = await supabase
+          .from("departments")
+          .select("name")
+          .in("id", deptIds);
+        
+        setUserDepartments(deptDetails?.map(d => d.name) || []);
+      }
+
       const { data: entries } = await supabase
         .from("timesheet_entries")
         .select("start_time, end_time, status")
@@ -474,6 +491,12 @@ export default function Dashboard() {
             <p className="text-sm text-muted-foreground">
               {getRoleDescription()}
             </p>
+            {userWithRole.role === "member" && userDepartments.length > 0 && (
+              <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
+                <Building2 className="h-3.5 w-3.5" />
+                <span>Department: {userDepartments.join(", ")}</span>
+              </p>
+            )}
           </div>
         </div>
 
