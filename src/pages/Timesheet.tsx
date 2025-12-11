@@ -24,6 +24,7 @@ import { useActivityCategories } from "@/hooks/useActivityCategories";
 import { formatDisplayDate } from "@/lib/dateUtils";
 import { DateRangeFilter, DateFilterType, DateRange } from "@/components/DateRangeFilter";
 import { startOfDay, endOfDay, isWithinInterval } from "date-fns";
+import { getEntryDuration } from "@/lib/timesheetUtils";
 
 export default function Timesheet() {
   const { userWithRole } = useAuth();
@@ -50,7 +51,7 @@ export default function Timesheet() {
   // Leave management state
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [leaveDate, setLeaveDate] = useState(new Date().toISOString().split("T")[0]);
-  const [leaveType, setLeaveType] = useState<"casual_leave" | "sick_leave" | "vacation" | "personal" | "compensatory" | "other">("casual_leave");
+  const [leaveType, setLeaveType] = useState<"casual" | "sick" | "earned" | "half_day" | "comp_off" | "other">("casual");
   const [leaveComments, setLeaveComments] = useState("");
   const [userLeaveDays, setUserLeaveDays] = useState<Set<string>>(new Set());
   
@@ -157,10 +158,10 @@ export default function Timesheet() {
   };
 
   const handleSubmit = async (status: "draft" | "submitted") => {
-    if (!userWithRole?.departmentId) {
+    if (!userWithRole?.user?.id) {
       toast({
         title: "Error",
-        description: "You must be assigned to a department first",
+        description: "You must be logged in to create timesheet entries",
         variant: "destructive",
       });
       return;
@@ -239,7 +240,6 @@ export default function Timesheet() {
             entry_date: validatedData.entry_date,
             start_time: validatedData.start_time,
             end_time: validatedData.end_time,
-            duration_minutes: duration,
             activity_type: validatedData.activity_type,
             activity_subtype: validatedData.activity_subtype || null,
             notes: validatedData.notes || null,
@@ -253,11 +253,9 @@ export default function Timesheet() {
         // Insert new entry
         const result = await supabase.from("timesheet_entries").insert({
           user_id: userWithRole.user.id,
-          department_id: userWithRole.departmentId,
           entry_date: validatedData.entry_date,
           start_time: validatedData.start_time,
           end_time: validatedData.end_time,
-          duration_minutes: duration,
           activity_type: validatedData.activity_type,
           activity_subtype: validatedData.activity_subtype || null,
           notes: validatedData.notes || null,
@@ -364,11 +362,11 @@ export default function Timesheet() {
 
   const formatLeaveType = (type: string) => {
     const labels: Record<string, string> = {
-      casual_leave: "Casual Leave",
-      sick_leave: "Sick Leave",
-      vacation: "Vacation",
-      personal: "Personal Leave",
-      compensatory: "Compensatory Off",
+      casual: "Casual Leave",
+      sick: "Sick Leave",
+      earned: "Earned Leave",
+      half_day: "Half Day",
+      comp_off: "Compensatory Off",
       other: "Other Leave",
     };
     return labels[type] || type;
@@ -405,10 +403,10 @@ export default function Timesheet() {
   };
 
   const handleMarkLeave = async () => {
-    if (!userWithRole?.departmentId) {
+    if (!userWithRole?.user?.id) {
       toast({
         title: "Error",
-        description: "You must be assigned to a department first",
+        description: "You must be logged in to mark leave",
         variant: "destructive",
       });
       return;
@@ -421,10 +419,9 @@ export default function Timesheet() {
       .from('leave_days' as any)
       .insert({
         user_id: userWithRole.user.id,
-        department_id: userWithRole.departmentId,
         leave_date: leaveDate,
         leave_type: leaveType,
-        comments: leaveComments || null,
+        notes: leaveComments || null,
       });
 
     setLoading(false);
@@ -442,7 +439,7 @@ export default function Timesheet() {
       });
       setLeaveDialogOpen(false);
       setLeaveDate(new Date().toISOString().split("T")[0]);
-      setLeaveType("casual_leave");
+      setLeaveType("casual");
       setLeaveComments("");
       loadLeaveDays();
     }
@@ -508,11 +505,11 @@ export default function Timesheet() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="casual_leave">Casual Leave</SelectItem>
-                      <SelectItem value="sick_leave">Sick Leave</SelectItem>
-                      <SelectItem value="vacation">Vacation</SelectItem>
-                      <SelectItem value="personal">Personal Leave</SelectItem>
-                      <SelectItem value="compensatory">Compensatory Off</SelectItem>
+                      <SelectItem value="casual">Casual Leave</SelectItem>
+                      <SelectItem value="sick">Sick Leave</SelectItem>
+                      <SelectItem value="earned">Earned Leave</SelectItem>
+                      <SelectItem value="half_day">Half Day</SelectItem>
+                      <SelectItem value="comp_off">Compensatory Off</SelectItem>
                       <SelectItem value="other">Other</SelectItem>
                     </SelectContent>
                   </Select>
@@ -689,7 +686,7 @@ export default function Timesheet() {
                             {item.activity_subtype && ` • ${item.activity_subtype}`}
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            {item.start_time} - {item.end_time} ({formatMinutes(item.duration_minutes)})
+                            {item.start_time} - {item.end_time} ({formatMinutes(getEntryDuration(item))})
                           </p>
                           {item.notes && (
                             <p className="text-sm text-muted-foreground mt-1">{item.notes}</p>

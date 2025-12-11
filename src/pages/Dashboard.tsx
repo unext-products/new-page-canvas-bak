@@ -572,7 +572,7 @@ export default function Dashboard() {
                         <div className="flex-1">
                           <p className="font-medium text-sm">{new Date(entry.entry_date).toLocaleDateString()}</p>
                           <p className="text-sm text-muted-foreground">
-                            {entry.activity_type} • {formatMinutes(entry.duration_minutes)}
+                            {entry.activity_type} • {formatMinutes(getEntryDuration(entry))}
                           </p>
                         </div>
                         <StatusBadge status={entry.status} />

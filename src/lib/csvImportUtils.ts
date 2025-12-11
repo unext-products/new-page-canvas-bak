@@ -18,15 +18,14 @@ export interface ValidationResult {
   errors: string[];
   data?: {
     user_id: string;
-    department_id: string;
     entry_date: string;
     start_time: string;
     end_time: string;
-    duration_minutes: number;
     activity_type: string;
     activity_subtype: string | null;
     notes: string | null;
     status: "draft" | "submitted";
+    source: string;
   };
   rowData?: CSVRow;
 }
@@ -121,15 +120,14 @@ export async function validateCSVRow(
     rowData: row,
     data: {
       user_id: userId!,
-      department_id: deptId!,
       entry_date: row.entry_date,
       start_time: row.start_time,
       end_time: row.end_time,
-      duration_minutes: durationMinutes,
       activity_type: row.activity_type.toLowerCase().trim(),
       activity_subtype: row.activity_subtype?.trim() || null,
       notes: row.notes?.trim() || null,
-      status: "draft",
+      status: "submitted",
+      source: "bulk_upload",
     },
   };
 }

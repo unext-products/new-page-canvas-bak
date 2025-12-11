@@ -156,7 +156,7 @@ export default function CalendarPage() {
   };
 
   const handleSubmit = async (status: "draft" | "submitted") => {
-    if (!userWithRole?.departmentId || !selectedDate) return;
+    if (!userWithRole?.user?.id || !selectedDate) return;
 
     try {
       const entryDate = format(selectedDate, "yyyy-MM-dd");
@@ -170,19 +170,13 @@ export default function CalendarPage() {
         notes: notes,
       });
 
-      const [startHour, startMin] = startTime.split(":").map(Number);
-      const [endHour, endMin] = endTime.split(":").map(Number);
-      const duration = (endHour * 60 + endMin) - (startHour * 60 + startMin);
-
       setSubmitting(true);
 
       const { error } = await supabase.from("timesheet_entries").insert({
         user_id: userWithRole.user.id,
-        department_id: userWithRole.departmentId,
         entry_date: validatedData.entry_date,
         start_time: validatedData.start_time,
         end_time: validatedData.end_time,
-        duration_minutes: duration,
         activity_type: validatedData.activity_type,
         activity_subtype: validatedData.activity_subtype || null,
         notes: validatedData.notes || null,
@@ -236,11 +230,11 @@ export default function CalendarPage() {
 
   const formatLeaveType = (type: string) => {
     const labels: Record<string, string> = {
-      casual_leave: "CL",
-      sick_leave: "SL",
-      vacation: "VL",
-      personal: "PL",
-      compensatory: "CO",
+      casual: "CL",
+      sick: "SL",
+      earned: "EL",
+      half_day: "HD",
+      comp_off: "CO",
       other: "OL",
     };
     return labels[type] || type;

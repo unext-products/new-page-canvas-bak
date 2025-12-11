@@ -127,11 +127,9 @@ export async function validateMemberExcelRow(
         errors: [],
         data: {
           user_id: userId,
-          department_id: departmentId,
           entry_date: normalizedDate,
           start_time: row.start_time,
           end_time: row.end_time,
-          duration_minutes: durationMinutes,
           activity_type: row.activity_type.toLowerCase(),
           activity_subtype: row.activity_subtype || null,
           notes: row.notes || null,
@@ -219,15 +217,14 @@ export async function validateAdminExcelRow(
         errors: [],
         data: {
           user_id: userId,
-          department_id: deptId,
           entry_date: row.entry_date,
           start_time: row.start_time,
           end_time: row.end_time,
-          duration_minutes: durationMinutes,
           activity_type: row.activity_type.toLowerCase(),
           activity_subtype: row.activity_subtype || null,
           notes: row.notes || null,
-          status: 'draft', // Admin uploads as draft
+          status: 'submitted',
+          source: 'bulk_upload',
         },
       };
     }
