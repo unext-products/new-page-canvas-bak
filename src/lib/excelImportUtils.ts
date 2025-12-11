@@ -28,7 +28,57 @@ export interface ValidationResult {
 }
 
 /**
- * Parse Excel file to JSON array
+ * Convert Excel time decimal to HH:MM format
+ * Excel stores times as fractions of a day (e.g., 0.375 = 9:00 AM, 0.5 = 12:00 PM)
+ */
+function excelTimeToHHMM(value: any): string {
+  // If already a string in HH:MM format, return as-is
+  if (typeof value === 'string') {
+    const timeRegex = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$/;
+    if (timeRegex.test(value)) {
+      // Ensure consistent HH:MM format (pad hours)
+      const [hours, minutes] = value.split(':');
+      return `${hours.padStart(2, '0')}:${minutes}`;
+    }
+    return value;
+  }
+  
+  // If it's a number (Excel decimal time), convert it
+  if (typeof value === 'number') {
+    const totalMinutes = Math.round(value * 24 * 60);
+    const hours = Math.floor(totalMinutes / 60) % 24;
+    const minutes = totalMinutes % 60;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+  }
+  
+  return String(value);
+}
+
+/**
+ * Convert Excel date serial number to DD/MM/YYYY or pass through string dates
+ */
+function excelDateToString(value: any): string {
+  // If already a string, return as-is
+  if (typeof value === 'string') {
+    return value;
+  }
+  
+  // If it's a number (Excel date serial), convert it
+  if (typeof value === 'number') {
+    // Excel date serial: days since 1900-01-01 (with a bug for 1900 leap year)
+    const excelEpoch = new Date(1899, 11, 30); // Dec 30, 1899
+    const date = new Date(excelEpoch.getTime() + value * 24 * 60 * 60 * 1000);
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  }
+  
+  return String(value);
+}
+
+/**
+ * Parse Excel file to JSON array with proper time/date handling
  */
 export async function parseExcelFile(file: File): Promise<any[]> {
   return new Promise((resolve, reject) => {
@@ -40,8 +90,17 @@ export async function parseExcelFile(file: File): Promise<any[]> {
         const workbook = XLSX.read(data, { type: 'array' });
         const firstSheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[firstSheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
-        resolve(jsonData);
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { raw: true });
+        
+        // Convert Excel time decimals and dates to proper formats
+        const processedData = jsonData.map((row: any) => ({
+          ...row,
+          start_time: row.start_time !== undefined ? excelTimeToHHMM(row.start_time) : undefined,
+          end_time: row.end_time !== undefined ? excelTimeToHHMM(row.end_time) : undefined,
+          entry_date: row.entry_date !== undefined ? excelDateToString(row.entry_date) : undefined,
+        }));
+        
+        resolve(processedData);
       } catch (error) {
         reject(new Error('Failed to parse Excel file. Please ensure it is a valid Excel file.'));
       }
