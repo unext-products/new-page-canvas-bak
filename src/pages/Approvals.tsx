@@ -273,7 +273,8 @@ export default function Approvals() {
         .from("timesheet_entries")
         .update({
           status: actionType === "approve" ? "approved" : "rejected",
-          approver_id: userWithRole!.user.id,
+          approved_by: userWithRole!.user.id,
+          approved_at: new Date().toISOString(),
           approver_notes: comment.trim() || null,
         })
         .eq("id", selectedEntry.id);
@@ -483,7 +484,8 @@ export default function Approvals() {
         .from("timesheet_entries")
         .update({
           status: bulkAction === "approve" ? "approved" : "rejected",
-          approver_id: userWithRole!.user.id,
+          approved_by: userWithRole!.user.id,
+          approved_at: new Date().toISOString(),
           approver_notes: bulkComment.trim() || null,
         })
         .in("id", entryIds);
