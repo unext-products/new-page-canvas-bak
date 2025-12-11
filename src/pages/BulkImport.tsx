@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
 import { Layout } from "@/components/Layout";
@@ -13,12 +13,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { getUserErrorMessage } from "@/lib/errorHandler";
 import { 
-  parseCSVFile, 
-  validateCSVRow, 
   bulkInsertTimesheets, 
-  fetchUsersAndDepartments,
-  generateCSVTemplate,
-  type ValidationResult as CSVValidationResult
+  fetchUsersAndDepartments
 } from "@/lib/csvImportUtils";
 import {
   parseExcelFile,
@@ -30,8 +26,17 @@ import {
   getFileType,
   type ValidationResult as ExcelValidationResult
 } from "@/lib/excelImportUtils";
+import { supabase } from "@/integrations/supabase/client";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
-type ValidationResult = (CSVValidationResult | ExcelValidationResult) & { rowNumber?: number; rowData?: any };
+type ValidationResult = ExcelValidationResult & { rowNumber?: number; rowData?: any };
+
+interface DepartmentMember {
+  id: string;
+  full_name: string;
+  email: string;
+}
 
 export default function BulkImport() {
   const { userWithRole, loading: authLoading } = useAuth();
@@ -43,9 +48,66 @@ export default function BulkImport() {
   const [importProgress, setImportProgress] = useState(0);
   const [importComplete, setImportComplete] = useState(false);
   const [importStats, setImportStats] = useState({ success: 0, failed: 0 });
+  const [selectedMemberId, setSelectedMemberId] = useState<string>("self");
+  const [departmentMembers, setDepartmentMembers] = useState<DepartmentMember[]>([]);
+  const [loadingMembers, setLoadingMembers] = useState(false);
 
   const isMember = userWithRole?.role === "member";
   const isAdmin = userWithRole?.role === "org_admin";
+  const isHod = userWithRole?.role === "manager";
+
+  // Fetch department members for HOD
+  useEffect(() => {
+    const fetchDepartmentMembers = async () => {
+      if (!isHod || !userWithRole?.departmentId) return;
+      
+      setLoadingMembers(true);
+      try {
+        // Get all faculty in HOD's department
+        const { data: userRoles, error: rolesError } = await supabase
+          .from("user_roles")
+          .select("user_id")
+          .eq("department_id", userWithRole.departmentId)
+          .eq("role", "faculty");
+
+        if (rolesError) throw rolesError;
+
+        if (userRoles && userRoles.length > 0) {
+          const userIds = userRoles.map(ur => ur.user_id);
+          
+          // Get profiles for these users
+          const { data: profiles, error: profilesError } = await supabase
+            .from("profiles")
+            .select("id, full_name")
+            .in("id", userIds)
+            .eq("is_active", true);
+
+          if (profilesError) throw profilesError;
+
+          // Get emails via edge function
+          const { data: usersData, error: usersError } = await supabase.functions.invoke("admin-list-users");
+          
+          if (usersError) throw usersError;
+
+          const emailMap = new Map(usersData?.users?.map((u: any) => [u.id, u.email]) || []);
+          
+          const members: DepartmentMember[] = (profiles || []).map(p => ({
+            id: p.id,
+            full_name: p.full_name,
+            email: emailMap.get(p.id) as string || ""
+          }));
+
+          setDepartmentMembers(members);
+        }
+      } catch (error) {
+        console.error("Error fetching department members:", error);
+      } finally {
+        setLoadingMembers(false);
+      }
+    };
+
+    fetchDepartmentMembers();
+  }, [isHod, userWithRole?.departmentId]);
 
   if (authLoading) {
     return (
@@ -57,8 +119,8 @@ export default function BulkImport() {
     );
   }
 
-  // Redirect if not member or admin
-  if (!isMember && !isAdmin) {
+  // Redirect if not member, admin, or HOD
+  if (!isMember && !isAdmin && !isHod) {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -66,12 +128,12 @@ export default function BulkImport() {
     const selectedFile = event.target.files?.[0];
     if (!selectedFile) return;
 
-    // Validate file type
+    // Validate file type - Excel only
     const fileType = getFileType(selectedFile.name);
-    if (fileType === 'unknown') {
+    if (fileType !== 'excel') {
       toast({
         title: "Invalid file type",
-        description: "Please upload a CSV or Excel file (.csv, .xlsx, .xls)",
+        description: "Please upload an Excel file (.xlsx, .xls)",
         variant: "destructive",
       });
       return;
@@ -97,15 +159,7 @@ export default function BulkImport() {
 
     setIsValidating(true);
     try {
-      const fileType = getFileType(file.name);
-      let rows: any[] = [];
-
-      // Parse file based on type
-      if (fileType === 'csv') {
-        rows = await parseCSVFile(file);
-      } else if (fileType === 'excel') {
-        rows = await parseExcelFile(file);
-      }
+      const rows = await parseExcelFile(file);
 
       if (rows.length === 0) {
         toast({
@@ -129,13 +183,20 @@ export default function BulkImport() {
 
       let results: ValidationResult[] = [];
 
-      if (isMember) {
-        // Member mode: validate without email, use current user
+      if (isMember || isHod) {
+        // Member or HOD mode: validate without email, use selected user
         const deptsMap = await fetchDepartments();
-        const userId = userWithRole?.user.id;
-        const departmentId = userWithRole?.departmentId;
+        
+        // For HOD, use selected member if not "self"
+        let targetUserId = userWithRole?.user.id;
+        let targetDepartmentId = userWithRole?.departmentId;
+        
+        if (isHod && selectedMemberId !== "self") {
+          targetUserId = selectedMemberId;
+          // Department remains same as HOD's department
+        }
 
-        if (!userId || !departmentId) {
+        if (!targetUserId || !targetDepartmentId) {
           toast({
             title: "Error",
             description: "Could not determine user or department",
@@ -147,7 +208,7 @@ export default function BulkImport() {
 
         results = await Promise.all(
           rows.map(async (row, index) => {
-            const validation = await validateMemberExcelRow(row, userId, departmentId, deptsMap);
+            const validation = await validateMemberExcelRow(row, targetUserId!, targetDepartmentId!, deptsMap);
             return {
               rowNumber: index + 2,
               rowData: row,
@@ -159,29 +220,16 @@ export default function BulkImport() {
         // Admin mode: validate with email
         const { usersMap, deptsMap } = await fetchUsersAndDepartments();
 
-        if (fileType === 'csv') {
-          results = await Promise.all(
-            rows.map(async (row, index) => {
-              const validation = await validateCSVRow(row, usersMap, deptsMap);
-              return {
-                rowNumber: index + 2,
-                rowData: row,
-                ...validation,
-              };
-            })
-          );
-        } else {
-          results = await Promise.all(
-            rows.map(async (row, index) => {
-              const validation = await validateAdminExcelRow(row, usersMap, deptsMap);
-              return {
-                rowNumber: index + 2,
-                rowData: row,
-                ...validation,
-              };
-            })
-          );
-        }
+        results = await Promise.all(
+          rows.map(async (row, index) => {
+            const validation = await validateAdminExcelRow(row, usersMap, deptsMap);
+            return {
+              rowNumber: index + 2,
+              rowData: row,
+              ...validation,
+            };
+          })
+        );
       }
 
       setValidationResults(results);
@@ -229,10 +277,11 @@ export default function BulkImport() {
       setImportProgress(100);
 
       if (results.success > 0) {
+        const isForSelf = isMember || (isHod && selectedMemberId === "self");
         toast({
-          title: isMember ? "Submitted for approval" : "Import complete",
-          description: isMember 
-            ? `${results.success} entries submitted to manager for approval`
+          title: isForSelf ? "Submitted for approval" : "Import complete",
+          description: isForSelf 
+            ? `${results.success} entries submitted for approval`
             : `Successfully imported ${results.success} entries`,
         });
       }
@@ -255,32 +304,18 @@ export default function BulkImport() {
     }
   };
 
-  const handleDownloadTemplate = (format: 'csv' | 'excel') => {
+  const handleDownloadTemplate = () => {
     let blob: Blob;
     let filename: string;
 
-    if (isMember) {
-      // Member template (no email column)
-      if (format === 'excel') {
-        blob = generateMemberExcelTemplate();
-        filename = 'my_timesheet_template.xlsx';
-      } else {
-        // Generate CSV from member template structure
-        const csvContent = `entry_date,start_time,end_time,activity_type,activity_subtype,notes,department_code
-2025-01-15,09:00,11:00,class,CS101 Lecture,Introduction to Programming,CS`;
-        blob = new Blob([csvContent], { type: 'text/csv' });
-        filename = 'my_timesheet_template.csv';
-      }
+    if (isMember || isHod) {
+      // Member/HOD template (no email column)
+      blob = generateMemberExcelTemplate();
+      filename = 'timesheet_template.xlsx';
     } else {
       // Admin template (with email column)
-      if (format === 'excel') {
-        blob = generateAdminExcelTemplate();
-        filename = 'timesheet_import_template.xlsx';
-      } else {
-        const template = generateCSVTemplate();
-        blob = new Blob([template], { type: 'text/csv' });
-        filename = 'timesheet_import_template.csv';
-      }
+      blob = generateAdminExcelTemplate();
+      filename = 'timesheet_import_template.xlsx';
     }
 
     const url = window.URL.createObjectURL(blob);
@@ -299,24 +334,30 @@ export default function BulkImport() {
     setImportComplete(false);
     setImportStats({ success: 0, failed: 0 });
     setImportProgress(0);
+    setSelectedMemberId("self");
   };
 
   const validCount = validationResults.filter(r => r.isValid).length;
   const invalidCount = validationResults.length - validCount;
 
+  const getPageTitle = () => {
+    if (isMember) return "Bulk Upload My Timesheets";
+    if (isHod) return "Bulk Upload Timesheets";
+    return "Bulk Import Timesheets (Admin)";
+  };
+
+  const getPageDescription = () => {
+    if (isMember) return "Upload your timesheet entries in bulk. Entries will be submitted for manager approval.";
+    if (isHod) return "Upload timesheet entries for yourself or your department members.";
+    return "Upload timesheet entries for any team member using Excel files.";
+  };
+
   return (
     <Layout>
       <div className="max-w-4xl mx-auto space-y-6">
         <div>
-          <h1 className="text-3xl font-bold">
-            {isMember ? "Bulk Upload My Timesheets" : "Bulk Import Timesheets (Admin)"}
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            {isMember 
-              ? "Upload your timesheet entries in bulk. Entries will be submitted for manager approval."
-              : "Upload timesheet entries for any team member using CSV or Excel files."
-            }
-          </p>
+          <h1 className="text-3xl font-bold">{getPageTitle()}</h1>
+          <p className="text-muted-foreground mt-2">{getPageDescription()}</p>
         </div>
 
         {/* Template Download */}
@@ -331,18 +372,12 @@ export default function BulkImport() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex gap-2">
-              <Button onClick={() => handleDownloadTemplate('excel')} variant="outline">
-                <Download className="h-4 w-4 mr-2" />
-                Download Excel Template
-              </Button>
-              <Button onClick={() => handleDownloadTemplate('csv')} variant="outline">
-                <Download className="h-4 w-4 mr-2" />
-                Download CSV Template
-              </Button>
-            </div>
+            <Button onClick={handleDownloadTemplate} variant="outline">
+              <Download className="h-4 w-4 mr-2" />
+              Download Excel Template
+            </Button>
             <p className="text-sm text-muted-foreground mt-4">
-              {isMember 
+              {(isMember || isHod)
                 ? "Template includes: date, times, activity type, subtype, notes, and department code"
                 : "Template includes: member email, date, times, activity type, subtype, notes, and department code"
               }
@@ -359,13 +394,43 @@ export default function BulkImport() {
                 Upload File
               </CardTitle>
               <CardDescription>
-                Select a CSV or Excel file containing timesheet entries (max 1000 rows, 5MB)
+                Select an Excel file containing timesheet entries (max 1000 rows, 5MB)
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* HOD Member Selection */}
+              {isHod && (
+                <div className="space-y-2">
+                  <Label htmlFor="member-select">Choose Member</Label>
+                  <Select value={selectedMemberId} onValueChange={setSelectedMemberId}>
+                    <SelectTrigger id="member-select">
+                      <SelectValue placeholder="Select member" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="self">Self (My Timesheet)</SelectItem>
+                      {loadingMembers ? (
+                        <SelectItem value="loading" disabled>Loading members...</SelectItem>
+                      ) : (
+                        departmentMembers.map((member) => (
+                          <SelectItem key={member.id} value={member.id}>
+                            {member.full_name} {member.email && `(${member.email})`}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {selectedMemberId === "self" 
+                      ? "Entries will be added to your own timesheet"
+                      : "Entries will be added to the selected faculty member's timesheet"
+                    }
+                  </p>
+                </div>
+              )}
+              
               <Input
                 type="file"
-                accept=".csv,.xlsx,.xls"
+                accept=".xlsx,.xls"
                 onChange={handleFileSelect}
                 disabled={isValidating || isImporting}
               />
@@ -472,7 +537,7 @@ export default function BulkImport() {
                   {isImporting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                   {isImporting 
                     ? "Importing..." 
-                    : isMember 
+                    : (isMember || (isHod && selectedMemberId === "self"))
                       ? `Submit ${validCount} Entries for Approval` 
                       : `Import ${validCount} Valid Entries`
                   }
@@ -486,7 +551,7 @@ export default function BulkImport() {
                 <div className="space-y-2">
                   <Progress value={importProgress} />
                   <p className="text-sm text-muted-foreground text-center">
-                    {isMember ? "Submitting entries..." : "Importing entries..."}
+                    {(isMember || (isHod && selectedMemberId === "self")) ? "Submitting entries..." : "Importing entries..."}
                   </p>
                 </div>
               )}
