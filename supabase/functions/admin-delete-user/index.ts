@@ -40,10 +40,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check if the requesting user is an admin
+    // Check if the requesting user is an admin and get their organization
     const { data: roleData, error: roleError } = await supabaseClient
       .from('user_roles')
-      .select('role')
+      .select('role, organization_id')
       .eq('user_id', user.id)
       .single();
 
@@ -72,6 +72,29 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({ error: 'Cannot delete your own account' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Verify the target user belongs to the same organization
+    const { data: targetRole, error: targetRoleError } = await supabaseClient
+      .from('user_roles')
+      .select('organization_id')
+      .eq('user_id', user_id)
+      .single();
+
+    if (targetRoleError || !targetRole) {
+      console.error('Target user not found:', user_id);
+      return new Response(
+        JSON.stringify({ error: 'User not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (targetRole.organization_id !== roleData.organization_id) {
+      console.error('Cross-organization delete attempt blocked:', { adminOrg: roleData.organization_id, targetOrg: targetRole.organization_id });
+      return new Response(
+        JSON.stringify({ error: 'Cannot delete users from other organizations' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
