@@ -12,6 +12,11 @@ import { CompletionMetricsCard } from "@/components/reports/CompletionMetricsCar
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { calculateDurationMinutes } from "@/lib/timesheetUtils";
+
+// Helper to get duration from entry
+const getEntryDuration = (e: { start_time: string; end_time: string }) => 
+  calculateDurationMinutes(e.start_time, e.end_time);
 
 export default function Dashboard() {
   const { userWithRole } = useAuth();
@@ -74,14 +79,14 @@ export default function Dashboard() {
     if (userWithRole.role === "member") {
       const { data: entries } = await supabase
         .from("timesheet_entries")
-        .select("duration_minutes, status")
+        .select("start_time, end_time, status")
         .eq("user_id", userWithRole.user.id)
         .eq("entry_date", today);
 
       if (entries) {
         const todayTotal = entries
           .filter((e) => e.status === "approved" || e.status === "submitted")
-          .reduce((sum, e) => sum + e.duration_minutes, 0);
+          .reduce((sum, e) => sum + getEntryDuration(e), 0);
         
         setStats((prev) => ({
           ...prev,
@@ -103,7 +108,7 @@ export default function Dashboard() {
 
       const { data: weekEntries } = await supabase
         .from("timesheet_entries")
-        .select("duration_minutes, status")
+        .select("start_time, end_time, status")
         .eq("user_id", userWithRole.user.id)
         .gte("entry_date", weekStart)
         .lte("entry_date", weekEnd);
@@ -111,7 +116,7 @@ export default function Dashboard() {
       if (weekEntries) {
         const weeklyActualMinutes = weekEntries
           .filter((e) => e.status === "approved" || e.status === "submitted")
-          .reduce((sum, e) => sum + e.duration_minutes, 0);
+          .reduce((sum, e) => sum + getEntryDuration(e), 0);
         
         // Expected: 8 hours/day * 5 working days = 40 hours = 2400 minutes
         const expectedWeeklyMinutes = 2400;

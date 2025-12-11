@@ -81,7 +81,7 @@ export default function TimesheetSettings() {
     try {
       const { error } = await supabase
         .from("settings")
-        .update({ value })
+        .update({ value: String(value) })
         .eq("key", key);
 
       if (error) throw error;

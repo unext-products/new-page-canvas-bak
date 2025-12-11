@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Users, Clock, CheckCircle, Calendar, Eye, TrendingUp } from "lucide-react";
 import { format, startOfWeek, endOfWeek } from "date-fns";
 import { MemberCalendar } from "@/components/reports/MemberCalendar";
+import { calculateDurationMinutes } from "@/lib/timesheetUtils";
 
 interface TeamMember {
   id: string;
@@ -87,14 +88,14 @@ export default function Team() {
           .in("id", userIds),
         supabase
           .from("timesheet_entries")
-          .select("user_id, duration_minutes")
-          .eq("department_id", userWithRole.departmentId)
+          .select("user_id, start_time, end_time")
+          .in("user_id", userIds)
           .gte("entry_date", format(weekStart, "yyyy-MM-dd"))
           .lte("entry_date", format(weekEnd, "yyyy-MM-dd")),
         supabase
           .from("leave_days")
           .select("user_id, leave_date")
-          .eq("department_id", userWithRole.departmentId)
+          .in("user_id", userIds)
           .eq("leave_date", today),
       ]);
 
@@ -110,7 +111,7 @@ export default function Team() {
         .filter((p) => p.id !== userWithRole.user.id) // Exclude self
         .map((profile) => {
           const memberEntries = entries.filter((e) => e.user_id === profile.id);
-          const totalMinutes = memberEntries.reduce((sum, e) => sum + e.duration_minutes, 0);
+          const totalMinutes = memberEntries.reduce((sum, e) => sum + calculateDurationMinutes(e.start_time, e.end_time), 0);
           const weeklyHours = Math.round((totalMinutes / 60) * 10) / 10;
           const completionRate = Math.min(Math.round((weeklyHours / WEEKLY_HOURS_TARGET) * 100), 100);
           const isOnLeaveToday = todayLeaves.some((l) => l.user_id === profile.id);

@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { differenceInDays, differenceInCalendarDays, eachDayOfInterval, format } from "date-fns";
+import { calculateDurationMinutes } from "./timesheetUtils";
 
 export interface ReportFilters {
   dateFrom?: string;
@@ -58,6 +59,10 @@ export interface FacultyBreakdown {
   entryCount: number;
 }
 
+// Helper function to get duration from an entry
+const getEntryDuration = (entry: { start_time: string; end_time: string }) =>
+  calculateDurationMinutes(entry.start_time, entry.end_time);
+
 export async function fetchTimesheetEntries(filters: ReportFilters) {
   let query = supabase
     .from("timesheet_entries")
@@ -69,9 +74,6 @@ export async function fetchTimesheetEntries(filters: ReportFilters) {
   }
   if (filters.dateTo) {
     query = query.lte("entry_date", filters.dateTo);
-  }
-  if (filters.departmentId && filters.departmentId !== "all") {
-    query = query.eq("department_id", filters.departmentId);
   }
   if (filters.userId && filters.userId !== "all") {
     query = query.eq("user_id", filters.userId);
@@ -87,10 +89,10 @@ export async function fetchTimesheetEntries(filters: ReportFilters) {
 }
 
 export async function calculateSummaryStats(entries: any[]) {
-  const totalHours = entries.reduce((sum, e) => sum + e.duration_minutes, 0) / 60;
+  const totalHours = entries.reduce((sum, e) => sum + getEntryDuration(e), 0) / 60;
   const approvedHours = entries
     .filter(e => e.status === "approved")
-    .reduce((sum, e) => sum + e.duration_minutes, 0) / 60;
+    .reduce((sum, e) => sum + getEntryDuration(e), 0) / 60;
   const pendingCount = entries.filter(e => e.status === "submitted").length;
   const rejectedCount = entries.filter(e => e.status === "rejected").length;
 
@@ -104,16 +106,18 @@ export async function calculateSummaryStats(entries: any[]) {
 }
 
 export function groupEntriesByDepartment(entries: any[]) {
+  // Note: timesheet_entries doesn't have department_id column
+  // This function groups by user_id instead
   const grouped = entries.reduce((acc, entry) => {
-    const deptId = entry.department_id;
-    if (!acc[deptId]) {
-      acc[deptId] = {
+    const userId = entry.user_id;
+    if (!acc[userId]) {
+      acc[userId] = {
         entries: [],
         totalHours: 0,
       };
     }
-    acc[deptId].entries.push(entry);
-    acc[deptId].totalHours += entry.duration_minutes / 60;
+    acc[userId].entries.push(entry);
+    acc[userId].totalHours += getEntryDuration(entry) / 60;
     return acc;
   }, {} as Record<string, { entries: any[]; totalHours: number }>);
 
@@ -130,7 +134,7 @@ export function groupEntriesByActivityType(entries: any[]) {
       };
     }
     acc[type].count += 1;
-    acc[type].totalHours += entry.duration_minutes / 60;
+    acc[type].totalHours += getEntryDuration(entry) / 60;
     return acc;
   }, {} as Record<string, { count: number; totalHours: number }>);
 
@@ -174,7 +178,7 @@ export async function fetchFacultyReport(
         .single()
     : { data: null };
 
-  const totalMinutes = entries?.reduce((sum, e) => sum + e.duration_minutes, 0) || 0;
+  const totalMinutes = entries?.reduce((sum, e) => sum + getEntryDuration(e), 0) || 0;
   const totalHours = totalMinutes / 60;
   const expectedHours = calculateExpectedHours(period);
   const completionRate = calculateCompletionRate(totalMinutes, expectedHours * 60);
@@ -203,19 +207,27 @@ export async function fetchDepartmentReport(
   const dateFrom = format(period.dateFrom, "yyyy-MM-dd");
   const dateTo = format(period.dateTo, "yyyy-MM-dd");
 
-  let query = supabase
-    .from("timesheet_entries")
-    .select("*")
-    .gte("entry_date", dateFrom)
-    .lte("entry_date", dateTo)
-    .order("entry_date", { ascending: false });
+  // Get users in department
+  const { data: deptUsers } = await supabase
+    .from("user_roles")
+    .select("user_id")
+    .eq("department_id", departmentId);
 
-  if (departmentId !== "all") {
-    query = query.eq("department_id", departmentId);
+  const userIds = deptUsers?.map(u => u.user_id) || [];
+
+  let entries: any[] = [];
+  if (userIds.length > 0) {
+    const { data, error } = await supabase
+      .from("timesheet_entries")
+      .select("*")
+      .in("user_id", userIds)
+      .gte("entry_date", dateFrom)
+      .lte("entry_date", dateTo)
+      .order("entry_date", { ascending: false });
+
+    if (error) throw error;
+    entries = data || [];
   }
-
-  const { data: entries, error } = await query;
-  if (error) throw error;
 
   const { data: department } = departmentId !== "all"
     ? await supabase
@@ -229,11 +241,11 @@ export async function fetchDepartmentReport(
   const { data: profiles } = await supabase
     .from("profiles")
     .select("id, full_name")
-    .in("id", uniqueFacultyIds);
+    .in("id", uniqueFacultyIds.length > 0 ? uniqueFacultyIds : ["no-id"]);
 
   const profileMap = new Map(profiles?.map(p => [p.id, p.full_name]) || []);
 
-  const totalMinutes = entries?.reduce((sum, e) => sum + e.duration_minutes, 0) || 0;
+  const totalMinutes = entries?.reduce((sum, e) => sum + getEntryDuration(e), 0) || 0;
   const totalHours = totalMinutes / 60;
   const expectedHours = calculateExpectedHours(period) * uniqueFacultyIds.length;
   const completionRate = calculateCompletionRate(totalMinutes, expectedHours * 60);
@@ -241,7 +253,7 @@ export async function fetchDepartmentReport(
 
   const facultyBreakdown: FacultyBreakdown[] = uniqueFacultyIds.map(userId => {
     const userEntries = entries?.filter(e => e.user_id === userId) || [];
-    const userMinutes = userEntries.reduce((sum, e) => sum + e.duration_minutes, 0);
+    const userMinutes = userEntries.reduce((sum, e) => sum + getEntryDuration(e), 0);
     const userExpectedMinutes = calculateExpectedHours(period) * 60;
     
     return {
@@ -292,7 +304,7 @@ export function calculateCompletionRate(actualMinutes: number, expectedMinutes: 
 export function generateActivityBreakdown(entries: any[]): ActivityBreakdown[] {
   if (entries.length === 0) return [];
 
-  const totalMinutes = entries.reduce((sum, e) => sum + e.duration_minutes, 0);
+  const totalMinutes = entries.reduce((sum, e) => sum + getEntryDuration(e), 0);
   const grouped = groupEntriesByActivityType(entries);
 
   return Object.entries(grouped).map(([activityType, data]) => {
