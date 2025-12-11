@@ -2,18 +2,34 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
+// Match the actual database schema for activity_categories
+// Note: 'code' is derived from 'name' for backward compatibility with code that expects it
 export interface ActivityCategory {
   id: string;
   name: string;
-  code: string;
+  code: string; // Derived from name for backwards compatibility
   description: string | null;
   is_active: boolean;
-  display_order: number;
-  department_id: string | null;
-  organization_id: string;
+  organization_id: string | null;
+  created_at: string;
 }
 
-export function useActivityCategories(departmentId?: string | null) {
+// Helper to create a category with code derived from name
+const createCategory = (
+  id: string,
+  name: string,
+  description: string | null
+): ActivityCategory => ({
+  id,
+  name,
+  code: name.toLowerCase().replace(/\s+/g, '_'),
+  description,
+  is_active: true,
+  organization_id: null,
+  created_at: new Date().toISOString(),
+});
+
+export function useActivityCategories(_departmentId?: string | null) {
   const { userWithRole } = useAuth();
   const [categories, setCategories] = useState<ActivityCategory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -22,53 +38,48 @@ export function useActivityCategories(departmentId?: string | null) {
     if (!userWithRole) return;
     
     loadCategories();
-  }, [userWithRole, departmentId]);
+  }, [userWithRole]);
 
   const loadCategories = async () => {
     if (!userWithRole) return;
 
     setLoading(true);
     try {
-      // Fetch all categories for the organization
+      // Fetch all active categories for the organization
       const { data, error } = await supabase
         .from("activity_categories")
         .select("*")
         .eq("is_active", true)
-        .order("display_order", { ascending: true });
+        .order("name", { ascending: true });
 
       if (error) throw error;
 
       if (data && data.length > 0) {
-        // If departmentId is provided, check for department-specific categories
-        const deptCategories = departmentId 
-          ? data.filter(c => c.department_id === departmentId)
-          : [];
-        
-        // If there are department-specific categories, use those; otherwise use org-wide
-        const effectiveCategories = deptCategories.length > 0 
-          ? deptCategories 
-          : data.filter(c => c.department_id === null);
-
-        setCategories(effectiveCategories);
+        // Add code property derived from name for backwards compatibility
+        const categoriesWithCode: ActivityCategory[] = data.map(cat => ({
+          ...cat,
+          code: cat.name.toLowerCase().replace(/\s+/g, '_'),
+        }));
+        setCategories(categoriesWithCode);
       } else {
         // Fallback to hardcoded defaults if no categories exist
         setCategories([
-          { id: "1", name: "Class", code: "class", description: "Teaching/lecture sessions", is_active: true, display_order: 1, department_id: null, organization_id: "" },
-          { id: "2", name: "Quiz", code: "quiz", description: "Quizzes and assessments", is_active: true, display_order: 2, department_id: null, organization_id: "" },
-          { id: "3", name: "Invigilation", code: "invigilation", description: "Exam invigilation/proctoring", is_active: true, display_order: 3, department_id: null, organization_id: "" },
-          { id: "4", name: "Admin", code: "admin", description: "Administrative tasks", is_active: true, display_order: 4, department_id: null, organization_id: "" },
-          { id: "5", name: "Other", code: "other", description: "Miscellaneous activities", is_active: true, display_order: 5, department_id: null, organization_id: "" },
+          createCategory("1", "Class", "Teaching/lecture sessions"),
+          createCategory("2", "Quiz", "Quizzes and assessments"),
+          createCategory("3", "Invigilation", "Exam invigilation/proctoring"),
+          createCategory("4", "Admin", "Administrative tasks"),
+          createCategory("5", "Other", "Miscellaneous activities"),
         ]);
       }
     } catch (error) {
       console.error("Error loading categories:", error);
       // Fallback to defaults on error
       setCategories([
-        { id: "1", name: "Class", code: "class", description: null, is_active: true, display_order: 1, department_id: null, organization_id: "" },
-        { id: "2", name: "Quiz", code: "quiz", description: null, is_active: true, display_order: 2, department_id: null, organization_id: "" },
-        { id: "3", name: "Invigilation", code: "invigilation", description: null, is_active: true, display_order: 3, department_id: null, organization_id: "" },
-        { id: "4", name: "Admin", code: "admin", description: null, is_active: true, display_order: 4, department_id: null, organization_id: "" },
-        { id: "5", name: "Other", code: "other", description: null, is_active: true, display_order: 5, department_id: null, organization_id: "" },
+        createCategory("1", "Class", null),
+        createCategory("2", "Quiz", null),
+        createCategory("3", "Invigilation", null),
+        createCategory("4", "Admin", null),
+        createCategory("5", "Other", null),
       ]);
     } finally {
       setLoading(false);

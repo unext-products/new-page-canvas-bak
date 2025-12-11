@@ -38,23 +38,30 @@ export function MemberCalendar({ memberId, month }: MemberCalendarProps) {
     // Fetch timesheet entries for the month
     const { data: entries } = await supabase
       .from("timesheet_entries")
-      .select("entry_date, duration_minutes, status")
+      .select("entry_date, start_time, end_time, status")
       .eq("user_id", memberId)
       .gte("entry_date", format(monthStart, "yyyy-MM-dd"))
       .lte("entry_date", format(monthEnd, "yyyy-MM-dd"));
 
-    // Fetch leave days - Type assertion to bypass TypeScript errors until types regenerate
+    // Fetch leave days
     const { data: leaves } = await supabase
-      .from('leave_days' as any)
-      .select('leave_date, leave_type')
-      .eq('user_id', memberId)
-      .gte('leave_date', format(monthStart, "yyyy-MM-dd"))
-      .lte('leave_date', format(monthEnd, "yyyy-MM-dd"));
+      .from("leave_days")
+      .select("leave_date, leave_type")
+      .eq("user_id", memberId)
+      .gte("leave_date", format(monthStart, "yyyy-MM-dd"))
+      .lte("leave_date", format(monthEnd, "yyyy-MM-dd"));
+
+    // Helper function to calculate duration in minutes from start and end time
+    const calculateDuration = (startTime: string, endTime: string): number => {
+      const [startH, startM] = startTime.split(':').map(Number);
+      const [endH, endM] = endTime.split(':').map(Number);
+      return (endH * 60 + endM) - (startH * 60 + startM);
+    };
 
     // Build calendar data
     const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
     const leaveMap = new Map<string, string>();
-    leaves?.forEach((leave: any) => {
+    leaves?.forEach((leave) => {
       leaveMap.set(leave.leave_date, leave.leave_type);
     });
 
@@ -63,7 +70,7 @@ export function MemberCalendar({ memberId, month }: MemberCalendarProps) {
       const dayEntries = entries?.filter(e => e.entry_date === dateStr) || [];
       const totalMinutes = dayEntries
         .filter(e => e.status === "approved" || e.status === "submitted")
-        .reduce((sum, e) => sum + e.duration_minutes, 0);
+        .reduce((sum, e) => sum + calculateDuration(e.start_time, e.end_time), 0);
       const totalHours = totalMinutes / 60;
       const isOnLeave = leaveMap.has(dateStr);
       const isWeekendDay = isWeekend(date);
