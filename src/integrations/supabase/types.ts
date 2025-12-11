@@ -300,6 +300,7 @@ export type Database = {
           entry_date: string
           id: string
           notes: string | null
+          source: string | null
           start_time: string
           status: Database["public"]["Enums"]["entry_status"]
           updated_at: string
@@ -316,6 +317,7 @@ export type Database = {
           entry_date: string
           id?: string
           notes?: string | null
+          source?: string | null
           start_time: string
           status?: Database["public"]["Enums"]["entry_status"]
           updated_at?: string
@@ -332,6 +334,7 @@ export type Database = {
           entry_date?: string
           id?: string
           notes?: string | null
+          source?: string | null
           start_time?: string
           status?: Database["public"]["Enums"]["entry_status"]
           updated_at?: string
