@@ -29,19 +29,19 @@ const DEFAULT_SETTINGS: EffectiveSettings = {
   },
 };
 
-export function useDepartmentSettings(departmentId?: string | null) {
+export function useDepartmentSettings(_departmentId?: string | null) {
   const [settings, setSettings] = useState<EffectiveSettings>(DEFAULT_SETTINGS);
   const [departmentSettings, setDepartmentSettings] = useState<DepartmentSettings | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadSettings();
-  }, [departmentId]);
+  }, [_departmentId]);
 
   const loadSettings = async () => {
     setLoading(true);
     try {
-      // Fetch organization-level settings
+      // Fetch organization-level settings from the settings table
       const { data: orgSettings, error: orgError } = await supabase
         .from("settings")
         .select("key, value")
@@ -52,47 +52,30 @@ export function useDepartmentSettings(departmentId?: string | null) {
       // Build org defaults
       const orgDefaults: Partial<EffectiveSettings> = {};
       orgSettings?.forEach((item) => {
-        if (item.key === "daily_target_minutes") {
-          orgDefaults.daily_target_minutes = item.value as number;
-        } else if (item.key === "submission_window_days") {
-          orgDefaults.submission_window_days = item.value as number;
-        } else if (item.key === "time_format") {
+        if (item.key === "daily_target_minutes" && item.value) {
+          orgDefaults.daily_target_minutes = parseInt(item.value, 10);
+        } else if (item.key === "submission_window_days" && item.value) {
+          orgDefaults.submission_window_days = parseInt(item.value, 10);
+        } else if (item.key === "time_format" && item.value) {
           orgDefaults.time_format = item.value as "12h" | "24h";
         }
       });
 
-      // Fetch department-specific settings if departmentId provided
-      let deptSettings: DepartmentSettings | null = null;
-      if (departmentId) {
-        const { data: deptData, error: deptError } = await supabase
-          .from("department_settings")
-          .select("*")
-          .eq("department_id", departmentId)
-          .maybeSingle();
-
-        if (!deptError && deptData) {
-          deptSettings = {
-            daily_target_minutes: deptData.daily_target_minutes,
-            submission_window_days: deptData.submission_window_days,
-            time_format: deptData.time_format as "12h" | "24h" | null,
-          };
-          setDepartmentSettings(deptSettings);
-        }
-      }
-
-      // Merge: department overrides org defaults
+      // Note: department_settings table doesn't exist in the current schema
+      // Using only organization-level settings
       const effective: EffectiveSettings = {
-        daily_target_minutes: deptSettings?.daily_target_minutes ?? orgDefaults.daily_target_minutes ?? DEFAULT_SETTINGS.daily_target_minutes,
-        submission_window_days: deptSettings?.submission_window_days ?? orgDefaults.submission_window_days ?? DEFAULT_SETTINGS.submission_window_days,
-        time_format: deptSettings?.time_format ?? orgDefaults.time_format ?? DEFAULT_SETTINGS.time_format,
+        daily_target_minutes: orgDefaults.daily_target_minutes ?? DEFAULT_SETTINGS.daily_target_minutes,
+        submission_window_days: orgDefaults.submission_window_days ?? DEFAULT_SETTINGS.submission_window_days,
+        time_format: orgDefaults.time_format ?? DEFAULT_SETTINGS.time_format,
         isOverride: {
-          daily_target_minutes: deptSettings?.daily_target_minutes !== null && deptSettings?.daily_target_minutes !== undefined,
-          submission_window_days: deptSettings?.submission_window_days !== null && deptSettings?.submission_window_days !== undefined,
-          time_format: deptSettings?.time_format !== null && deptSettings?.time_format !== undefined,
+          daily_target_minutes: false,
+          submission_window_days: false,
+          time_format: false,
         },
       };
 
       setSettings(effective);
+      setDepartmentSettings(null);
     } catch (error) {
       console.error("Error loading settings:", error);
       setSettings(DEFAULT_SETTINGS);
@@ -102,46 +85,17 @@ export function useDepartmentSettings(departmentId?: string | null) {
   };
 
   const updateDepartmentSetting = async (
-    deptId: string,
-    key: keyof DepartmentSettings,
-    value: number | string | null
+    _deptId: string,
+    _key: keyof DepartmentSettings,
+    _value: number | string | null
   ) => {
-    try {
-      // Check if department settings exist
-      const { data: existing } = await supabase
-        .from("department_settings")
-        .select("id")
-        .eq("department_id", deptId)
-        .maybeSingle();
-
-      if (existing) {
-        // Update existing
-        const { error } = await supabase
-          .from("department_settings")
-          .update({ [key]: value })
-          .eq("department_id", deptId);
-
-        if (error) throw error;
-      } else {
-        // Insert new
-        const { error } = await supabase
-          .from("department_settings")
-          .insert({ department_id: deptId, [key]: value });
-
-        if (error) throw error;
-      }
-
-      // Reload settings
-      await loadSettings();
-      return { error: null };
-    } catch (error) {
-      console.error("Error updating department setting:", error);
-      return { error };
-    }
+    // No-op since department_settings table doesn't exist
+    console.warn("updateDepartmentSetting called but department_settings table doesn't exist");
+    return { error: new Error("department_settings table doesn't exist") };
   };
 
-  const resetDepartmentSetting = async (deptId: string, key: keyof DepartmentSettings) => {
-    return updateDepartmentSetting(deptId, key, null);
+  const resetDepartmentSetting = async (_deptId: string, _key: keyof DepartmentSettings) => {
+    return updateDepartmentSetting(_deptId, _key, null);
   };
 
   return {

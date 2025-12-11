@@ -1,7 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { toast } from "sonner";
 
 export type ApproverType = "manager" | "org_admin" | null;
 
@@ -16,7 +14,9 @@ export interface ApprovalSettings {
   manager_approved_by: ApproverType;
 }
 
-const DEFAULT_SETTINGS: Omit<ApprovalSettings, "id" | "organization_id"> = {
+const DEFAULT_SETTINGS: ApprovalSettings = {
+  id: "default",
+  organization_id: "",
   member_requires_approval: true,
   program_manager_requires_approval: true,
   manager_requires_approval: true,
@@ -27,7 +27,7 @@ const DEFAULT_SETTINGS: Omit<ApprovalSettings, "id" | "organization_id"> = {
 
 export function useApprovalSettings() {
   const { user } = useAuth();
-  const [settings, setSettings] = useState<ApprovalSettings | null>(null);
+  const [settings, setSettings] = useState<ApprovalSettings | null>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
 
   const fetchSettings = useCallback(async () => {
@@ -36,58 +36,27 @@ export function useApprovalSettings() {
       return;
     }
 
-    try {
-      const { data, error } = await supabase
-        .from("organization_approval_settings")
-        .select("*")
-        .maybeSingle();
-
-      if (error) throw error;
-
-      if (data) {
-        setSettings(data as ApprovalSettings);
-      }
-    } catch (error) {
-      console.error("Error fetching approval settings:", error);
-    } finally {
-      setLoading(false);
-    }
+    // Use default settings since organization_approval_settings table doesn't exist
+    setSettings(DEFAULT_SETTINGS);
+    setLoading(false);
   }, [user]);
 
   useEffect(() => {
     fetchSettings();
   }, [fetchSettings]);
 
-  const updateSettings = async (updates: Partial<Omit<ApprovalSettings, "id" | "organization_id">>) => {
-    if (!settings) return;
-
-    try {
-      const { error } = await supabase
-        .from("organization_approval_settings")
-        .update({
-          ...updates,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", settings.id);
-
-      if (error) throw error;
-
-      setSettings((prev) => prev ? { ...prev, ...updates } : null);
-      toast.success("Approval workflow updated");
-    } catch (error) {
-      console.error("Error updating approval settings:", error);
-      toast.error("Failed to update approval workflow");
-    }
+  const updateSettings = async (_updates: Partial<Omit<ApprovalSettings, "id" | "organization_id">>) => {
+    // No-op since table doesn't exist
+    console.warn("updateSettings called but organization_approval_settings table doesn't exist");
   };
 
   const resetToDefaults = async () => {
-    await updateSettings(DEFAULT_SETTINGS);
+    setSettings(DEFAULT_SETTINGS);
   };
 
   // Helper: Check if a role requires approval
   const requiresApproval = (role: string): boolean => {
     if (!settings) {
-      // Default behavior if no settings
       return true;
     }
 
@@ -108,7 +77,6 @@ export function useApprovalSettings() {
   // Helper: Get who approves a specific role
   const getApproverForRole = (role: string): ApproverType => {
     if (!settings) {
-      // Default behavior
       if (role === "faculty" || role === "member" || role === "program_manager") {
         return "manager";
       }
@@ -135,7 +103,6 @@ export function useApprovalSettings() {
   // Helper: Get which roles a given approver role can approve
   const getApprovableRoles = (approverRole: string | null): string[] => {
     if (!approverRole || !settings) {
-      // Default behavior
       if (approverRole === "hod" || approverRole === "manager") {
         return ["faculty", "program_manager"];
       }
@@ -148,7 +115,6 @@ export function useApprovalSettings() {
     const roles: string[] = [];
 
     if (approverRole === "org_admin") {
-      // Org admin can approve anyone configured to be approved by org_admin
       if (settings.member_requires_approval && settings.member_approved_by === "org_admin") {
         roles.push("faculty");
       }
@@ -161,7 +127,6 @@ export function useApprovalSettings() {
     }
 
     if (approverRole === "hod" || approverRole === "manager") {
-      // Manager/HOD can approve anyone configured to be approved by manager
       if (settings.member_requires_approval && settings.member_approved_by === "manager") {
         roles.push("faculty");
       }

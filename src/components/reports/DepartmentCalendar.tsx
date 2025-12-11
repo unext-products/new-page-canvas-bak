@@ -53,18 +53,25 @@ export function DepartmentCalendar({ departmentId, month }: DepartmentCalendarPr
     // Fetch all entries for department members
     const { data: entries } = await supabase
       .from("timesheet_entries")
-      .select("user_id, entry_date, duration_minutes, status")
+      .select("user_id, entry_date, start_time, end_time, status")
       .in("user_id", memberIds)
       .gte("entry_date", format(monthStart, "yyyy-MM-dd"))
       .lte("entry_date", format(monthEnd, "yyyy-MM-dd"));
 
-    // Fetch leave days - Type assertion to bypass TypeScript errors until types regenerate
+    // Fetch leave days
     const { data: leaves } = await supabase
-      .from('leave_days' as any)
-      .select('leave_date, user_id')
-      .in('user_id', memberIds)
-      .gte('leave_date', format(monthStart, "yyyy-MM-dd"))
-      .lte('leave_date', format(monthEnd, "yyyy-MM-dd"));
+      .from("leave_days")
+      .select("leave_date, user_id")
+      .in("user_id", memberIds)
+      .gte("leave_date", format(monthStart, "yyyy-MM-dd"))
+      .lte("leave_date", format(monthEnd, "yyyy-MM-dd"));
+
+    // Helper function to calculate duration in minutes from start and end time
+    const calculateDuration = (startTime: string, endTime: string): number => {
+      const [startH, startM] = startTime.split(':').map(Number);
+      const [endH, endM] = endTime.split(':').map(Number);
+      return (endH * 60 + endM) - (startH * 60 + startM);
+    };
 
     // Process data for each day
     const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
@@ -75,7 +82,7 @@ export function DepartmentCalendar({ departmentId, month }: DepartmentCalendarPr
 
       // Count members on leave
       const membersOnLeave = new Set<string>(
-        leaves?.filter((l: any) => l.leave_date === dateStr).map((l: any) => l.user_id) || []
+        leaves?.filter((l) => l.leave_date === dateStr).map((l) => l.user_id) || []
       );
 
       // Count members with entries and total hours
@@ -83,7 +90,7 @@ export function DepartmentCalendar({ departmentId, month }: DepartmentCalendarPr
       const membersWithEntries = new Set(dayEntries.map(e => e.user_id));
       const totalMinutes = dayEntries
         .filter(e => e.status === "approved" || e.status === "submitted")
-        .reduce((sum, e) => sum + e.duration_minutes, 0);
+        .reduce((sum, e) => sum + calculateDuration(e.start_time, e.end_time), 0);
 
       // Calculate average completion (only for members who should be working)
       const workingMembersCount = isWeekendDay ? 0 : memberIds.length - membersOnLeave.size;
