@@ -47,6 +47,8 @@ export default function Timesheet() {
   const [activityType, setActivityType] = useState("");
   const [activitySubtype, setActivitySubtype] = useState("");
   const [notes, setNotes] = useState("");
+  const [departmentCode, setDepartmentCode] = useState("");
+  const [userDepartmentCodes, setUserDepartmentCodes] = useState<Set<string>>(new Set());
 
   // Leave management state
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
@@ -71,8 +73,35 @@ export default function Timesheet() {
     } else if (userWithRole) {
       loadEntries();
       loadLeaveDays();
+      loadUserDepartments();
     }
   }, [userWithRole, navigate]);
+
+  const loadUserDepartments = async () => {
+    if (!userWithRole) return;
+    
+    // Get user's departments from user_departments table
+    const { data: userDepts } = await supabase
+      .from("user_departments")
+      .select("department_id")
+      .eq("user_id", userWithRole.user.id);
+    
+    const deptIds = userDepts?.map(ud => ud.department_id) || [];
+    
+    // Also include department from user_roles as fallback
+    if (userWithRole.departmentId && !deptIds.includes(userWithRole.departmentId)) {
+      deptIds.push(userWithRole.departmentId);
+    }
+    
+    if (deptIds.length > 0) {
+      const { data: depts } = await supabase
+        .from("departments")
+        .select("code")
+        .in("id", deptIds);
+      
+      setUserDepartmentCodes(new Set(depts?.map(d => d.code.toUpperCase()) || []));
+    }
+  };
 
   // Set initial activity type when categories load
   useEffect(() => {
@@ -228,6 +257,17 @@ export default function Timesheet() {
 
       const duration = calculateDuration(normalizedStartTime, normalizedEndTime);
 
+      // Validate department code if provided
+      const trimmedDeptCode = departmentCode.trim().toUpperCase();
+      if (trimmedDeptCode && !userDepartmentCodes.has(trimmedDeptCode)) {
+        toast({
+          title: "Invalid Department Code",
+          description: "You are not a member of the department with this code",
+          variant: "destructive",
+        });
+        return;
+      }
+
       setLoading(true);
 
       let error;
@@ -243,6 +283,7 @@ export default function Timesheet() {
             activity_type: validatedData.activity_type,
             activity_subtype: validatedData.activity_subtype || null,
             notes: validatedData.notes || null,
+            department_code: trimmedDeptCode || null,
             status,
           })
           .eq("id", editingEntry.id)
@@ -259,6 +300,7 @@ export default function Timesheet() {
           activity_type: validatedData.activity_type,
           activity_subtype: validatedData.activity_subtype || null,
           notes: validatedData.notes || null,
+          department_code: trimmedDeptCode || null,
           status,
         });
         error = result.error;
@@ -332,6 +374,7 @@ export default function Timesheet() {
     setActivityType(categories[0]?.code || "");
     setActivitySubtype("");
     setNotes("");
+    setDepartmentCode("");
     setEditingEntry(null);
   };
 
@@ -343,6 +386,7 @@ export default function Timesheet() {
     setActivityType(entry.activity_type);
     setActivitySubtype(entry.activity_subtype || "");
     setNotes(entry.notes || "");
+    setDepartmentCode(entry.department_code || "");
     setDialogOpen(true);
   };
 
@@ -603,6 +647,20 @@ export default function Timesheet() {
                 </div>
 
                 <div className="space-y-2">
+                  <Label htmlFor="departmentCode">Department Code (Optional)</Label>
+                  <Input
+                    id="departmentCode"
+                    placeholder="e.g., CS, EE, ME"
+                    value={departmentCode}
+                    onChange={(e) => setDepartmentCode(e.target.value.toUpperCase())}
+                    maxLength={10}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Enter the code of a department you belong to
+                  </p>
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="notes">Notes (Optional)</Label>
                   <Textarea
                     id="notes"
@@ -684,6 +742,11 @@ export default function Timesheet() {
                           <p className="text-sm text-muted-foreground">
                             {item.activity_type.charAt(0).toUpperCase() + item.activity_type.slice(1)}
                             {item.activity_subtype && ` • ${item.activity_subtype}`}
+                            {item.department_code && (
+                              <Badge variant="outline" className="ml-2 text-xs">
+                                {item.department_code}
+                              </Badge>
+                            )}
                           </p>
                           <p className="text-sm text-muted-foreground">
                             {item.start_time} - {item.end_time} ({formatMinutes(getEntryDuration(item))})
