@@ -296,6 +296,7 @@ export type Database = {
           approved_by: string | null
           approver_notes: string | null
           created_at: string
+          department_code: string | null
           end_time: string
           entry_date: string
           id: string
@@ -313,6 +314,7 @@ export type Database = {
           approved_by?: string | null
           approver_notes?: string | null
           created_at?: string
+          department_code?: string | null
           end_time: string
           entry_date: string
           id?: string
@@ -330,6 +332,7 @@ export type Database = {
           approved_by?: string | null
           approver_notes?: string | null
           created_at?: string
+          department_code?: string | null
           end_time?: string
           entry_date?: string
           id?: string

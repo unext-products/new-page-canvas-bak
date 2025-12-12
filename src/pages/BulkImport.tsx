@@ -206,9 +206,32 @@ export default function BulkImport() {
           return;
         }
 
+        // Fetch user's departments for validation
+        const { data: userDepts } = await supabase
+          .from("user_departments")
+          .select("department_id")
+          .eq("user_id", targetUserId);
+        
+        const deptIds = userDepts?.map(ud => ud.department_id) || [];
+        
+        // Also include department from user_roles as fallback
+        if (targetDepartmentId && !deptIds.includes(targetDepartmentId)) {
+          deptIds.push(targetDepartmentId);
+        }
+        
+        let userDeptCodes = new Set<string>();
+        if (deptIds.length > 0) {
+          const { data: depts } = await supabase
+            .from("departments")
+            .select("code")
+            .in("id", deptIds);
+          
+          userDeptCodes = new Set(depts?.map(d => d.code.toUpperCase()) || []);
+        }
+
         results = await Promise.all(
           rows.map(async (row, index) => {
-            const validation = await validateMemberExcelRow(row, targetUserId!, targetDepartmentId!, deptsMap);
+            const validation = await validateMemberExcelRow(row, targetUserId!, targetDepartmentId!, deptsMap, userDeptCodes);
             return {
               rowNumber: index + 2,
               rowData: row,

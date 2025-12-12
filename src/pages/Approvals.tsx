@@ -137,7 +137,7 @@ export default function Approvals() {
         if (userIds.length > 0) {
           const { data, error } = await supabase
             .from("timesheet_entries")
-            .select("id, entry_date, start_time, end_time, activity_type, activity_subtype, notes, user_id")
+            .select("id, entry_date, start_time, end_time, activity_type, activity_subtype, notes, user_id, department_code")
             .in("user_id", userIds)
             .eq("status", "submitted")
             .order("entry_date", { ascending: false });
@@ -170,7 +170,7 @@ export default function Approvals() {
             if (userIds.length > 0) {
               const { data, error } = await supabase
                 .from("timesheet_entries")
-                .select("id, entry_date, start_time, end_time, activity_type, activity_subtype, notes, user_id")
+                .select("id, entry_date, start_time, end_time, activity_type, activity_subtype, notes, user_id, department_code")
                 .in("user_id", userIds)
                 .eq("status", "submitted")
                 .order("entry_date", { ascending: false });
@@ -745,7 +745,7 @@ export default function Approvals() {
                         </div>
                       </CardHeader>
                       <CardContent className="space-y-4 pl-12">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                           <div>
                             <div className="text-sm text-muted-foreground mb-1">Activity</div>
                             <div className="font-medium capitalize">
@@ -768,6 +768,14 @@ export default function Approvals() {
                               {(() => { const mins = calculateDurationMinutes(item.start_time, item.end_time); return `${Math.floor(mins / 60)}h ${mins % 60}m`; })()}
                             </div>
                           </div>
+                          {(item as any).department_code && (
+                            <div>
+                              <div className="text-sm text-muted-foreground mb-1">Department</div>
+                              <div className="font-medium">
+                                <Badge variant="outline">{(item as any).department_code}</Badge>
+                              </div>
+                            </div>
+                          )}
                         </div>
 
                         {item.notes && (

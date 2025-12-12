@@ -112,13 +112,14 @@ export async function parseExcelFile(file: File): Promise<any[]> {
 }
 
 /**
- * Validate row for member mode (no email needed)
+ * Validate row for member mode (no email needed) with user department check
  */
 export async function validateMemberExcelRow(
   row: MemberExcelRow,
   userId: string,
   departmentId: string,
-  deptsMap: Map<string, string>
+  deptsMap: Map<string, string>,
+  userDeptCodes?: Set<string>
 ): Promise<ValidationResult> {
   const errors: string[] = [];
 
@@ -162,9 +163,15 @@ export async function validateMemberExcelRow(
   }
 
   // Validate department exists
-  const deptId = deptsMap.get(row.department_code.toUpperCase());
+  const deptCodeUpper = row.department_code.toUpperCase();
+  const deptId = deptsMap.get(deptCodeUpper);
   if (!deptId) {
     errors.push(`Department code '${row.department_code}' not found`);
+  }
+
+  // Validate user belongs to this department
+  if (deptId && userDeptCodes && !userDeptCodes.has(deptCodeUpper)) {
+    errors.push(`You are not a member of department '${row.department_code}'`);
   }
 
   // Validate time logic
@@ -192,6 +199,7 @@ export async function validateMemberExcelRow(
           activity_type: row.activity_type.toLowerCase(),
           activity_subtype: row.activity_subtype || null,
           notes: row.notes || null,
+          department_code: deptCodeUpper,
           status: 'submitted',
           source: 'bulk_upload',
         },
@@ -282,6 +290,7 @@ export async function validateAdminExcelRow(
           activity_type: row.activity_type.toLowerCase(),
           activity_subtype: row.activity_subtype || null,
           notes: row.notes || null,
+          department_code: row.department_code.toUpperCase(),
           status: 'submitted',
           source: 'bulk_upload',
         },
