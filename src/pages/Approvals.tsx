@@ -124,32 +124,51 @@ export default function Approvals() {
         return;
       }
       
-      if (userWithRole.role === "manager" && userWithRole.departmentId) {
-        // Manager: fetch entries from roles they can approve in their department
-        const { data: deptUsers } = await supabase
-          .from("user_roles")
-          .select("user_id, role")
-          .eq("department_id", userWithRole.departmentId)
-          .in("role", dbRolesToApprove);
+      if (userWithRole.role === "manager") {
+        // Manager/HOD: Get departments from user_departments junction table
+        const { data: hodDepartments } = await supabase
+          .from("user_departments")
+          .select("department_id")
+          .eq("user_id", userWithRole.user.id);
         
-        const userIds = deptUsers?.map(u => u.user_id) || [];
+        const hodDeptIds = hodDepartments?.map(d => d.department_id) || [];
         
-        if (userIds.length > 0) {
-          const { data, error } = await supabase
-            .from("timesheet_entries")
-            .select("id, entry_date, start_time, end_time, activity_type, activity_subtype, notes, user_id, department_code")
-            .in("user_id", userIds)
-            .eq("status", "submitted")
-            .order("entry_date", { ascending: false });
+        if (hodDeptIds.length > 0) {
+          // Get users in those departments from user_departments junction table
+          const { data: deptUsers } = await supabase
+            .from("user_departments")
+            .select("user_id")
+            .in("department_id", hodDeptIds);
           
-          if (error) throw error;
-          entriesData = data || [];
+          const candidateUserIds = [...new Set(deptUsers?.map(u => u.user_id) || [])];
+          
+          // Filter to only users with approvable roles
+          const { data: usersWithRoles } = await supabase
+            .from("user_roles")
+            .select("user_id")
+            .in("user_id", candidateUserIds)
+            .in("role", dbRolesToApprove);
+          
+          const userIds = usersWithRoles?.map(u => u.user_id) || [];
+          
+          if (userIds.length > 0) {
+            const { data, error } = await supabase
+              .from("timesheet_entries")
+              .select("id, entry_date, start_time, end_time, activity_type, activity_subtype, notes, user_id, department_code")
+              .in("user_id", userIds)
+              .eq("status", "submitted")
+              .order("entry_date", { ascending: false });
+            
+            if (error) throw error;
+            entriesData = data || [];
+          }
         }
       } else if (userWithRole.role === "org_admin") {
-        // Org Admin: fetch entries from roles they can approve in their organization
+        // Org Admin: fetch entries from users with approvable roles in their organization
         const orgId = await getOrgId();
         
         if (orgId) {
+          // Get all departments in the organization
           const { data: orgDepts } = await supabase
             .from("departments")
             .select("id")
@@ -158,14 +177,22 @@ export default function Approvals() {
           const deptIds = orgDepts?.map(d => d.id) || [];
           
           if (deptIds.length > 0) {
-            // Get user_ids of roles org_admin can approve
-            const { data: usersToApprove } = await supabase
+            // Get users in those departments from user_departments junction table
+            const { data: deptUsers } = await supabase
+              .from("user_departments")
+              .select("user_id")
+              .in("department_id", deptIds);
+            
+            const candidateUserIds = [...new Set(deptUsers?.map(u => u.user_id) || [])];
+            
+            // Filter to only users with approvable roles
+            const { data: usersWithRoles } = await supabase
               .from("user_roles")
               .select("user_id")
-              .in("department_id", deptIds)
+              .in("user_id", candidateUserIds)
               .in("role", dbRolesToApprove);
             
-            const userIds = usersToApprove?.map(u => u.user_id) || [];
+            const userIds = usersWithRoles?.map(u => u.user_id) || [];
             
             if (userIds.length > 0) {
               const { data, error } = await supabase
