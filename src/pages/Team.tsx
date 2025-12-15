@@ -26,6 +26,7 @@ interface TeamMember {
   entriesCount: number;
   completionRate: number;
   isOnLeaveToday: boolean;
+  leavesThisMonth: number;
 }
 
 interface TeamStats {
@@ -80,8 +81,13 @@ export default function Team() {
 
       const userIds = userRoles.map((ur) => ur.user_id);
 
-      // Fetch profiles, entries, and leave days in parallel
-      const [profilesRes, entriesRes, leavesRes] = await Promise.all([
+      // Calculate month range for leaves
+      const monthStart = new Date();
+      monthStart.setDate(1);
+      const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+
+      // Fetch profiles, entries, today's leaves, and month's leaves in parallel
+      const [profilesRes, entriesRes, leavesRes, monthLeavesRes] = await Promise.all([
         supabase
           .from("profiles")
           .select("id, full_name, avatar_url, is_active")
@@ -97,14 +103,18 @@ export default function Team() {
           .select("user_id, leave_date")
           .in("user_id", userIds)
           .eq("leave_date", today),
+        supabase
+          .from("leave_days")
+          .select("user_id, leave_date")
+          .in("user_id", userIds)
+          .gte("leave_date", format(monthStart, "yyyy-MM-dd"))
+          .lte("leave_date", format(monthEnd, "yyyy-MM-dd")),
       ]);
 
       const profiles = profilesRes.data || [];
       const entries = entriesRes.data || [];
       const todayLeaves = leavesRes.data || [];
-
-      // Get auth emails for team members
-      const { data: authData } = await supabase.auth.admin?.listUsers?.() || { data: null };
+      const monthLeaves = monthLeavesRes.data || [];
 
       // Build team member data
       const members: TeamMember[] = profiles
@@ -115,17 +125,19 @@ export default function Team() {
           const weeklyHours = Math.round((totalMinutes / 60) * 10) / 10;
           const completionRate = Math.min(Math.round((weeklyHours / WEEKLY_HOURS_TARGET) * 100), 100);
           const isOnLeaveToday = todayLeaves.some((l) => l.user_id === profile.id);
+          const leavesThisMonth = monthLeaves.filter((l) => l.user_id === profile.id).length;
 
           return {
             id: profile.id,
             fullName: profile.full_name,
-            email: "", // We don't have direct access to auth emails
+            email: "",
             avatarUrl: profile.avatar_url,
             isActive: profile.is_active,
             weeklyHours,
             entriesCount: memberEntries.length,
             completionRate,
             isOnLeaveToday,
+            leavesThisMonth,
           };
         });
 
@@ -328,6 +340,11 @@ export default function Team() {
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-muted-foreground">Entries This Week</span>
                       <span className="font-medium">{member.entriesCount}</span>
+                    </div>
+
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-muted-foreground">Leaves This Month</span>
+                      <span className="font-medium">{member.leavesThisMonth}</span>
                     </div>
                   </div>
 
