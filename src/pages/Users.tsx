@@ -19,7 +19,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { UserRoleSelect } from "@/components/UserRoleSelect";
 import { DepartmentSelect } from "@/components/DepartmentSelect";
+import { DepartmentMultiSelect } from "@/components/DepartmentMultiSelect";
 import { ProgramSelect } from "@/components/ProgramSelect";
+import { ProgramMultiSelect } from "@/components/ProgramMultiSelect";
 import { userCreateSchema, type UserCreateInput } from "@/lib/validation";
 import { getUserErrorMessage } from "@/lib/errorHandler";
 import type { UserRole } from "@/lib/supabase";
@@ -59,7 +61,9 @@ export default function Users() {
     phone: "",
     role: "" as UserRole | "",
     department_id: "",
+    department_ids: [] as string[],
     program_id: "",
+    program_ids: [] as string[],
     is_active: true,
     password: "",
     confirmPassword: "",
@@ -175,8 +179,8 @@ export default function Users() {
       const validatedData = userCreateSchema.parse({
         ...formData,
         phone: formData.phone || undefined,
-        department_id: formData.department_id || undefined,
-        program_id: formData.program_id || undefined,
+        department_id: formData.department_ids[0] || formData.department_id || undefined,
+        program_id: formData.program_ids[0] || formData.program_id || undefined,
       });
 
       // Call edge function to create user - convert display role to DB role
@@ -184,6 +188,8 @@ export default function Users() {
         body: {
           ...validatedData,
           role: displayToDbRole[validatedData.role],
+          department_ids: formData.department_ids.length > 0 ? formData.department_ids : undefined,
+          program_ids: formData.program_ids.length > 0 ? formData.program_ids : undefined,
         },
       });
 
@@ -205,7 +211,9 @@ export default function Users() {
         phone: "",
         role: "",
         department_id: "",
+        department_ids: [],
         program_id: "",
+        program_ids: [],
         is_active: true,
         password: "",
         confirmPassword: "",
@@ -311,7 +319,9 @@ export default function Users() {
         phone: "",
         role: "" as UserRole | "",
         department_id: "",
+        department_ids: [],
         program_id: "",
+        program_ids: [],
         is_active: true,
         password: "",
         confirmPassword: "",
@@ -399,7 +409,9 @@ export default function Users() {
       phone: user.phone || "",
       role: user.role || "",
       department_id: user.department_id || "",
+      department_ids: user.department_id ? [user.department_id] : [],
       program_id: user.program_id || "",
+      program_ids: user.program_id ? [user.program_id] : [],
       is_active: user.is_active,
       password: "",
       confirmPassword: "",
@@ -554,19 +566,27 @@ export default function Users() {
                 </div>
                 <div>
                   <Label htmlFor="department">
-                    Department {(formData.role === "manager" || formData.role === "member" || formData.role === "program_manager") && "*"}
+                    {entityLabel("department", true)} {(formData.role === "manager" || formData.role === "member" || formData.role === "program_manager") && "*"}
                   </Label>
-                  <DepartmentSelect
-                    value={formData.department_id}
-                    onValueChange={(value) => setFormData({ ...formData, department_id: value, program_id: "" })}
-                    disabled={formData.role === "org_admin"}
-                  />
+                  {(formData.role === "member" || formData.role === "manager") ? (
+                    <DepartmentMultiSelect
+                      value={formData.department_ids}
+                      onValueChange={(value) => setFormData({ ...formData, department_ids: value, department_id: value[0] || "", program_ids: [], program_id: "" })}
+                      disabled={false}
+                    />
+                  ) : (
+                    <DepartmentSelect
+                      value={formData.department_id}
+                      onValueChange={(value) => setFormData({ ...formData, department_id: value, department_ids: value ? [value] : [], program_id: "", program_ids: [] })}
+                      disabled={formData.role === "org_admin"}
+                    />
+                  )}
                   {formData.role === "org_admin" && (
                     <p className="text-sm text-muted-foreground mt-1">
                       Not required for Organization Admin role
                     </p>
                   )}
-                  {(formData.role === "manager" || formData.role === "member" || formData.role === "program_manager") && !formData.department_id && (
+                  {(formData.role === "manager" || formData.role === "member" || formData.role === "program_manager") && formData.department_ids.length === 0 && !formData.department_id && (
                     <p className="text-sm text-muted-foreground mt-1">
                       Required for this role
                     </p>
@@ -575,14 +595,23 @@ export default function Users() {
                 {(formData.role === "program_manager" || formData.role === "member") && (
                   <div>
                     <Label htmlFor="program">
-                      Program {formData.role === "program_manager" && "*"}
+                      {entityLabel("program", true)} {formData.role === "program_manager" && "*"}
                     </Label>
-                    <ProgramSelect
-                      value={formData.program_id}
-                      onValueChange={(value) => setFormData({ ...formData, program_id: value })}
-                      departmentId={formData.department_id}
-                      disabled={!formData.department_id}
-                    />
+                    {formData.role === "member" ? (
+                      <ProgramMultiSelect
+                        value={formData.program_ids}
+                        onValueChange={(value) => setFormData({ ...formData, program_ids: value, program_id: value[0] || "" })}
+                        departmentIds={formData.department_ids.length > 0 ? formData.department_ids : (formData.department_id ? [formData.department_id] : [])}
+                        disabled={formData.department_ids.length === 0 && !formData.department_id}
+                      />
+                    ) : (
+                      <ProgramSelect
+                        value={formData.program_id}
+                        onValueChange={(value) => setFormData({ ...formData, program_id: value, program_ids: value ? [value] : [] })}
+                        departmentId={formData.department_id}
+                        disabled={!formData.department_id}
+                      />
+                    )}
                     {formData.role === "program_manager" && !formData.program_id && (
                       <p className="text-sm text-muted-foreground mt-1">
                         Required for Program Manager role
@@ -590,7 +619,7 @@ export default function Users() {
                     )}
                     {formData.role === "member" && (
                       <p className="text-sm text-muted-foreground mt-1">
-                        Optional for Member role
+                        Optional for {roleLabel("member")} role
                       </p>
                     )}
                   </div>
@@ -618,7 +647,7 @@ export default function Users() {
                     formData.password.length < 8 ||
                     formData.password !== formData.confirmPassword ||
                     !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password) ||
-                    ((formData.role === "manager" || formData.role === "member" || formData.role === "program_manager") && !formData.department_id) ||
+                    ((formData.role === "manager" || formData.role === "member" || formData.role === "program_manager") && formData.department_ids.length === 0 && !formData.department_id) ||
                     (formData.role === "program_manager" && !formData.program_id)
                   }
                 >
