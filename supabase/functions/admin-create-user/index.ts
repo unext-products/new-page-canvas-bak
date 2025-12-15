@@ -53,8 +53,13 @@ serve(async (req) => {
       });
     }
 
-    // Get request body
-    const { full_name, email, phone, role, department_id, program_id, is_active, password } = await req.json();
+    // Get request body - support both single department_id and multiple department_ids
+    const body = await req.json();
+    const { full_name, email, phone, role, department_id, department_ids, program_id, program_ids, is_active, password } = body;
+
+    // Normalize to arrays
+    const deptIds: string[] = department_ids?.length ? department_ids : (department_id ? [department_id] : []);
+    const progIds: string[] = program_ids?.length ? program_ids : (program_id ? [program_id] : []);
 
     // Validate inputs
     if (!full_name || !email || !role || !password) {
@@ -116,20 +121,57 @@ serve(async (req) => {
       throw profileError;
     }
 
-    // Create user role - get organization_id from admin's organization
+    // Create user role - use first department/program for backward compatibility
+    const primaryDeptId = deptIds[0] || null;
+    const primaryProgId = progIds[0] || null;
+
     const { error: roleInsertError } = await supabaseClient
       .from('user_roles')
       .insert({
         user_id: authData.user.id,
         role,
         organization_id: roleData.organization_id,
-        department_id: role === 'org_admin' ? null : (department_id || null),
-        program_id: (role === 'program_manager' || role === 'faculty') ? (program_id || null) : null,
+        department_id: role === 'org_admin' ? null : primaryDeptId,
+        program_id: (role === 'program_manager' || role === 'faculty') ? primaryProgId : null,
       });
 
     if (roleInsertError) {
       console.error('Role insert error:', roleInsertError);
       throw roleInsertError;
+    }
+
+    // Insert into user_departments junction table for all departments
+    if (deptIds.length > 0 && role !== 'org_admin') {
+      const deptInserts = deptIds.map(dId => ({
+        user_id: authData.user.id,
+        department_id: dId,
+      }));
+
+      const { error: deptInsertError } = await supabaseClient
+        .from('user_departments')
+        .insert(deptInserts);
+
+      if (deptInsertError) {
+        console.error('Department assignment error:', deptInsertError);
+        // Non-fatal, continue
+      }
+    }
+
+    // Insert into user_programs junction table for all programs
+    if (progIds.length > 0 && (role === 'program_manager' || role === 'faculty')) {
+      const progInserts = progIds.map(pId => ({
+        user_id: authData.user.id,
+        program_id: pId,
+      }));
+
+      const { error: progInsertError } = await supabaseClient
+        .from('user_programs')
+        .insert(progInserts);
+
+      if (progInsertError) {
+        console.error('Program assignment error:', progInsertError);
+        // Non-fatal, continue
+      }
     }
 
     console.log('User created successfully:', authData.user.id);
