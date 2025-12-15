@@ -461,11 +461,21 @@ export type Database = {
     }
     Functions: {
       get_user_department: { Args: { user_id: string }; Returns: string }
+      get_user_departments: { Args: { p_user_id: string }; Returns: string[] }
       get_user_organization: { Args: { user_id: string }; Returns: string }
       get_user_program: { Args: { user_id: string }; Returns: string }
+      get_user_programs: { Args: { p_user_id: string }; Returns: string[] }
       get_user_role: {
         Args: { user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
+      }
+      user_in_department: {
+        Args: { p_department_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      user_in_program: {
+        Args: { p_program_id: string; p_user_id: string }
+        Returns: boolean
       }
     }
     Enums: {
