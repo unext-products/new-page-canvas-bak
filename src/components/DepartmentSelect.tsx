@@ -14,23 +14,31 @@ interface DepartmentSelectProps {
   onValueChange: (value: string) => void;
   includeAll?: boolean;
   disabled?: boolean;
+  departmentIds?: string[]; // Filter to only these department IDs
 }
 
-export function DepartmentSelect({ value, onValueChange, includeAll = false, disabled = false }: DepartmentSelectProps) {
+export function DepartmentSelect({ value, onValueChange, includeAll = false, disabled = false, departmentIds }: DepartmentSelectProps) {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { entityLabel } = useLabels();
 
   useEffect(() => {
     fetchDepartments();
-  }, []);
+  }, [departmentIds]);
 
   const fetchDepartments = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("departments")
         .select("id, name, code")
         .order("name");
+
+      // Filter by department IDs if provided
+      if (departmentIds && departmentIds.length > 0) {
+        query = query.in("id", departmentIds);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setDepartments(data || []);
