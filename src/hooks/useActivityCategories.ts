@@ -68,7 +68,7 @@ export function useActivityCategories(_departmentId?: string | null) {
           createCategory("2", "Quiz", "Quizzes and assessments"),
           createCategory("3", "Invigilation", "Exam invigilation/proctoring"),
           createCategory("4", "Admin", "Administrative tasks"),
-          createCategory("5", "Other", "Miscellaneous activities"),
+          createCategory("5", "Non-Academic", "Non-academic activities"),
         ]);
       }
     } catch (error) {
@@ -79,7 +79,7 @@ export function useActivityCategories(_departmentId?: string | null) {
         createCategory("2", "Quiz", null),
         createCategory("3", "Invigilation", null),
         createCategory("4", "Admin", null),
-        createCategory("5", "Other", null),
+        createCategory("5", "Non-Academic", null),
       ]);
     } finally {
       setLoading(false);
