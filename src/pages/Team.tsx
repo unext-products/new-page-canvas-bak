@@ -55,7 +55,7 @@ export default function Team() {
   }, [authLoading, userWithRole]);
 
   const loadTeamData = async () => {
-    if (!userWithRole?.departmentId) {
+    if (!userWithRole?.user?.id) {
       setIsLoading(false);
       return;
     }
@@ -66,20 +66,45 @@ export default function Team() {
       const weekEnd = endOfWeek(new Date(), { weekStartsOn: 1 });
       const today = format(new Date(), "yyyy-MM-dd");
 
-      // Get all users in the department
-      const { data: userRoles } = await supabase
-        .from("user_roles")
-        .select("user_id")
-        .eq("department_id", userWithRole.departmentId);
+      // First, get all departments the HOD belongs to
+      const { data: hodDepartments } = await supabase
+        .from("user_departments")
+        .select("department_id")
+        .eq("user_id", userWithRole.user.id);
 
-      if (!userRoles || userRoles.length === 0) {
+      if (!hodDepartments || hodDepartments.length === 0) {
         setTeamMembers([]);
         setTeamStats(null);
         setIsLoading(false);
         return;
       }
 
-      const userIds = userRoles.map((ur) => ur.user_id);
+      const hodDeptIds = hodDepartments.map((d) => d.department_id);
+
+      // Get all users in HOD's departments using the junction table
+      const { data: userDepts } = await supabase
+        .from("user_departments")
+        .select("user_id")
+        .in("department_id", hodDeptIds);
+
+      if (!userDepts || userDepts.length === 0) {
+        setTeamMembers([]);
+        setTeamStats(null);
+        setIsLoading(false);
+        return;
+      }
+
+      // Get unique user IDs (excluding the HOD themselves)
+      const userIds = [...new Set(userDepts.map((ud) => ud.user_id))].filter(
+        (id) => id !== userWithRole.user.id
+      );
+
+      if (userIds.length === 0) {
+        setTeamMembers([]);
+        setTeamStats(null);
+        setIsLoading(false);
+        return;
+      }
 
       // Calculate month range for leaves
       const monthStart = new Date();
