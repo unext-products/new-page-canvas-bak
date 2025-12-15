@@ -28,16 +28,17 @@ interface MemberSelectProps {
   value: string;
   onValueChange: (value: string) => void;
   includeAll?: boolean;
+  departmentIds?: string[]; // Filter members by these department IDs
 }
 
-export function MemberSelect({ value, onValueChange, includeAll = false }: MemberSelectProps) {
+export function MemberSelect({ value, onValueChange, includeAll = false, departmentIds }: MemberSelectProps) {
   const [open, setOpen] = useState(false);
   const [members, setMembers] = useState<Member[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     fetchMembers();
-  }, []);
+  }, [departmentIds]);
 
   const fetchMembers = async () => {
     try {
@@ -50,11 +51,19 @@ export function MemberSelect({ value, onValueChange, includeAll = false }: Membe
       if (profilesError) throw profilesError;
 
       const userIds = profiles?.map(p => p.id) || [];
-      const { data: roles, error: rolesError } = await supabase
+      
+      let rolesQuery = supabase
         .from("user_roles")
         .select("user_id, department_id")
         .in("user_id", userIds)
         .eq("role", "faculty");
+
+      // Filter by department IDs if provided
+      if (departmentIds && departmentIds.length > 0) {
+        rolesQuery = rolesQuery.in("department_id", departmentIds);
+      }
+
+      const { data: roles, error: rolesError } = await rolesQuery;
 
       if (rolesError) throw rolesError;
 
@@ -62,7 +71,7 @@ export function MemberSelect({ value, onValueChange, includeAll = false }: Membe
       const { data: departments } = await supabase
         .from("departments")
         .select("id, name")
-        .in("id", deptIds);
+        .in("id", deptIds.length > 0 ? deptIds : ['__none__']);
 
       const deptMap = new Map(departments?.map(d => [d.id, d.name]) || []);
       const rolesMap = new Map(roles?.map(r => [r.user_id, r.department_id]) || []);

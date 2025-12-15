@@ -95,6 +95,7 @@ export function AppSidebar() {
         { to: "/bulk-import", icon: Upload, label: "Bulk Upload", group: "Work" },
         { to: "/approvals", icon: ClipboardCheck, label: "Approvals", group: "Management" },
         { to: "/team", icon: UsersRound, label: "Team", group: "Management" },
+        { to: "/reports", icon: BarChart3, label: "Reports", group: "Analytics" },
         { to: "/settings", icon: Settings, label: "Settings", group: "Tools" }
       );
     }

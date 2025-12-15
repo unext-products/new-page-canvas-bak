@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -59,11 +60,55 @@ export default function Reports() {
   const [viewMode, setViewMode] = useState<"table" | "calendar">("table");
   const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
 
+  // HOD department filter
+  const [hodDepartmentIds, setHodDepartmentIds] = useState<string[]>([]);
+
+  const isHod = userWithRole?.role === "manager";
+  const hasReportsAccess = ["org_admin", "program_manager", "manager"].includes(userWithRole?.role || "");
+
+  // Fetch HOD's department IDs
   useEffect(() => {
-    if (!loading && (!userWithRole || !["org_admin", "program_manager"].includes(userWithRole.role || ""))) {
+    const fetchHodDepartments = async () => {
+      if (!userWithRole?.user?.id || !isHod) return;
+      
+      try {
+        // Get from user_departments for multi-department support
+        const { data: userDepts } = await supabase
+          .from("user_departments")
+          .select("department_id")
+          .eq("user_id", userWithRole.user.id);
+        
+        // Also get from user_roles as fallback
+        const { data: roleData } = await supabase
+          .from("user_roles")
+          .select("department_id")
+          .eq("user_id", userWithRole.user.id)
+          .maybeSingle();
+        
+        const deptIds = new Set<string>();
+        userDepts?.forEach(ud => ud.department_id && deptIds.add(ud.department_id));
+        if (roleData?.department_id) deptIds.add(roleData.department_id);
+        
+        const deptIdsArray = Array.from(deptIds);
+        setHodDepartmentIds(deptIdsArray);
+        
+        // Set default department for HOD if only one
+        if (deptIdsArray.length === 1) {
+          setSelectedDepartment(deptIdsArray[0]);
+        }
+      } catch (error) {
+        console.error("Error fetching HOD departments:", error);
+      }
+    };
+
+    fetchHodDepartments();
+  }, [userWithRole?.user?.id, isHod]);
+
+  useEffect(() => {
+    if (!loading && (!userWithRole || !hasReportsAccess)) {
       navigate("/dashboard");
     }
-  }, [userWithRole, loading, navigate]);
+  }, [userWithRole, loading, navigate, hasReportsAccess]);
 
   // Auto-update date range when period changes
   useEffect(() => {
@@ -124,10 +169,10 @@ export default function Reports() {
   };
 
   useEffect(() => {
-    if (userWithRole && ["org_admin", "program_manager"].includes(userWithRole.role || "")) {
+    if (userWithRole && hasReportsAccess) {
       generateReport();
     }
-  }, [userWithRole, reportType, period, dateFrom, dateTo, selectedFaculty, selectedDepartment]);
+  }, [userWithRole, reportType, period, dateFrom, dateTo, selectedFaculty, selectedDepartment, hasReportsAccess]);
 
   const handleExportCSV = () => {
     const reportPeriod = `${format(dateFrom, "MMM dd, yyyy")} - ${format(dateTo, "MMM dd, yyyy")}`;
@@ -238,6 +283,7 @@ export default function Reports() {
                     value={selectedFaculty}
                     onValueChange={setSelectedFaculty}
                     includeAll={false}
+                    departmentIds={isHod ? hodDepartmentIds : undefined}
                   />
                 </div>
               ) : (
@@ -246,7 +292,8 @@ export default function Reports() {
                   <DepartmentSelect
                     value={selectedDepartment}
                     onValueChange={setSelectedDepartment}
-                    includeAll
+                    includeAll={!isHod || hodDepartmentIds.length > 1}
+                    departmentIds={isHod ? hodDepartmentIds : undefined}
                   />
                 </div>
               )}
