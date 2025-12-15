@@ -21,12 +21,12 @@ const getEntryDuration = (e: { start_time: string; end_time: string }) =>
 export default function Dashboard() {
   const { userWithRole } = useAuth();
   const navigate = useNavigate();
-  const [stats, setStats] = useState({
+const [stats, setStats] = useState({
     todayMinutes: 0,
     targetMinutes: 480,
     pending: 0,
     approved: 0,
-    rejected: 0,
+    leavesThisMonth: 0,
     weeklyActualMinutes: 0,
     expectedWeeklyMinutes: 2400,
     weeklyCompletionRate: 0,
@@ -108,6 +108,20 @@ export default function Dashboard() {
         .eq("user_id", userWithRole.user.id)
         .eq("entry_date", today);
 
+      // Fetch leaves for this month
+      const monthStart = new Date();
+      monthStart.setDate(1);
+      const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+      const monthStartStr = monthStart.toISOString().split("T")[0];
+      const monthEndStr = monthEnd.toISOString().split("T")[0];
+
+      const { data: leavesData } = await supabase
+        .from("leave_days")
+        .select("id")
+        .eq("user_id", userWithRole.user.id)
+        .gte("leave_date", monthStartStr)
+        .lte("leave_date", monthEndStr);
+
       if (entries) {
         const todayTotal = entries
           .filter((e) => e.status === "approved" || e.status === "submitted")
@@ -118,7 +132,7 @@ export default function Dashboard() {
           todayMinutes: todayTotal,
           pending: entries.filter((e) => e.status === "submitted").length,
           approved: entries.filter((e) => e.status === "approved").length,
-          rejected: entries.filter((e) => e.status === "draft" || e.status === "rejected").length,
+          leavesThisMonth: leavesData?.length || 0,
         }));
       }
 
@@ -565,14 +579,14 @@ export default function Dashboard() {
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Drafts</CardTitle>
-                  <XCircle className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Leaves</CardTitle>
+                  <CalendarDays className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">
-                    {stats.rejected}
+                    {stats.leavesThisMonth}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">Incomplete</p>
+                  <p className="text-xs text-muted-foreground mt-1">This month</p>
                 </CardContent>
               </Card>
             </div>
