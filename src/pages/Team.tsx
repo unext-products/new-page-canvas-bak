@@ -87,15 +87,17 @@ export default function Team() {
         .select("user_id")
         .in("department_id", hodDeptIds);
 
-      if (!userDepts || userDepts.length === 0) {
-        setTeamMembers([]);
-        setTeamStats(null);
-        setIsLoading(false);
-        return;
-      }
+      const allDeptUserIds = [...new Set(userDepts?.map((ud) => ud.user_id) || [])];
 
-      // Get unique user IDs (excluding the HOD themselves)
-      const userIds = [...new Set(userDepts.map((ud) => ud.user_id))].filter(
+      // Fetch faculty roles to filter to only faculty
+      const { data: facultyRoles } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "faculty")
+        .in("user_id", allDeptUserIds.length > 0 ? allDeptUserIds : [userWithRole.user.id]);
+
+      // Team = faculty in HOD's departments, excluding HOD themselves
+      const userIds = (facultyRoles?.map((r) => r.user_id) || []).filter(
         (id) => id !== userWithRole.user.id
       );
 
