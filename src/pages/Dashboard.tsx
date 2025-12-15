@@ -182,8 +182,8 @@ const [stats, setStats] = useState({
     }
 
     // Load HOD/Manager dashboard data
-    if (userWithRole.role === "manager" && userWithRole.departmentId) {
-      await loadHodDashboardData(userWithRole.departmentId);
+    if (userWithRole.role === "manager") {
+      await loadHodDashboardData(userWithRole.user.id);
       setLoading(false);
       return;
     }
@@ -191,16 +191,41 @@ const [stats, setStats] = useState({
     setLoading(false);
   };
 
-  const loadHodDashboardData = async (departmentId: string) => {
-    // Fetch department name and code for HOD
+  const loadHodDashboardData = async (hodUserId: string) => {
+    // Fetch HOD's departments from user_departments junction table
+    const { data: hodDepartments } = await supabase
+      .from("user_departments")
+      .select("department_id")
+      .eq("user_id", hodUserId);
+
+    const hodDeptIds = hodDepartments?.map(d => d.department_id) || [];
+
+    if (hodDeptIds.length === 0) {
+      // No departments assigned
+      setUserDepartments([]);
+      setHodStats({
+        teamMembers: 0,
+        pendingApprovals: 0,
+        weeklyHours: 0,
+        expectedWeeklyHours: 0,
+        completionRate: 0,
+        activityBreakdown: [],
+        teamPerformance: [],
+        recentActivity: [],
+        todayLeaves: [],
+        todayWorking: 0,
+      });
+      return;
+    }
+
+    // Fetch department names for display
     const { data: deptData } = await supabase
       .from("departments")
       .select("name, code")
-      .eq("id", departmentId)
-      .maybeSingle();
+      .in("id", hodDeptIds);
     
-    if (deptData) {
-      setUserDepartments([`${deptData.name} (${deptData.code})`]);
+    if (deptData && deptData.length > 0) {
+      setUserDepartments(deptData.map(d => `${d.name} (${d.code})`));
     }
 
     const today = new Date().toISOString().split("T")[0];
@@ -212,33 +237,42 @@ const [stats, setStats] = useState({
     endOfWeek.setDate(endOfWeek.getDate() + 6);
     const weekEnd = endOfWeek.toISOString().split("T")[0];
 
-    // Fetch team members in department
-    const { data: teamRoles } = await supabase
+    // Fetch all users in HOD's departments from user_departments
+    const { data: deptUsers } = await supabase
+      .from("user_departments")
+      .select("user_id")
+      .in("department_id", hodDeptIds);
+
+    const allDeptUserIds = [...new Set(deptUsers?.map(d => d.user_id) || [])];
+
+    // Fetch faculty roles to filter to only faculty
+    const { data: facultyRoles } = await supabase
       .from("user_roles")
       .select("user_id")
-      .eq("department_id", departmentId)
-      .eq("role", "faculty");
+      .eq("role", "faculty")
+      .in("user_id", allDeptUserIds.length > 0 ? allDeptUserIds : [hodUserId]);
 
-    const teamUserIds = teamRoles?.map(r => r.user_id) || [];
+    // Team = faculty in HOD's departments, excluding HOD themselves
+    const teamUserIds = (facultyRoles?.map(r => r.user_id) || []).filter(id => id !== hodUserId);
 
     // Fetch team profiles
     const { data: teamProfiles } = await supabase
       .from("profiles")
       .select("id, full_name, is_active")
-      .in("id", teamUserIds.length > 0 ? teamUserIds : ["no-id"]);
+      .in("id", teamUserIds.length > 0 ? teamUserIds : [hodUserId]);
 
     // Fetch pending approvals - get entries from users in the department
     const { data: pendingEntries } = await supabase
       .from("timesheet_entries")
       .select("id, start_time, end_time, user_id")
-      .in("user_id", teamUserIds.length > 0 ? teamUserIds : ["no-id"])
+      .in("user_id", teamUserIds.length > 0 ? teamUserIds : [hodUserId])
       .eq("status", "submitted");
 
     // Fetch this week's entries for team members
     const { data: weekEntries } = await supabase
       .from("timesheet_entries")
       .select("id, start_time, end_time, user_id, activity_type")
-      .in("user_id", teamUserIds.length > 0 ? teamUserIds : ["no-id"])
+      .in("user_id", teamUserIds.length > 0 ? teamUserIds : [hodUserId])
       .gte("entry_date", weekStart)
       .lte("entry_date", weekEnd);
 
@@ -246,7 +280,7 @@ const [stats, setStats] = useState({
     const { data: todayLeavesRaw } = await supabase
       .from("leave_days")
       .select("*")
-      .in("user_id", teamUserIds.length > 0 ? teamUserIds : ["no-id"])
+      .in("user_id", teamUserIds.length > 0 ? teamUserIds : [hodUserId])
       .eq("leave_date", today);
 
     // Get profiles for leave users
@@ -254,7 +288,7 @@ const [stats, setStats] = useState({
     const { data: leaveProfiles } = await supabase
       .from("profiles")
       .select("id, full_name")
-      .in("id", leaveUserIds.length > 0 ? leaveUserIds : ["no-id"]);
+      .in("id", leaveUserIds.length > 0 ? leaveUserIds : [hodUserId]);
     
     const leaveProfileMap = new Map(leaveProfiles?.map(p => [p.id, p.full_name]) || []);
 
