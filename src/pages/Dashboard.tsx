@@ -8,7 +8,7 @@ import { Plus, Clock, CheckCircle, XCircle, AlertCircle, Users, Building2, Trend
 import { useNavigate } from "react-router-dom";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ActivityBreakdownChart } from "@/components/reports/ActivityBreakdownChart";
-import { CompletionMetricsCard } from "@/components/reports/CompletionMetricsCard";
+import { EnhancedCompletionCard } from "@/components/dashboard/EnhancedCompletionCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -122,6 +122,13 @@ const [stats, setStats] = useState({
         .gte("leave_date", monthStartStr)
         .lte("leave_date", monthEndStr);
 
+      // Fetch ALL pending entries (not just today's)
+      const { data: allPendingEntries } = await supabase
+        .from("timesheet_entries")
+        .select("id")
+        .eq("user_id", userWithRole.user.id)
+        .eq("status", "submitted");
+
       if (entries) {
         const todayTotal = entries
           .filter((e) => e.status === "approved" || e.status === "submitted")
@@ -130,7 +137,7 @@ const [stats, setStats] = useState({
         setStats((prev) => ({
           ...prev,
           todayMinutes: todayTotal,
-          pending: entries.filter((e) => e.status === "submitted").length,
+          pending: allPendingEntries?.length || 0,
           approved: entries.filter((e) => e.status === "approved").length,
           leavesThisMonth: leavesData?.length || 0,
         }));
@@ -594,7 +601,7 @@ const [stats, setStats] = useState({
                   <div className="text-2xl font-bold text-warning">
                     {stats.pending}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">Awaiting approval</p>
+                  <p className="text-xs text-muted-foreground mt-1">Total awaiting approval</p>
                 </CardContent>
               </Card>
 
@@ -625,12 +632,7 @@ const [stats, setStats] = useState({
               </Card>
             </div>
 
-            <CompletionMetricsCard
-              actualHours={stats.weeklyActualMinutes / 60}
-              expectedHours={stats.expectedWeeklyMinutes / 60}
-              completionRate={stats.weeklyCompletionRate}
-              period="weekly"
-            />
+            <EnhancedCompletionCard userId={userWithRole.user.id} />
 
             <Card>
               <CardHeader>
