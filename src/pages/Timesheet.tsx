@@ -48,7 +48,7 @@ export default function Timesheet() {
   const [activitySubtype, setActivitySubtype] = useState("");
   const [notes, setNotes] = useState("");
   const [departmentCode, setDepartmentCode] = useState("");
-  const [userDepartmentCodes, setUserDepartmentCodes] = useState<Set<string>>(new Set());
+  const [userDepartments, setUserDepartments] = useState<{ id: string; name: string; code: string }[]>([]);
 
   // Leave management state
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
@@ -96,10 +96,10 @@ export default function Timesheet() {
     if (deptIds.length > 0) {
       const { data: depts } = await supabase
         .from("departments")
-        .select("code")
+        .select("id, name, code")
         .in("id", deptIds);
       
-      setUserDepartmentCodes(new Set(depts?.map(d => d.code.toUpperCase()) || []));
+      setUserDepartments(depts || []);
     }
   };
 
@@ -257,16 +257,8 @@ export default function Timesheet() {
 
       const duration = calculateDuration(normalizedStartTime, normalizedEndTime);
 
-      // Validate department code if provided
+      // Use department code directly (already validated by dropdown selection)
       const trimmedDeptCode = departmentCode.trim().toUpperCase();
-      if (trimmedDeptCode && !userDepartmentCodes.has(trimmedDeptCode)) {
-        toast({
-          title: "Invalid Department Code",
-          description: "You are not a member of the department with this code",
-          variant: "destructive",
-        });
-        return;
-      }
 
       setLoading(true);
 
@@ -647,17 +639,23 @@ export default function Timesheet() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="departmentCode">Department Code (Optional)</Label>
-                  <Input
-                    id="departmentCode"
-                    placeholder="e.g., CS, EE, ME"
-                    value={departmentCode}
-                    onChange={(e) => setDepartmentCode(e.target.value.toUpperCase())}
-                    maxLength={10}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Enter the code of a department you belong to
-                  </p>
+                  <Label htmlFor="departmentCode">Department (Optional)</Label>
+                  <Select 
+                    value={departmentCode || "none"} 
+                    onValueChange={(val) => setDepartmentCode(val === "none" ? "" : val)}
+                  >
+                    <SelectTrigger id="departmentCode">
+                      <SelectValue placeholder="Select department" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {userDepartments.map((dept) => (
+                        <SelectItem key={dept.id} value={dept.code.toUpperCase()}>
+                          {dept.name} ({dept.code})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-2">
