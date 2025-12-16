@@ -10,7 +10,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, Users, Layers, FolderKanban } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, Layers, FolderKanban, User } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { toDisplayRole } from "@/lib/roleMapping";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { departmentSchema } from "@/lib/validation";
 import { getUserErrorMessage } from "@/lib/errorHandler";
@@ -26,6 +29,12 @@ interface ProgramWithUsers {
   userCount: number;
 }
 
+interface DepartmentUser {
+  id: string;
+  full_name: string;
+  role: string;
+}
+
 interface Department {
   id: string;
   name: string;
@@ -35,6 +44,7 @@ interface Department {
   userCount?: number;
   programCount?: number;
   programs?: ProgramWithUsers[];
+  users?: DepartmentUser[];
 }
 
 export default function Departments() {
@@ -47,6 +57,7 @@ export default function Departments() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [usersDialogOpen, setUsersDialogOpen] = useState(false);
   const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null);
   const [formData, setFormData] = useState({ name: "", code: "", organization_id: "" });
   const [userOrgId, setUserOrgId] = useState<string>("");
@@ -103,20 +114,46 @@ export default function Departments() {
 
       if (programsError) throw programsError;
 
-      // Fetch user roles to count users per department and per program
+      // Fetch user_departments to get users in each department
+      const { data: userDepts, error: userDeptsError } = await supabase
+        .from("user_departments")
+        .select("user_id, department_id");
+
+      if (userDeptsError) throw userDeptsError;
+
+      // Fetch user roles
       const { data: userRoles, error: rolesError } = await supabase
         .from("user_roles")
-        .select("department_id, program_id");
+        .select("user_id, role, program_id");
 
       if (rolesError) throw rolesError;
 
-      // Count users per department
-      const deptUserCounts = userRoles?.reduce((acc, ur) => {
-        if (ur.department_id) {
-          acc[ur.department_id] = (acc[ur.department_id] || 0) + 1;
+      // Fetch profiles
+      const { data: profiles, error: profilesError } = await supabase
+        .from("profiles")
+        .select("id, full_name");
+
+      if (profilesError) throw profilesError;
+
+      // Create lookup maps
+      const profileMap = new Map(profiles?.map(p => [p.id, p.full_name]) || []);
+      const roleMap = new Map(userRoles?.map(r => [r.user_id, r.role]) || []);
+
+      // Group users by department
+      const usersByDept = userDepts?.reduce((acc, ud) => {
+        if (ud.department_id && ud.user_id) {
+          if (!acc[ud.department_id]) acc[ud.department_id] = [];
+          const role = roleMap.get(ud.user_id);
+          if (role === 'hod' || role === 'faculty') {
+            acc[ud.department_id].push({
+              id: ud.user_id,
+              full_name: profileMap.get(ud.user_id) || 'Unknown',
+              role: toDisplayRole(role) || role
+            });
+          }
         }
         return acc;
-      }, {} as Record<string, number>);
+      }, {} as Record<string, DepartmentUser[]>);
 
       // Count users per program
       const programUserCounts = userRoles?.reduce((acc, ur) => {
@@ -142,9 +179,10 @@ export default function Departments() {
 
       const departmentsWithCounts = deptData?.map(dept => ({
         ...dept,
-        userCount: deptUserCounts?.[dept.id] || 0,
+        userCount: usersByDept?.[dept.id]?.length || 0,
         programCount: programsByDept?.[dept.id]?.length || 0,
         programs: programsByDept?.[dept.id] || [],
+        users: usersByDept?.[dept.id] || [],
       })) || [];
 
       setDepartments(departmentsWithCounts);
@@ -294,6 +332,11 @@ export default function Departments() {
     setDeleteDialogOpen(true);
   };
 
+  const openUsersDialog = (dept: Department) => {
+    setSelectedDepartment(dept);
+    setUsersDialogOpen(true);
+  };
+
   if (loading || isLoading) {
     return (
       <Layout>
@@ -334,14 +377,14 @@ export default function Departments() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {departments.map((dept) => (
-              <Card key={dept.id} variant="interactive">
+              <Card key={dept.id} variant="interactive" className="cursor-pointer" onClick={() => openUsersDialog(dept)}>
                 <CardHeader>
                   <div className="flex justify-between items-start">
                     <div>
                       <CardTitle>{dept.name}</CardTitle>
                       <CardDescription className="font-mono">{dept.code}</CardDescription>
                     </div>
-                    <div className="flex gap-1">
+                    <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                       <Button variant="ghost" size="icon" onClick={() => openEditDialog(dept)}>
                         <Pencil className="h-4 w-4" />
                       </Button>
@@ -481,6 +524,43 @@ export default function Departments() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Users Dialog */}
+        <Dialog open={usersDialogOpen} onOpenChange={setUsersDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Users in {selectedDepartment?.name}</DialogTitle>
+              <DialogDescription>
+                {selectedDepartment?.userCount || 0} {(selectedDepartment?.userCount || 0) === 1 ? 'user' : 'users'} assigned to this {entityLabel("department").toLowerCase()}
+              </DialogDescription>
+            </DialogHeader>
+            {selectedDepartment?.users && selectedDepartment.users.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Role</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {selectedDepartment.users.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell className="flex items-center gap-2">
+                        <User className="h-4 w-4 text-muted-foreground" />
+                        {user.full_name}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{user.role}</Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <p className="text-muted-foreground text-center py-4">No users assigned to this {entityLabel("department").toLowerCase()}</p>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );
