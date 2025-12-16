@@ -4,10 +4,10 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CalendarIcon } from "lucide-react";
-import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
+import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays } from "date-fns";
 import { cn } from "@/lib/utils";
 
-export type DateFilterType = "today" | "week" | "month" | "custom";
+export type DateFilterType = "today" | "yesterday" | "week" | "month" | "custom";
 
 export interface DateRange {
   from: Date;
@@ -29,6 +29,9 @@ export function DateRangeFilter({ value, onChange, customRange }: DateRangeFilte
     switch (type) {
       case "today":
         return { from: startOfDay(today), to: endOfDay(today) };
+      case "yesterday":
+        const yesterday = subDays(today, 1);
+        return { from: startOfDay(yesterday), to: endOfDay(yesterday) };
       case "week":
         return { from: startOfWeek(today, { weekStartsOn: 1 }), to: endOfWeek(today, { weekStartsOn: 1 }) };
       case "month":
@@ -60,6 +63,7 @@ export function DateRangeFilter({ value, onChange, customRange }: DateRangeFilte
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="today">Today</SelectItem>
+          <SelectItem value="yesterday">Yesterday</SelectItem>
           <SelectItem value="week">This Week</SelectItem>
           <SelectItem value="month">This Month</SelectItem>
           <SelectItem value="custom">Custom Range</SelectItem>
