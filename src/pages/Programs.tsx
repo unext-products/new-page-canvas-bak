@@ -11,7 +11,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { FolderKanban, Plus, Pencil, Trash2 } from "lucide-react";
+import { FolderKanban, Plus, Pencil, Trash2, Users, User } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { toDisplayRole } from "@/lib/roleMapping";
 import { z } from "zod";
 import { DepartmentSelect } from "@/components/DepartmentSelect";
 import { PageHeader } from "@/components/PageHeader";
@@ -24,12 +27,20 @@ const programSchema = z.object({
   department_id: z.string().uuid("Please select a department"),
 });
 
+interface ProgramUser {
+  id: string;
+  full_name: string;
+  role: string;
+}
+
 interface Program {
   id: string;
   name: string;
   code: string;
   department_id: string;
   created_at: string;
+  userCount?: number;
+  users?: ProgramUser[];
   departments?: { 
     name: string;
     organizations?: { name: string };
@@ -52,6 +63,7 @@ export default function Programs() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [usersDialogOpen, setUsersDialogOpen] = useState(false);
   const [selectedProgram, setSelectedProgram] = useState<Program | null>(null);
   const [formData, setFormData] = useState({ name: "", code: "", department_id: "" });
 
@@ -67,7 +79,7 @@ export default function Programs() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [programsData, deptsData] = await Promise.all([
+      const [programsData, deptsData, userProgramsData, userRolesData, profilesData] = await Promise.all([
         supabase
           .from("programs")
           .select("*, departments(name, organizations(name))")
@@ -76,12 +88,51 @@ export default function Programs() {
           .from("departments")
           .select("id, name, code")
           .order("name"),
+        supabase
+          .from("user_programs")
+          .select("user_id, program_id"),
+        supabase
+          .from("user_roles")
+          .select("user_id, role"),
+        supabase
+          .from("profiles")
+          .select("id, full_name"),
       ]);
 
       if (programsData.error) throw programsData.error;
       if (deptsData.error) throw deptsData.error;
+      if (userProgramsData.error) throw userProgramsData.error;
+      if (userRolesData.error) throw userRolesData.error;
+      if (profilesData.error) throw profilesData.error;
 
-      setPrograms(programsData.data);
+      // Create lookup maps
+      const profileMap = new Map(profilesData.data?.map(p => [p.id, p.full_name]) || []);
+      const roleMap = new Map(userRolesData.data?.map(r => [r.user_id, r.role]) || []);
+
+      // Group users by program
+      const usersByProgram = userProgramsData.data?.reduce((acc, up) => {
+        if (up.program_id && up.user_id) {
+          if (!acc[up.program_id]) acc[up.program_id] = [];
+          const role = roleMap.get(up.user_id);
+          if (role === 'hod' || role === 'faculty') {
+            acc[up.program_id].push({
+              id: up.user_id,
+              full_name: profileMap.get(up.user_id) || 'Unknown',
+              role: toDisplayRole(role) || role
+            });
+          }
+        }
+        return acc;
+      }, {} as Record<string, ProgramUser[]>);
+
+      // Enrich programs with user count and users
+      const programsWithUsers = programsData.data?.map(program => ({
+        ...program,
+        userCount: usersByProgram?.[program.id]?.length || 0,
+        users: usersByProgram?.[program.id] || [],
+      })) || [];
+
+      setPrograms(programsWithUsers);
       setDepartments(deptsData.data);
     } catch (error: any) {
       toast({
@@ -206,6 +257,11 @@ export default function Programs() {
     setDeleteDialogOpen(true);
   };
 
+  const openUsersDialog = (program: Program) => {
+    setSelectedProgram(program);
+    setUsersDialogOpen(true);
+  };
+
   if (!userWithRole || loading) {
     return (
       <Layout>
@@ -250,11 +306,11 @@ export default function Programs() {
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {programs.map((program) => (
-              <Card key={program.id} variant="interactive">
+              <Card key={program.id} variant="interactive" className="cursor-pointer" onClick={() => openUsersDialog(program)}>
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <FolderKanban className="h-8 w-8 text-primary" />
-                    <div className="flex gap-1">
+                    <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                       <Button variant="ghost" size="icon" onClick={() => openEditDialog(program)}>
                         <Pencil className="h-4 w-4" />
                       </Button>
@@ -264,12 +320,18 @@ export default function Programs() {
                     </div>
                   </div>
                   <CardTitle>{program.name}</CardTitle>
-                <CardDescription>
+                  <CardDescription>
                     Code: {program.code}
                     <br />
                     {entityLabel("department")}: {program.departments?.name || "N/A"}
                   </CardDescription>
                 </CardHeader>
+                <CardContent className="pt-0">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Users className="h-4 w-4" />
+                    <span>{program.userCount} {program.userCount === 1 ? 'user' : 'users'}</span>
+                  </div>
+                </CardContent>
               </Card>
             ))}
           </div>
@@ -335,6 +397,43 @@ export default function Programs() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Users Dialog */}
+        <Dialog open={usersDialogOpen} onOpenChange={setUsersDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Users in {selectedProgram?.name}</DialogTitle>
+              <DialogDescription>
+                {selectedProgram?.userCount || 0} {(selectedProgram?.userCount || 0) === 1 ? 'user' : 'users'} assigned to this {entityLabel("program").toLowerCase()}
+              </DialogDescription>
+            </DialogHeader>
+            {selectedProgram?.users && selectedProgram.users.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Role</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {selectedProgram.users.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell className="flex items-center gap-2">
+                        <User className="h-4 w-4 text-muted-foreground" />
+                        {user.full_name}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{user.role}</Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <p className="text-muted-foreground text-center py-4">No users assigned to this {entityLabel("program").toLowerCase()}</p>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );
