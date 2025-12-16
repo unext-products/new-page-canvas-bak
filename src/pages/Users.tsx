@@ -40,6 +40,8 @@ interface UserProfile {
   department_id?: string | null;
   department_name?: string | null;
   program_id?: string | null;
+  departments: { id: string; name: string }[];
+  programs: { id: string; name: string }[];
 }
 
 export default function Users() {
@@ -115,6 +117,27 @@ export default function Users() {
 
       if (deptError) throw deptError;
 
+      // Fetch programs
+      const { data: programData, error: programError } = await supabase
+        .from("programs")
+        .select("id, name");
+
+      if (programError) throw programError;
+
+      // Fetch user_departments junction table
+      const { data: userDeptData, error: userDeptError } = await supabase
+        .from("user_departments")
+        .select("user_id, department_id");
+
+      if (userDeptError) throw userDeptError;
+
+      // Fetch user_programs junction table
+      const { data: userProgramData, error: userProgramError } = await supabase
+        .from("user_programs")
+        .select("user_id, program_id");
+
+      if (userProgramError) throw userProgramError;
+
       // Fetch auth users for emails using edge function
       const { data: authResponse, error: authError } = await supabase.functions.invoke('admin-list-users');
 
@@ -128,12 +151,54 @@ export default function Users() {
       
       const deptMap = new Map<string, string>();
       deptData?.forEach(d => deptMap.set(d.id, d.name));
+
+      const programMap = new Map<string, string>();
+      programData?.forEach(p => programMap.set(p.id, p.name));
       
       const emailMap = new Map<string, string>();
       authUsers.forEach((u: any) => u.email && emailMap.set(u.id, u.email));
 
+      // Build user -> departments mapping
+      const userDeptsMap = new Map<string, { id: string; name: string }[]>();
+      userDeptData?.forEach(ud => {
+        const depts = userDeptsMap.get(ud.user_id) || [];
+        const deptName = deptMap.get(ud.department_id);
+        if (deptName) {
+          depts.push({ id: ud.department_id, name: deptName });
+        }
+        userDeptsMap.set(ud.user_id, depts);
+      });
+
+      // Build user -> programs mapping
+      const userProgramsMap = new Map<string, { id: string; name: string }[]>();
+      userProgramData?.forEach(up => {
+        const programs = userProgramsMap.get(up.user_id) || [];
+        const programName = programMap.get(up.program_id);
+        if (programName) {
+          programs.push({ id: up.program_id, name: programName });
+        }
+        userProgramsMap.set(up.user_id, programs);
+      });
+
       const enrichedUsers: UserProfile[] = profilesData?.map(profile => {
         const roleData = rolesMap.get(profile.id);
+        const userDepts = userDeptsMap.get(profile.id) || [];
+        const userProgs = userProgramsMap.get(profile.id) || [];
+        
+        // If no entries in junction tables, fall back to user_roles data
+        if (userDepts.length === 0 && roleData?.department_id) {
+          const deptName = deptMap.get(roleData.department_id);
+          if (deptName) {
+            userDepts.push({ id: roleData.department_id, name: deptName });
+          }
+        }
+        if (userProgs.length === 0 && roleData?.program_id) {
+          const progName = programMap.get(roleData.program_id);
+          if (progName) {
+            userProgs.push({ id: roleData.program_id, name: progName });
+          }
+        }
+
         return {
           ...profile,
           email: emailMap.get(profile.id) || undefined,
@@ -141,6 +206,8 @@ export default function Users() {
           department_id: roleData?.department_id || null,
           department_name: roleData?.department_id ? deptMap.get(roleData.department_id) || null : null,
           program_id: roleData?.program_id || null,
+          departments: userDepts,
+          programs: userProgs,
         };
       }) || [];
 
@@ -257,14 +324,17 @@ export default function Users() {
 
       // Update or insert user role
       if (formData.role) {
+        const deptIds = formData.department_ids.length > 0 ? formData.department_ids : (formData.department_id ? [formData.department_id] : []);
+        const progIds = formData.program_ids.length > 0 ? formData.program_ids : (formData.program_id ? [formData.program_id] : []);
+        
         const { error: roleError } = await supabase
           .from("user_roles")
           .upsert(
             {
               user_id: selectedUser.id,
               role: displayToDbRole[formData.role],
-              department_id: formData.role === "org_admin" ? null : formData.department_id || null,
-              program_id: (formData.role === "program_manager" || formData.role === "member") ? formData.program_id || null : null,
+              department_id: formData.role === "org_admin" ? null : deptIds[0] || null,
+              program_id: (formData.role === "program_manager" || formData.role === "member") ? progIds[0] || null : null,
             },
             {
               onConflict: 'user_id'
@@ -272,6 +342,64 @@ export default function Users() {
           );
 
         if (roleError) throw roleError;
+
+        // Sync user_departments junction table
+        if (formData.role !== "org_admin" && deptIds.length > 0) {
+          // Delete existing department assignments
+          const { error: deleteDeptError } = await supabase
+            .from("user_departments")
+            .delete()
+            .eq("user_id", selectedUser.id);
+          
+          if (deleteDeptError) throw deleteDeptError;
+
+          // Insert new department assignments
+          const deptInserts = deptIds.map(dept_id => ({
+            user_id: selectedUser.id,
+            department_id: dept_id,
+          }));
+          
+          const { error: insertDeptError } = await supabase
+            .from("user_departments")
+            .insert(deptInserts);
+          
+          if (insertDeptError) throw insertDeptError;
+        } else if (formData.role === "org_admin") {
+          // Clear department assignments for org_admin
+          await supabase
+            .from("user_departments")
+            .delete()
+            .eq("user_id", selectedUser.id);
+        }
+
+        // Sync user_programs junction table
+        if ((formData.role === "program_manager" || formData.role === "member") && progIds.length > 0) {
+          // Delete existing program assignments
+          const { error: deleteProgError } = await supabase
+            .from("user_programs")
+            .delete()
+            .eq("user_id", selectedUser.id);
+          
+          if (deleteProgError) throw deleteProgError;
+
+          // Insert new program assignments
+          const progInserts = progIds.map(prog_id => ({
+            user_id: selectedUser.id,
+            program_id: prog_id,
+          }));
+          
+          const { error: insertProgError } = await supabase
+            .from("user_programs")
+            .insert(progInserts);
+          
+          if (insertProgError) throw insertProgError;
+        } else if (formData.role === "org_admin" || formData.role === "manager") {
+          // Clear program assignments for roles that don't need them
+          await supabase
+            .from("user_programs")
+            .delete()
+            .eq("user_id", selectedUser.id);
+        }
       }
 
       // Update password if provided
@@ -403,15 +531,19 @@ export default function Users() {
 
   const openEditDialog = (user: UserProfile) => {
     setSelectedUser(user);
+    // Load all departments and programs from junction tables
+    const deptIds = user.departments.map(d => d.id);
+    const progIds = user.programs.map(p => p.id);
+    
     setFormData({
       full_name: user.full_name,
       email: user.email || "",
       phone: user.phone || "",
       role: user.role || "",
-      department_id: user.department_id || "",
-      department_ids: user.department_id ? [user.department_id] : [],
-      program_id: user.program_id || "",
-      program_ids: user.program_id ? [user.program_id] : [],
+      department_id: deptIds[0] || user.department_id || "",
+      department_ids: deptIds.length > 0 ? deptIds : (user.department_id ? [user.department_id] : []),
+      program_id: progIds[0] || user.program_id || "",
+      program_ids: progIds.length > 0 ? progIds : (user.program_id ? [user.program_id] : []),
       is_active: user.is_active,
       password: "",
       confirmPassword: "",
@@ -716,7 +848,17 @@ export default function Users() {
                       <span className="text-muted-foreground">No role</span>
                     )}
                   </TableCell>
-                  <TableCell>{user.department_name || "-"}</TableCell>
+                  <TableCell>
+                    {user.departments.length === 0 ? (
+                      "-"
+                    ) : user.departments.length === 1 ? (
+                      user.departments[0].name
+                    ) : (
+                      <span title={user.departments.map(d => d.name).join(", ")}>
+                        {user.departments[0].name} <Badge variant="secondary" className="ml-1 text-xs">+{user.departments.length - 1}</Badge>
+                      </span>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <Badge variant={user.is_active ? "default" : "secondary"}>
                       {user.is_active ? "Active" : "Inactive"}
@@ -875,19 +1017,27 @@ export default function Users() {
 
               <div>
                 <Label>
-                  Department {(formData.role === "manager" || formData.role === "member" || formData.role === "program_manager") && "*"}
+                  {entityLabel("department", true)} {(formData.role === "manager" || formData.role === "member" || formData.role === "program_manager") && "*"}
                 </Label>
-                <DepartmentSelect
-                  value={formData.department_id}
-                  onValueChange={(value) => setFormData({ ...formData, department_id: value, program_id: "" })}
-                  disabled={formData.role === "org_admin"}
-                />
+                {(formData.role === "member" || formData.role === "manager") ? (
+                  <DepartmentMultiSelect
+                    value={formData.department_ids}
+                    onValueChange={(value) => setFormData({ ...formData, department_ids: value, department_id: value[0] || "", program_ids: [], program_id: "" })}
+                    disabled={false}
+                  />
+                ) : (
+                  <DepartmentSelect
+                    value={formData.department_id}
+                    onValueChange={(value) => setFormData({ ...formData, department_id: value, department_ids: value ? [value] : [], program_id: "", program_ids: [] })}
+                    disabled={formData.role === "org_admin"}
+                  />
+                )}
                 {formData.role === "org_admin" && (
                   <p className="text-sm text-muted-foreground mt-1">
                     Not required for Organization Admin role
                   </p>
                 )}
-                {(formData.role === "manager" || formData.role === "member" || formData.role === "program_manager") && !formData.department_id && (
+                {(formData.role === "manager" || formData.role === "member" || formData.role === "program_manager") && formData.department_ids.length === 0 && !formData.department_id && (
                   <p className="text-sm text-muted-foreground mt-1">
                     Required for this role
                   </p>
@@ -897,14 +1047,23 @@ export default function Users() {
               {(formData.role === "program_manager" || formData.role === "member") && (
                 <div>
                   <Label htmlFor="edit-program">
-                    Program {formData.role === "program_manager" && "*"}
+                    {entityLabel("program", true)} {formData.role === "program_manager" && "*"}
                   </Label>
-                  <ProgramSelect
-                    value={formData.program_id}
-                    onValueChange={(value) => setFormData({ ...formData, program_id: value })}
-                    departmentId={formData.department_id}
-                    disabled={!formData.department_id}
-                  />
+                  {formData.role === "member" ? (
+                    <ProgramMultiSelect
+                      value={formData.program_ids}
+                      onValueChange={(value) => setFormData({ ...formData, program_ids: value, program_id: value[0] || "" })}
+                      departmentIds={formData.department_ids.length > 0 ? formData.department_ids : (formData.department_id ? [formData.department_id] : [])}
+                      disabled={formData.department_ids.length === 0 && !formData.department_id}
+                    />
+                  ) : (
+                    <ProgramSelect
+                      value={formData.program_id}
+                      onValueChange={(value) => setFormData({ ...formData, program_id: value, program_ids: value ? [value] : [] })}
+                      departmentId={formData.department_id}
+                      disabled={!formData.department_id}
+                    />
+                  )}
                   {formData.role === "program_manager" && !formData.program_id && (
                     <p className="text-sm text-muted-foreground mt-1">
                       Required for Program Manager role
@@ -912,7 +1071,7 @@ export default function Users() {
                   )}
                   {formData.role === "member" && (
                     <p className="text-sm text-muted-foreground mt-1">
-                      Optional for Member role
+                      Optional for {roleLabel("member")} role
                     </p>
                   )}
                 </div>
@@ -941,7 +1100,7 @@ export default function Users() {
                     formData.password !== formData.confirmPassword ||
                     !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)
                   )) ||
-                  ((formData.role === "manager" || formData.role === "member" || formData.role === "program_manager") && !formData.department_id) ||
+                  ((formData.role === "manager" || formData.role === "member" || formData.role === "program_manager") && formData.department_ids.length === 0 && !formData.department_id) ||
                   (formData.role === "program_manager" && !formData.program_id)
                 }
               >
