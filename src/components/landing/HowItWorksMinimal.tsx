@@ -21,7 +21,7 @@ export function HowItWorksMinimal() {
     <section className="py-24 px-6 bg-landing-dark">
       <div className="max-w-5xl mx-auto">
         <div className="text-center mb-16">
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-white mb-4 font-display">
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-gray-900 mb-4 font-display">
             How it works
           </h2>
           <p className="text-landing-secondary max-w-md mx-auto">
@@ -38,11 +38,11 @@ export function HowItWorksMinimal() {
               )}
               
               <div className="inline-block mb-4">
-                <span className="text-5xl font-bold text-landing-muted/20 font-display">
+                <span className="text-5xl font-bold text-primary/20 font-display">
                   {step.number}
                 </span>
               </div>
-              <h3 className="text-xl font-semibold text-white mb-2">{step.title}</h3>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">{step.title}</h3>
               <p className="text-landing-secondary text-sm leading-relaxed">{step.description}</p>
             </div>
           ))}
