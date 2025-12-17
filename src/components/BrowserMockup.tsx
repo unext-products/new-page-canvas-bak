@@ -3,7 +3,7 @@ interface BrowserMockupProps {
   title?: string;
 }
 
-export function BrowserMockup({ children, title = "app.clockwise.com" }: BrowserMockupProps) {
+export function BrowserMockup({ children, title = "app.clockwisemab.com" }: BrowserMockupProps) {
   return (
     <div className="rounded-2xl overflow-hidden shadow-premium-2xl border border-border/50 bg-card">
       {/* Browser Chrome */}

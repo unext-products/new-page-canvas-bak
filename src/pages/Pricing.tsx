@@ -200,7 +200,7 @@ const Pricing = () => {
       {/* Hero Section */}
       <section className="pt-32 pb-16 px-6">
         <div className="max-w-3xl mx-auto text-center space-y-4">
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white font-display">
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-gray-900 font-display">
             Simple pricing
           </h1>
           <p className="text-lg text-landing-secondary">
@@ -231,8 +231,8 @@ const Pricing = () => {
               onClick={() => setBillingPeriod("monthly")}
               className={`px-4 py-2 rounded-full transition-all ${
                 billingPeriod === "monthly"
-                  ? "bg-landing-dark text-white"
-                  : "text-landing-muted hover:text-white"
+                  ? "bg-primary text-white"
+                  : "text-landing-muted hover:text-gray-900"
               }`}
             >
               Monthly
@@ -242,8 +242,8 @@ const Pricing = () => {
               onClick={() => setBillingPeriod("annual")}
               className={`px-4 py-2 rounded-full transition-all flex items-center gap-2 ${
                 billingPeriod === "annual"
-                  ? "bg-landing-dark text-white"
-                  : "text-landing-muted hover:text-white"
+                  ? "bg-primary text-white"
+                  : "text-landing-muted hover:text-gray-900"
               }`}
             >
               Annual
@@ -295,13 +295,13 @@ const Pricing = () => {
                 )}
                 
                 <div className="mb-6">
-                  <h3 className="text-xl font-semibold text-white mb-1">{tier.name}</h3>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-1">{tier.name}</h3>
                   <p className="text-sm text-landing-muted">{tier.description}</p>
                 </div>
                 
                 <div className="mb-6">
                   <div className="flex items-baseline gap-1">
-                    <span className="text-4xl font-bold text-white">{priceLabel}</span>
+                    <span className="text-4xl font-bold text-gray-900">{priceLabel}</span>
                     <span className="text-landing-muted text-sm">/{periodLabel}</span>
                   </div>
                   <p className="text-sm text-landing-muted mt-1">{tier.users}</p>
@@ -319,12 +319,12 @@ const Pricing = () => {
                 <Button
                   className={`w-full ${
                     tier.popular 
-                      ? "bg-white text-landing-dark hover:bg-white/90" 
-                      : "bg-transparent border border-landing-border text-white hover:bg-white/5"
+                      ? "bg-primary text-white hover:bg-primary/90" 
+                      : "bg-transparent border border-landing-border text-gray-900 hover:bg-gray-100"
                   }`}
                   onClick={() =>
                     tier.name === "Enterprise"
-                      ? (window.location.href = "mailto:sales@clockwise.com?subject=Enterprise%20Pricing")
+                      ? (window.location.href = "mailto:sales@clockwisemab.com?subject=Enterprise%20Pricing")
                       : navigate("/auth")
                   }
                 >
@@ -341,7 +341,7 @@ const Pricing = () => {
       <section className="pb-20 px-6">
         <div className="max-w-2xl mx-auto rounded-2xl bg-landing-card border border-landing-border p-8">
           <div className="mb-6">
-            <h3 className="text-xl font-semibold text-white mb-2">Calculate your price</h3>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">Calculate your price</h3>
             <p className="text-sm text-landing-muted">
               Adjust the slider to see how pricing scales with your team
             </p>
@@ -367,7 +367,7 @@ const Pricing = () => {
               </div>
             </div>
 
-            <div className="p-4 rounded-xl bg-landing-dark border border-landing-border space-y-3">
+            <div className="p-4 rounded-xl bg-gray-50 border border-landing-border space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-landing-muted">Recommended plan:</span>
                 <span className="font-semibold text-primary">{priceInfo.tier}</span>
@@ -376,7 +376,7 @@ const Pricing = () => {
                 <span className="text-sm text-landing-muted">
                   {billingPeriod === "annual" ? "Annual cost:" : "Monthly cost:"}
                 </span>
-                <span className="font-bold text-xl text-white">
+                <span className="font-bold text-xl text-gray-900">
                   ${priceInfo.total.toFixed(2)}
                 </span>
               </div>
@@ -394,7 +394,7 @@ const Pricing = () => {
           </div>
           
           <Button 
-            className="w-full mt-6 bg-white text-landing-dark hover:bg-white/90" 
+            className="w-full mt-6 bg-primary text-white hover:bg-primary/90" 
             onClick={() => navigate("/auth")}
           >
             Get Started
@@ -407,7 +407,7 @@ const Pricing = () => {
       <section className="pb-20 px-6">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold text-white mb-2 font-display">Compare plans</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2 font-display">Compare plans</h2>
             <p className="text-landing-secondary">
               See exactly what you get with each plan
             </p>
@@ -416,11 +416,11 @@ const Pricing = () => {
             <Table>
               <TableHeader>
                 <TableRow className="bg-landing-card border-landing-border">
-                  <TableHead className="w-1/4 text-left font-medium text-white">Feature</TableHead>
-                  <TableHead className="text-center font-medium text-white">Free</TableHead>
-                  <TableHead className="text-center font-medium text-white">Pro</TableHead>
-                  <TableHead className="text-center font-medium text-white">Pro Max</TableHead>
-                  <TableHead className="text-center font-medium text-white">Enterprise</TableHead>
+                  <TableHead className="w-1/4 text-left font-medium text-gray-900">Feature</TableHead>
+                  <TableHead className="text-center font-medium text-gray-900">Free</TableHead>
+                  <TableHead className="text-center font-medium text-gray-900">Pro</TableHead>
+                  <TableHead className="text-center font-medium text-gray-900">Pro Max</TableHead>
+                  <TableHead className="text-center font-medium text-gray-900">Enterprise</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -455,7 +455,7 @@ const Pricing = () => {
       <section className="pb-20 px-6">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold text-white mb-2 font-display">Everything you need</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2 font-display">Everything you need</h2>
             <p className="text-landing-secondary">
               Powerful features for modern time tracking
             </p>
@@ -480,7 +480,7 @@ const Pricing = () => {
       <section className="pb-20 px-6">
         <div className="max-w-2xl mx-auto">
           <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold text-white mb-2 font-display">Frequently asked questions</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2 font-display">Frequently asked questions</h2>
             <p className="text-landing-secondary">
               Got questions? We've got answers.
             </p>
@@ -492,7 +492,7 @@ const Pricing = () => {
                 value={`item-${index}`} 
                 className="border-landing-border"
               >
-                <AccordionTrigger className="text-left text-white hover:text-white/80">
+                <AccordionTrigger className="text-left text-gray-900 hover:text-gray-700">
                   {faq.question}
                 </AccordionTrigger>
                 <AccordionContent className="text-landing-secondary">
@@ -507,15 +507,15 @@ const Pricing = () => {
       {/* CTA Section */}
       <section className="py-20 px-6 border-t border-landing-border">
         <div className="max-w-xl mx-auto text-center space-y-6">
-          <h2 className="text-2xl font-bold text-white font-display">
+          <h2 className="text-2xl font-bold text-gray-900 font-display">
             Ready to simplify time tracking?
           </h2>
           <p className="text-landing-secondary">
-            Join teams already using ClockWise. Start free today.
+            Join teams already using Clockwise for MAB. Start free today.
           </p>
           <Button 
             size="lg"
-            className="bg-white text-landing-dark hover:bg-white/90"
+            className="bg-primary text-white hover:bg-primary/90"
             onClick={() => navigate("/auth")}
           >
             Get Started

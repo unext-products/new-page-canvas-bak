@@ -31,7 +31,7 @@ export function FeaturesGrid() {
       <div className="max-w-6xl mx-auto">
         {/* Section header */}
         <div className="text-center mb-16">
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-white mb-4 font-display">
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-gray-900 mb-4 font-display">
             Everything your team needs.
             <br />
             <span className="text-landing-secondary">Nothing it doesn't.</span>
@@ -44,22 +44,22 @@ export function FeaturesGrid() {
           {features.slice(0, 2).map((feature) => (
             <div 
               key={feature.title}
-              className="group p-6 rounded-2xl bg-landing-card border border-landing-border hover:border-landing-border-hover transition-all duration-300"
+              className="group p-6 rounded-2xl bg-landing-card border border-landing-border hover:border-landing-border-hover hover:shadow-lg transition-all duration-300"
             >
               <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
                 <feature.icon className="h-5 w-5 text-primary" />
               </div>
-              <h3 className="text-lg font-semibold text-white mb-2">{feature.title}</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">{feature.title}</h3>
               <p className="text-landing-secondary text-sm leading-relaxed">{feature.description}</p>
             </div>
           ))}
           
           {/* Large feature card with screenshot */}
-          <div className="md:col-span-2 lg:col-span-1 lg:row-span-2 p-6 rounded-2xl bg-landing-card border border-landing-border hover:border-landing-border-hover transition-all duration-300 flex flex-col">
+          <div className="md:col-span-2 lg:col-span-1 lg:row-span-2 p-6 rounded-2xl bg-landing-card border border-landing-border hover:border-landing-border-hover hover:shadow-lg transition-all duration-300 flex flex-col">
             <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
               <BarChart3 className="h-5 w-5 text-primary" />
             </div>
-            <h3 className="text-lg font-semibold text-white mb-2">Reports That Make Sense</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Reports That Make Sense</h3>
             <p className="text-landing-secondary text-sm leading-relaxed mb-6">
               Export weekly summaries, spot trends, share insights with stakeholders. All in a few clicks.
             </p>
@@ -80,25 +80,25 @@ export function FeaturesGrid() {
           {features.slice(2, 4).map((feature) => (
             <div 
               key={feature.title}
-              className="group p-6 rounded-2xl bg-landing-card border border-landing-border hover:border-landing-border-hover transition-all duration-300"
+              className="group p-6 rounded-2xl bg-landing-card border border-landing-border hover:border-landing-border-hover hover:shadow-lg transition-all duration-300"
             >
               <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
                 <feature.icon className="h-5 w-5 text-primary" />
               </div>
-              <h3 className="text-lg font-semibold text-white mb-2">{feature.title}</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">{feature.title}</h3>
               <p className="text-landing-secondary text-sm leading-relaxed">{feature.description}</p>
             </div>
           ))}
         </div>
         
         {/* Large timesheet feature */}
-        <div className="mt-4 p-6 rounded-2xl bg-landing-card border border-landing-border hover:border-landing-border-hover transition-all duration-300">
+        <div className="mt-4 p-6 rounded-2xl bg-landing-card border border-landing-border hover:border-landing-border-hover hover:shadow-lg transition-all duration-300">
           <div className="grid md:grid-cols-2 gap-8 items-center">
             <div>
               <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
                 <Zap className="h-5 w-5 text-primary" />
               </div>
-              <h3 className="text-xl font-semibold text-white mb-3">Timesheet Entry Made Simple</h3>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3">Timesheet Entry Made Simple</h3>
               <p className="text-landing-secondary leading-relaxed mb-4">
                 No more complex forms or confusing interfaces. Your team logs their hours with a clean, 
                 intuitive interface that gets out of the way.

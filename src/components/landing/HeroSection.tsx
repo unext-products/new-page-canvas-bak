@@ -8,7 +8,7 @@ export function HeroSection() {
 
   return (
     <section className="relative min-h-screen flex flex-col justify-center pt-24 pb-16 px-6 overflow-hidden">
-      {/* Background gradient */}
+      {/* Background */}
       <div className="absolute inset-0 bg-landing-dark" />
       
       {/* Subtle gradient orb */}
@@ -17,7 +17,7 @@ export function HeroSection() {
       <div className="relative max-w-6xl mx-auto w-full">
         {/* Copy section */}
         <div className="max-w-3xl mx-auto text-center mb-16">
-          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-[-0.03em] text-white leading-[1.1] mb-6 font-display">
+          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-[-0.03em] text-gray-900 leading-[1.1] mb-6 font-display">
             Time tracking
             <br />
             that works.
@@ -32,7 +32,7 @@ export function HeroSection() {
             <Button 
               size="lg" 
               onClick={() => navigate("/auth?signup=true")}
-              className="h-12 px-8 text-base font-medium bg-white text-landing-dark hover:bg-white/90 transition-all"
+              className="h-12 px-8 text-base font-medium bg-primary text-white hover:bg-primary/90 transition-all"
             >
               Start for free
               <ArrowRight className="ml-2 h-4 w-4" />
@@ -41,7 +41,7 @@ export function HeroSection() {
               size="lg" 
               variant="ghost"
               onClick={() => document.getElementById("features")?.scrollIntoView({ behavior: "smooth" })}
-              className="h-12 px-8 text-base font-medium border border-landing-border text-white hover:bg-white/10 hover:text-white transition-all"
+              className="h-12 px-8 text-base font-medium border border-gray-300 text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-all"
             >
               <Play className="mr-2 h-4 w-4" />
               Watch demo
@@ -52,18 +52,18 @@ export function HeroSection() {
         {/* Product screenshot */}
         <div className="relative max-w-5xl mx-auto">
           {/* Glow behind image */}
-          <div className="absolute inset-0 bg-gradient-to-t from-primary/20 via-primary/5 to-transparent blur-3xl scale-95 opacity-60" />
+          <div className="absolute inset-0 bg-gradient-to-t from-primary/10 via-primary/5 to-transparent blur-3xl scale-95 opacity-60" />
           
-          <div className="relative rounded-xl overflow-hidden border border-landing-border shadow-2xl">
+          <div className="relative rounded-xl overflow-hidden border border-gray-200 shadow-2xl">
             <img
               src={dashboardMockup}
-              alt="ClockWise Dashboard - Modern time tracking interface"
+              alt="Clockwise for MAB Dashboard - Modern time tracking interface"
               className="w-full h-auto"
               width={1920}
               height={1126}
             />
             {/* Overlay gradient at bottom */}
-            <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-landing-dark to-transparent" />
+            <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-white to-transparent" />
           </div>
         </div>
       </div>

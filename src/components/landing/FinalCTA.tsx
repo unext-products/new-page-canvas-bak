@@ -8,7 +8,7 @@ export function FinalCTA() {
   return (
     <section className="py-32 px-6 bg-landing-dark">
       <div className="max-w-2xl mx-auto text-center">
-        <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-white mb-6 font-display">
+        <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-gray-900 mb-6 font-display">
           Ready to take control
           <br />
           of your team's time?
@@ -21,7 +21,7 @@ export function FinalCTA() {
         <Button 
           size="lg" 
           onClick={() => navigate("/auth")}
-          className="h-14 px-10 text-base font-medium bg-white text-landing-dark hover:bg-white/90 transition-all"
+          className="h-14 px-10 text-base font-medium bg-primary text-white hover:bg-primary/90 transition-all"
         >
           Start for free
           <ArrowRight className="ml-2 h-4 w-4" />
