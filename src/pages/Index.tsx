@@ -88,14 +88,10 @@ export default function Index() {
   ];
 
   // Placeholder link for User Guide - replace with actual link
-  const userGuideLink = "https://drive.google.com/placeholder-user-guide";
+  const userGuideLink = "https://drive.google.com/file/d/18fqbNj6iTKGlmN6xOQwLuWI2P0FjlV0X/view?usp=sharing";
 
   if (authLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-sm text-muted-foreground animate-pulse">Loading…</p>
-      </div>
-    );
+    return null;
   }
 
   return (
@@ -114,9 +110,7 @@ export default function Index() {
                 <br />
                 simplified.
               </h1>
-              <p className="text-lg text-muted-foreground">
-                Log hours, get approvals, understand where time goes.
-              </p>
+              <p className="text-lg text-muted-foreground">Log hours, get approvals, understand where time goes.</p>
             </div>
 
             {/* Features List */}
@@ -133,11 +127,7 @@ export default function Index() {
 
             {/* User Guide Button */}
             <div className="pt-4">
-              <Button 
-                variant="outline" 
-                className="gap-2"
-                onClick={() => window.open(userGuideLink, "_blank")}
-              >
+              <Button variant="outline" className="gap-2" onClick={() => window.open(userGuideLink, "_blank")}>
                 <ExternalLink className="h-4 w-4" />
                 View User Guide
               </Button>
@@ -160,12 +150,10 @@ export default function Index() {
                   {isLogin ? "Welcome back" : "Get started"}
                 </h2>
                 <p className="text-muted-foreground text-sm">
-                  {isLogin
-                    ? "Sign in to access your dashboard"
-                    : "Create your account to begin"}
+                  {isLogin ? "Sign in to access your dashboard" : "Create your account to begin"}
                 </p>
               </div>
-              
+
               <form onSubmit={handleSubmit} className="space-y-4">
                 {!isLogin && (
                   <>
@@ -182,7 +170,7 @@ export default function Index() {
                         required
                       />
                     </div>
-                    
+
                     <div className="space-y-2">
                       <Label htmlFor="organizationName" className="text-muted-foreground text-sm">
                         Organization Name
@@ -196,7 +184,7 @@ export default function Index() {
                         required
                       />
                     </div>
-                    
+
                     <div className="space-y-2">
                       <Label htmlFor="organizationCode" className="text-muted-foreground text-sm">
                         Organization Code
@@ -212,7 +200,7 @@ export default function Index() {
                     </div>
                   </>
                 )}
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="email" className="text-muted-foreground text-sm">
                     Email
@@ -226,7 +214,7 @@ export default function Index() {
                     required
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="password" className="text-muted-foreground text-sm">
                     Password
@@ -239,22 +227,17 @@ export default function Index() {
                     required
                   />
                 </div>
-                
-                <Button
-                  type="submit"
-                  className="w-full h-11 font-medium"
-                  disabled={loading}
-                >
+
+                <Button type="submit" className="w-full h-11 font-medium" disabled={loading}>
                   {loading ? "Loading..." : isLogin ? "Sign In" : "Create Account"}
                 </Button>
               </form>
-              
+
               <div className="mt-6 space-y-4">
                 <div className="text-center">
                   <span className="text-sm text-muted-foreground">
                     {isLogin ? "Don't have an account?" : "Already have an account?"}
-                  </span>
-                  {" "}
+                  </span>{" "}
                   <button
                     type="button"
                     className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
@@ -263,7 +246,7 @@ export default function Index() {
                     {isLogin ? "Sign up" : "Sign in"}
                   </button>
                 </div>
-                
+
                 {/* Trust badge */}
                 <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground pt-4 border-t border-border">
                   <Shield className="h-3.5 w-3.5" />
@@ -272,8 +255,8 @@ export default function Index() {
 
                 {/* Mobile User Guide Link */}
                 <div className="flex lg:hidden items-center justify-center pt-2">
-                  <Button 
-                    variant="ghost" 
+                  <Button
+                    variant="ghost"
                     size="sm"
                     className="gap-2 text-muted-foreground"
                     onClick={() => window.open(userGuideLink, "_blank")}
