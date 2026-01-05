@@ -91,7 +91,11 @@ export default function Index() {
   const userGuideLink = "https://drive.google.com/placeholder-user-guide";
 
   if (authLoading) {
-    return null;
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-sm text-muted-foreground animate-pulse">Loading…</p>
+      </div>
+    );
   }
 
   return (

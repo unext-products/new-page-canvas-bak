@@ -26,9 +26,25 @@ export function ThemeProvider({
   storageKey = "vite-ui-theme",
   ...props
 }: ThemeProviderProps) {
-  const [theme, setTheme] = useState<Theme>(
-    () => (localStorage.getItem(storageKey) as Theme) || defaultTheme
-  );
+  const [theme, setTheme] = useState<Theme>(() => {
+    const saved = localStorage.getItem(storageKey) as Theme | null;
+    return saved || defaultTheme;
+  });
+
+  // One-time migration: switch existing users from dark/system to light by default.
+  useEffect(() => {
+    const migrationKey = `${storageKey}-migrated-to-light-v1`;
+    const migrated = localStorage.getItem(migrationKey) === "1";
+    if (migrated) return;
+
+    const saved = localStorage.getItem(storageKey) as Theme | null;
+    if (saved !== "light") {
+      localStorage.setItem(storageKey, "light");
+      setTheme("light");
+    }
+
+    localStorage.setItem(migrationKey, "1");
+  }, [storageKey]);
 
   useEffect(() => {
     const root = window.document.documentElement;
