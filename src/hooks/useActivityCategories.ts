@@ -14,15 +14,16 @@ export interface ActivityCategory {
   created_at: string;
 }
 
-// Helper to create a category with code derived from name
-const createCategory = (
+// Helper to create a category with explicit code (for fallbacks matching DB enum)
+const createCategoryWithCode = (
   id: string,
   name: string,
+  code: string,
   description: string | null
 ): ActivityCategory => ({
   id,
   name,
-  code: name.toLowerCase().replace(/\s+/g, '_'),
+  code,
   description,
   is_active: true,
   organization_id: null,
@@ -62,24 +63,24 @@ export function useActivityCategories(_departmentId?: string | null) {
         }));
         setCategories(categoriesWithCode);
       } else {
-        // Fallback to hardcoded defaults if no categories exist
+        // Fallback to hardcoded defaults with correct DB enum codes
         setCategories([
-          createCategory("1", "Class", "Teaching/lecture sessions"),
-          createCategory("2", "Quiz", "Quizzes and assessments"),
-          createCategory("3", "Invigilation", "Exam invigilation/proctoring"),
-          createCategory("4", "Admin", "Administrative tasks"),
-          createCategory("5", "Non-Academic", "Non-academic activities"),
+          createCategoryWithCode("1", "Class", "class", "Teaching/lecture sessions"),
+          createCategoryWithCode("2", "Quiz", "quiz", "Quizzes and assessments"),
+          createCategoryWithCode("3", "Invigilation", "invigilation", "Exam invigilation/proctoring"),
+          createCategoryWithCode("4", "Admin", "admin", "Administrative tasks"),
+          createCategoryWithCode("5", "Non-Academic", "other", "Non-academic activities"),
         ]);
       }
     } catch (error) {
       console.error("Error loading categories:", error);
       // Fallback to defaults on error
       setCategories([
-        createCategory("1", "Class", null),
-        createCategory("2", "Quiz", null),
-        createCategory("3", "Invigilation", null),
-        createCategory("4", "Admin", null),
-        createCategory("5", "Non-Academic", null),
+        createCategoryWithCode("1", "Class", "class", null),
+        createCategoryWithCode("2", "Quiz", "quiz", null),
+        createCategoryWithCode("3", "Invigilation", "invigilation", null),
+        createCategoryWithCode("4", "Admin", "admin", null),
+        createCategoryWithCode("5", "Non-Academic", "other", null),
       ]);
     } finally {
       setLoading(false);
