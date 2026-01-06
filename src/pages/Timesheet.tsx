@@ -12,7 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/StatusBadge";
-import { Plus, Trash2, Calendar, FileText, HelpCircle, Pencil, Upload } from "lucide-react";
+import { Plus, Trash2, Calendar, FileText, HelpCircle, Upload } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { timesheetEntrySchema } from "@/lib/validation";
 import { getUserErrorMessage } from "@/lib/errorHandler";
@@ -38,7 +38,7 @@ export default function Timesheet() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [runTour, setRunTour] = useState(false);
-  const [editingEntry, setEditingEntry] = useState<any>(null);
+  
   
   // Form state
   const [entryDate, setEntryDate] = useState(new Date().toISOString().split("T")[0]);
@@ -221,7 +221,7 @@ export default function Timesheet() {
     const normalizedEnd = normalizeTimeFormat(endTime);
 
     // Check for overlapping time entries
-    if (checkTimeOverlap(entryDate, normalizedStart, normalizedEnd, editingEntry?.id)) {
+    if (checkTimeOverlap(entryDate, normalizedStart, normalizedEnd)) {
       toast({
         title: "Time Overlap Detected",
         description: "This time slot overlaps with an existing entry. Please choose a different time.",
@@ -262,41 +262,18 @@ export default function Timesheet() {
 
       setLoading(true);
 
-      let error;
-
-      if (editingEntry) {
-        // Update existing entry - drafts and pending entries can be edited
-        const result = await supabase
-          .from("timesheet_entries")
-          .update({
-            entry_date: validatedData.entry_date,
-            start_time: validatedData.start_time,
-            end_time: validatedData.end_time,
-            activity_type: validatedData.activity_type,
-            activity_subtype: validatedData.activity_subtype || null,
-            notes: validatedData.notes || null,
-            department_code: trimmedDeptCode || null,
-            status,
-          })
-          .eq("id", editingEntry.id)
-          .eq("user_id", userWithRole.user.id)
-          .in("status", ["draft", "submitted"]);
-        error = result.error;
-      } else {
-        // Insert new entry
-        const result = await supabase.from("timesheet_entries").insert({
-          user_id: userWithRole.user.id,
-          entry_date: validatedData.entry_date,
-          start_time: validatedData.start_time,
-          end_time: validatedData.end_time,
-          activity_type: validatedData.activity_type,
-          activity_subtype: validatedData.activity_subtype || null,
-          notes: validatedData.notes || null,
-          department_code: trimmedDeptCode || null,
-          status,
-        });
-        error = result.error;
-      }
+      // Insert new entry
+      const { error } = await supabase.from("timesheet_entries").insert({
+        user_id: userWithRole.user.id,
+        entry_date: validatedData.entry_date,
+        start_time: validatedData.start_time,
+        end_time: validatedData.end_time,
+        activity_type: validatedData.activity_type,
+        activity_subtype: validatedData.activity_subtype || null,
+        notes: validatedData.notes || null,
+        department_code: trimmedDeptCode || null,
+        status,
+      });
 
       setLoading(false);
 
@@ -310,7 +287,6 @@ export default function Timesheet() {
         description: "Your timesheet has been submitted for approval",
       });
       setDialogOpen(false);
-      setEditingEntry(null);
       resetForm();
       loadEntries();
     } catch (error: any) {
@@ -325,7 +301,7 @@ export default function Timesheet() {
       } else {
         toast({
           title: "Error",
-          description: getUserErrorMessage(error, editingEntry ? "update timesheet entry" : "create timesheet entry"),
+          description: getUserErrorMessage(error, "create timesheet entry"),
           variant: "destructive",
         });
       }
@@ -367,25 +343,12 @@ export default function Timesheet() {
     setActivitySubtype("");
     setNotes("");
     setDepartmentCode("");
-    setEditingEntry(null);
   };
 
-  const handleEdit = (entry: any) => {
-    setEditingEntry(entry);
-    setEntryDate(entry.entry_date);
-    setStartTime(entry.start_time);
-    setEndTime(entry.end_time);
-    setActivityType(entry.activity_type);
-    setActivitySubtype(entry.activity_subtype || "");
-    setNotes(entry.notes || "");
-    setDepartmentCode(entry.department_code || "");
-    setDialogOpen(true);
-  };
 
   const handleDialogClose = (open: boolean) => {
     setDialogOpen(open);
     if (!open) {
-      setEditingEntry(null);
       resetForm();
     }
   };
@@ -574,7 +537,7 @@ export default function Timesheet() {
               </DialogTrigger>
             <DialogContent className="max-w-md">
               <DialogHeader>
-                <DialogTitle>{editingEntry ? "Edit Timesheet Entry" : "Add Timesheet Entry"}</DialogTitle>
+                <DialogTitle>Add Timesheet Entry</DialogTitle>
                 <DialogDescription>
                   Fill in the details of your work activity
                 </DialogDescription>
@@ -675,7 +638,6 @@ export default function Timesheet() {
                     className="flex-1"
                     onClick={() => {
                       setDialogOpen(false);
-                      setEditingEntry(null);
                       resetForm();
                     }}
                     disabled={loading}
@@ -759,26 +721,14 @@ export default function Timesheet() {
                           )}
                         </div>
                         {(item.status === "draft" || item.status === "submitted") && (
-                          <div className="flex gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEdit(item)}
-                              title="Edit entry"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            {(item.status === "draft" || item.status === "submitted") && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDelete(item.id)}
-                                title="Delete entry"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(item.id)}
+                            title="Delete entry"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         )}
                       </>
                     ) : (
