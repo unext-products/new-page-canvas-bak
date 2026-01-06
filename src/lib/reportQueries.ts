@@ -207,11 +207,14 @@ export async function fetchDepartmentReport(
   const dateFrom = format(period.dateFrom, "yyyy-MM-dd");
   const dateTo = format(period.dateTo, "yyyy-MM-dd");
 
-  // Get users in department
-  const { data: deptUsers } = await supabase
-    .from("user_roles")
-    .select("user_id")
-    .eq("department_id", departmentId);
+  // Get users - all users if "all" is selected, otherwise filter by department
+  let deptUsersQuery = supabase.from("user_roles").select("user_id");
+  
+  if (departmentId !== "all") {
+    deptUsersQuery = deptUsersQuery.eq("department_id", departmentId);
+  }
+  
+  const { data: deptUsers } = await deptUsersQuery;
 
   const userIds = deptUsers?.map(u => u.user_id) || [];
 
