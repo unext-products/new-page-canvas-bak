@@ -62,7 +62,7 @@ export function FooterMinimal() {
         {/* Bottom bar */}
         <div className="pt-8 border-t border-landing-border">
           <p className="text-sm text-landing-muted text-center">
-            © {new Date().getFullYear()} Clockwise for MAB. All rights reserved.
+            © {new Date().getFullYear()} ClockWise for MAB. All rights reserved.
           </p>
         </div>
       </div>

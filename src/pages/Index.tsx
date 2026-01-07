@@ -147,7 +147,7 @@ export default function Index() {
             <div className="rounded-2xl bg-card border border-border p-8 shadow-sm">
               <div className="text-center mb-8">
                 <h2 className="text-2xl font-semibold text-foreground mb-2">
-                  {isLogin ? "Welcome back" : "Get started"}
+                  {isLogin ? "Welcome" : "Get started"}
                 </h2>
                 <p className="text-muted-foreground text-sm">
                   {isLogin ? "Sign in to access your dashboard" : "Create your account to begin"}

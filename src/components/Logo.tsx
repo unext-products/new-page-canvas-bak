@@ -43,9 +43,9 @@ export function Logo({ to = "/", variant = "dark", size = "md", className, showM
           className={cn(logoSizes[size], "object-contain")}
         />
       )}
-      <span className="flex items-center gap-0.5">
+      <span className="flex items-center gap-1">
         <span className={cn(sizeClasses[size], "font-semibold tracking-tight", textColors[variant].primary)}>
-          Clockwise
+          ClockWise
         </span>
         <span className={cn(sizeClasses[size], "font-normal", textColors[variant].secondary)}>
           for MAB
