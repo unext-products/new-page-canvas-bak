@@ -2,6 +2,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { format } from "date-fns";
 import { formatDuration } from "./exportUtils";
+import { calculateDurationMinutes } from "./timesheetUtils";
 
 interface TimesheetEntry {
   entry_date: string;
@@ -9,7 +10,8 @@ interface TimesheetEntry {
   departments?: { name: string };
   activity_type: string;
   activity_subtype?: string | null;
-  duration_minutes: number;
+  start_time: string;
+  end_time: string;
   status: string;
 }
 
@@ -59,7 +61,7 @@ export function exportToPDF(
       entry.profiles?.full_name || "N/A",
       entry.departments?.name || "N/A",
       `${entry.activity_type}${entry.activity_subtype ? ` - ${entry.activity_subtype}` : ""}`,
-      formatDuration(entry.duration_minutes),
+      formatDuration(calculateDurationMinutes(entry.start_time, entry.end_time)),
       entry.status,
     ]),
     theme: "striped",
@@ -153,7 +155,7 @@ export function exportMemberReportPDF(
       format(new Date(entry.entry_date), "MMM dd, yyyy"),
       `${entry.activity_type}${entry.activity_subtype ? ` - ${entry.activity_subtype}` : ""}`,
       `${entry.start_time} - ${entry.end_time}`,
-      formatDuration(entry.duration_minutes),
+      formatDuration(calculateDurationMinutes(entry.start_time, entry.end_time)),
       entry.status,
     ]),
     theme: "striped",

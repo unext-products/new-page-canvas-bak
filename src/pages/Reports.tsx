@@ -35,6 +35,7 @@ import {
 import { exportMemberReportCSV, exportDepartmentReportCSV } from "@/lib/exportUtils";
 import { exportMemberReportPDF, exportDepartmentReportPDF } from "@/lib/pdfExportUtils";
 import { formatDuration } from "@/lib/exportUtils";
+import { calculateDurationMinutes } from "@/lib/timesheetUtils";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfDay, endOfDay } from "date-fns";
 import { getUserErrorMessage } from "@/lib/errorHandler";
 
@@ -382,7 +383,7 @@ export default function Reports() {
                                   <TableCell className="text-sm">
                                     {entry.start_time} - {entry.end_time}
                                   </TableCell>
-                                  <TableCell>{formatDuration(entry.duration_minutes)}</TableCell>
+                                  <TableCell>{formatDuration(calculateDurationMinutes(entry.start_time, entry.end_time))}</TableCell>
                                   <TableCell>
                                     <StatusBadge status={entry.status} />
                                   </TableCell>

@@ -1,4 +1,5 @@
 import { format } from "date-fns";
+import { calculateDurationMinutes } from "./timesheetUtils";
 
 export function formatDuration(minutes: number): string {
   const hours = Math.floor(minutes / 60);
@@ -40,7 +41,7 @@ export function exportToCSV(data: any[], filename: string) {
     entry.activity_subtype || "",
     entry.start_time,
     entry.end_time,
-    formatDuration(entry.duration_minutes),
+    formatDuration(calculateDurationMinutes(entry.start_time, entry.end_time)),
     entry.status,
     entry.notes || "",
   ]);
@@ -107,7 +108,7 @@ export function exportToCSVWithMetadata(
     entry.activity_subtype || "",
     entry.start_time,
     entry.end_time,
-    formatDuration(entry.duration_minutes),
+    formatDuration(calculateDurationMinutes(entry.start_time, entry.end_time)),
     entry.status,
     entry.notes || "",
   ]);
@@ -178,7 +179,7 @@ export function exportMemberReportCSV(
     entry.activity_subtype || "",
     entry.start_time,
     entry.end_time,
-    formatDuration(entry.duration_minutes),
+    formatDuration(calculateDurationMinutes(entry.start_time, entry.end_time)),
     entry.status,
     entry.notes || "",
   ]);
