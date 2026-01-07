@@ -164,19 +164,23 @@ export async function fetchFacultyReport(
     .eq("id", userId)
     .single();
 
-  const { data: userRole } = await supabase
-    .from("user_roles")
+  // Get ALL departments for the user from user_departments junction table
+  const { data: userDepts } = await supabase
+    .from("user_departments")
     .select("department_id")
-    .eq("user_id", userId)
-    .single();
+    .eq("user_id", userId);
 
-  const { data: department } = userRole?.department_id
+  const deptIds = userDepts?.map(ud => ud.department_id) || [];
+
+  const { data: departments } = deptIds.length > 0
     ? await supabase
         .from("departments")
         .select("name")
-        .eq("id", userRole.department_id)
-        .single()
-    : { data: null };
+        .in("id", deptIds)
+    : { data: [] };
+
+  // Join department names for display (e.g., "Banking, Mathematics")
+  const departmentNames = departments?.map(d => d.name).join(", ") || "N/A";
 
   const totalMinutes = entries?.reduce((sum, e) => sum + getEntryDuration(e), 0) || 0;
   const totalHours = totalMinutes / 60;
@@ -190,7 +194,7 @@ export async function fetchFacultyReport(
   return {
     userId,
     facultyName: profile?.full_name || "Unknown",
-    department: department?.name || "N/A",
+    department: departmentNames,
     totalHours,
     expectedHours,
     completionRate,
@@ -207,8 +211,8 @@ export async function fetchDepartmentReport(
   const dateFrom = format(period.dateFrom, "yyyy-MM-dd");
   const dateTo = format(period.dateTo, "yyyy-MM-dd");
 
-  // Get users - all users if "all" is selected, otherwise filter by department
-  let deptUsersQuery = supabase.from("user_roles").select("user_id");
+  // Get users from user_departments junction table (not user_roles)
+  let deptUsersQuery = supabase.from("user_departments").select("user_id");
   
   if (departmentId !== "all") {
     deptUsersQuery = deptUsersQuery.eq("department_id", departmentId);
@@ -216,7 +220,8 @@ export async function fetchDepartmentReport(
   
   const { data: deptUsers } = await deptUsersQuery;
 
-  const userIds = deptUsers?.map(u => u.user_id) || [];
+  // Get unique user IDs (a user might appear multiple times if in multiple departments)
+  const userIds = Array.from(new Set(deptUsers?.map(u => u.user_id) || []));
 
   let entries: any[] = [];
   if (userIds.length > 0) {
