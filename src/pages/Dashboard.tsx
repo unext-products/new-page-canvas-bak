@@ -365,7 +365,10 @@ const [stats, setStats] = useState({
     // Recent activity (last 10 entries from team)
     const { data: recentActivity } = await supabase
       .from("timesheet_entries")
-      .select("id, start_time, end_time, user_id, activity_type, entry_date, created_at")
+      .select(`
+        id, start_time, end_time, user_id, activity_type, entry_date, status, created_at,
+        profiles:user_id(full_name)
+      `)
       .in("user_id", teamUserIds.length > 0 ? teamUserIds : ["no-id"])
       .order("created_at", { ascending: false })
       .limit(10);
@@ -496,7 +499,10 @@ const [stats, setStats] = useState({
     // Recent activity (last 10 entries)
     const { data: recentActivity } = await supabase
       .from("timesheet_entries")
-      .select("id, start_time, end_time, user_id, activity_type, entry_date, created_at")
+      .select(`
+        id, start_time, end_time, user_id, activity_type, entry_date, status, department_code, created_at,
+        profiles:user_id(full_name)
+      `)
       .order("created_at", { ascending: false })
       .limit(10);
 
@@ -911,7 +917,7 @@ const [stats, setStats] = useState({
                               <div className="flex-1">
                                 <p className="font-medium text-sm">{entry.profiles?.full_name || "Unknown"}</p>
                                 <p className="text-xs text-muted-foreground">
-                                  {entry.activity_type} • {formatMinutes(entry.duration_minutes)}
+                                  {entry.activity_type} • {formatMinutes(getEntryDuration(entry))}
                                 </p>
                               </div>
                               <div className="flex flex-col items-end gap-1">
@@ -1143,12 +1149,12 @@ const [stats, setStats] = useState({
                       <p className="text-sm text-muted-foreground">No recent activity.</p>
                     ) : (
                       <div className="space-y-3">
-                        {adminStats.recentActivity.map((entry) => (
+                        {adminStats.recentActivity.map((entry: any) => (
                           <div key={entry.id} className="flex items-center justify-between py-2 border-b last:border-0">
                             <div className="flex-1">
                               <p className="font-medium text-sm">{entry.profiles?.full_name || "Unknown"}</p>
                               <p className="text-xs text-muted-foreground">
-                                {entry.departments?.name} • {entry.activity_type} • {formatMinutes(entry.duration_minutes)}
+                                {entry.department_code || "N/A"} • {entry.activity_type} • {formatMinutes(getEntryDuration(entry))}
                               </p>
                             </div>
                             <div className="flex flex-col items-end gap-1 text-right">
