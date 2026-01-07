@@ -127,15 +127,17 @@ export function exportMemberReportPDF(
   doc.text(`Expected Hours: ${report.expectedHours.toFixed(1)} hours`, 14, 80);
   doc.text(`Completion Rate: ${report.completionRate.toFixed(1)}%`, 14, 86);
   doc.text(`Average Daily Hours: ${report.averageDailyHours.toFixed(1)} hours`, 14, 92);
+  doc.text(`Entries Approved: ${report.approvedCount || 0}`, 14, 98);
+  doc.text(`Approvals Pending: ${report.pendingCount || 0}`, 14, 104);
   const status = report.completionRate >= 100 ? "Exceeded Target" : report.completionRate >= 70 ? "On Track" : "Behind Schedule";
-  doc.text(`Status: ${status}`, 14, 98);
+  doc.text(`Status: ${status}`, 14, 110);
 
   // Activity Breakdown
   doc.setFontSize(12);
   doc.setTextColor(41, 128, 185);
-  doc.text("Activity Breakdown", 14, 108);
+  doc.text("Activity Breakdown", 14, 120);
 
-  let yPos = 116;
+  let yPos = 128;
   doc.setFontSize(10);
   doc.setTextColor(0, 0, 0);
   report.activityBreakdown.forEach((activity: any) => {

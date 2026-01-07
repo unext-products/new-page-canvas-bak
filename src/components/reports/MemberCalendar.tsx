@@ -10,20 +10,27 @@ interface MemberCalendarProps {
   month: Date;
 }
 
+type HourSlotStatus = 'empty' | 'pending' | 'approved' | 'rejected';
+
+interface HourSlot {
+  status: HourSlotStatus;
+}
+
 interface DayData {
   date: Date;
   totalHours: number;
   entryCount: number;
-  completionRate: number;
   isOnLeave: boolean;
   leaveType?: string;
   isWeekend: boolean;
-  status: 'leave' | 'complete' | 'partial' | 'low' | 'none' | 'weekend';
+  hourSlots: HourSlot[];
+  targetHours: number;
 }
 
 export function MemberCalendar({ memberId, month }: MemberCalendarProps) {
   const [calendarData, setCalendarData] = useState<DayData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [targetHours, setTargetHours] = useState(8);
 
   useEffect(() => {
     loadCalendarData();
@@ -35,13 +42,25 @@ export function MemberCalendar({ memberId, month }: MemberCalendarProps) {
     const monthStart = startOfMonth(month);
     const monthEnd = endOfMonth(month);
 
+    // Fetch daily target setting
+    const { data: settingsData } = await supabase
+      .from("settings")
+      .select("value")
+      .eq("key", "daily_target_minutes")
+      .maybeSingle();
+    
+    const dailyTargetMinutes = settingsData?.value ? parseInt(settingsData.value) : 480;
+    const targetHoursValue = Math.ceil(dailyTargetMinutes / 60);
+    setTargetHours(targetHoursValue);
+
     // Fetch timesheet entries for the month
     const { data: entries } = await supabase
       .from("timesheet_entries")
       .select("entry_date, start_time, end_time, status")
       .eq("user_id", memberId)
       .gte("entry_date", format(monthStart, "yyyy-MM-dd"))
-      .lte("entry_date", format(monthEnd, "yyyy-MM-dd"));
+      .lte("entry_date", format(monthEnd, "yyyy-MM-dd"))
+      .order("start_time", { ascending: true });
 
     // Fetch leave days
     const { data: leaves } = await supabase
@@ -75,23 +94,41 @@ export function MemberCalendar({ memberId, month }: MemberCalendarProps) {
       const isOnLeave = leaveMap.has(dateStr);
       const isWeekendDay = isWeekend(date);
 
-      let status: DayData['status'];
-      if (isWeekendDay) status = 'weekend';
-      else if (isOnLeave) status = 'leave';
-      else if (totalHours >= 8) status = 'complete';
-      else if (totalHours >= 4) status = 'partial';
-      else if (totalHours > 0) status = 'low';
-      else status = 'none';
+      // Create hour slots based on target hours
+      const hourSlots: HourSlot[] = Array.from({ length: targetHoursValue }, () => ({
+        status: 'empty' as HourSlotStatus
+      }));
+
+      // Fill hour slots based on entries (chronologically by start_time)
+      if (!isWeekendDay && !isOnLeave) {
+        let slotIndex = 0;
+        for (const entry of dayEntries) {
+          if (slotIndex >= targetHoursValue) break;
+          
+          const durationMinutes = calculateDuration(entry.start_time, entry.end_time);
+          const durationHours = Math.ceil(durationMinutes / 60);
+          
+          const status: HourSlotStatus = 
+            entry.status === 'approved' ? 'approved' :
+            entry.status === 'rejected' ? 'rejected' :
+            entry.status === 'submitted' ? 'pending' : 'empty';
+          
+          for (let i = 0; i < durationHours && slotIndex < targetHoursValue; i++) {
+            hourSlots[slotIndex] = { status };
+            slotIndex++;
+          }
+        }
+      }
 
       return {
         date,
         totalHours,
         entryCount: dayEntries.length,
-        completionRate: (totalMinutes / 480) * 100,
         isOnLeave,
         leaveType: leaveMap.get(dateStr),
         isWeekend: isWeekendDay,
-        status,
+        hourSlots,
+        targetHours: targetHoursValue,
       };
     });
 
@@ -99,20 +136,16 @@ export function MemberCalendar({ memberId, month }: MemberCalendarProps) {
     setIsLoading(false);
   };
 
-  const getDayBgClass = (status: string) => {
+  const getDotColor = (status: HourSlotStatus) => {
     switch (status) {
-      case "complete":
-        return "bg-green-500/20 border-green-500";
-      case "partial":
-        return "bg-yellow-500/20 border-yellow-500";
-      case "low":
-        return "bg-orange-500/20 border-orange-500";
-      case "leave":
-        return "bg-blue-500/20 border-blue-500";
-      case "weekend":
-        return "bg-muted border-border";
+      case "approved":
+        return "bg-green-500";
+      case "pending":
+        return "bg-yellow-500";
+      case "rejected":
+        return "bg-red-500";
       default:
-        return "bg-background border-border";
+        return "bg-gray-300";
     }
   };
 
@@ -157,8 +190,9 @@ export function MemberCalendar({ memberId, month }: MemberCalendarProps) {
             <div
               key={format(day.date, "yyyy-MM-dd")}
               className={cn(
-                "min-h-[60px] sm:min-h-[80px] p-1 sm:p-2 rounded-md border-2 transition-all",
-                getDayBgClass(day.status),
+                "min-h-[70px] sm:min-h-[90px] p-1 sm:p-2 rounded-md border transition-all",
+                day.isWeekend ? "bg-muted/50 border-border" : "bg-background border-border",
+                day.isOnLeave && "bg-blue-500/10 border-blue-500/30",
                 "hover:shadow-md"
               )}
             >
@@ -167,22 +201,30 @@ export function MemberCalendar({ memberId, month }: MemberCalendarProps) {
               </div>
 
               {day.isOnLeave && (
-                <Badge variant="outline" className="text-[10px] sm:text-xs mb-1 px-1">
+                <Badge variant="outline" className="text-[10px] sm:text-xs mb-1 px-1 bg-blue-500/20 border-blue-500">
                   Leave
                 </Badge>
               )}
 
               {!day.isWeekend && !day.isOnLeave && (
-                <div className="space-y-0.5 text-[10px] sm:text-xs">
-                  <div className="font-medium">{day.totalHours.toFixed(1)}h</div>
+                <div className="space-y-1">
+                  {/* Hour dots */}
+                  <div className="flex flex-wrap gap-0.5">
+                    {day.hourSlots.map((slot, idx) => (
+                      <div
+                        key={idx}
+                        className={cn(
+                          "w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full transition-colors",
+                          getDotColor(slot.status)
+                        )}
+                        title={`Hour ${idx + 1}: ${slot.status}`}
+                      />
+                    ))}
+                  </div>
+                  {/* Summary text */}
                   {day.entryCount > 0 && (
-                    <div className="text-muted-foreground">
-                      {day.entryCount} {day.entryCount === 1 ? "entry" : "entries"}
-                    </div>
-                  )}
-                  {day.totalHours > 0 && (
-                    <div className="font-medium">
-                      {Math.round(day.completionRate)}%
+                    <div className="text-[9px] sm:text-[10px] text-muted-foreground">
+                      {day.totalHours.toFixed(1)}h • {day.entryCount} {day.entryCount === 1 ? "entry" : "entries"}
                     </div>
                   )}
                 </div>
@@ -194,24 +236,27 @@ export function MemberCalendar({ memberId, month }: MemberCalendarProps) {
         {/* Legend */}
         <div className="mt-6 flex flex-wrap gap-3 sm:gap-4 text-xs sm:text-sm">
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded bg-green-500/20 border-2 border-green-500" />
-            <span>Complete (8+ hrs)</span>
+            <div className="w-3 h-3 rounded-full bg-gray-300" />
+            <span>No entry</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded bg-yellow-500/20 border-2 border-yellow-500" />
-            <span>Partial (4-8 hrs)</span>
+            <div className="w-3 h-3 rounded-full bg-yellow-500" />
+            <span>Pending</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded bg-orange-500/20 border-2 border-orange-500" />
-            <span>Low (&lt;4 hrs)</span>
+            <div className="w-3 h-3 rounded-full bg-green-500" />
+            <span>Approved</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded bg-blue-500/20 border-2 border-blue-500" />
+            <div className="w-3 h-3 rounded-full bg-red-500" />
+            <span>Rejected</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded bg-blue-500/20 border border-blue-500" />
             <span>On Leave</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded bg-muted border-2 border-border" />
-            <span>Weekend</span>
+          <div className="flex items-center gap-2 ml-auto text-muted-foreground">
+            <span>Daily target: {targetHours}h ({targetHours} dots/day)</span>
           </div>
         </div>
       </CardContent>

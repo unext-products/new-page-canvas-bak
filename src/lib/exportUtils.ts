@@ -152,6 +152,8 @@ export function exportMemberReportCSV(
     ["Completion Rate:", `${report.completionRate.toFixed(1)}%`],
     ["Status:", report.completionRate >= 100 ? "Exceeded Target" : report.completionRate >= 70 ? "On Track" : "Behind Schedule"],
     ["Average Daily Hours:", `${report.averageDailyHours.toFixed(1)} hours`],
+    ["Entries Approved:", `${report.approvedCount || 0}`],
+    ["Approvals Pending:", `${report.pendingCount || 0}`],
     [""],
     ["Activity Breakdown:"],
     ...report.activityBreakdown.map((activity: any) => [

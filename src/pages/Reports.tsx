@@ -131,6 +131,13 @@ export default function Reports() {
     }
   }, [period]);
 
+  // Sync Date To with Date From when in daily mode
+  useEffect(() => {
+    if (period === "daily") {
+      setDateTo(endOfDay(dateFrom));
+    }
+  }, [dateFrom, period]);
+
   const handleDateRangeChange = (from: Date, to: Date) => {
     setDateFrom(from);
     setDateTo(to);
@@ -275,6 +282,7 @@ export default function Reports() {
                 <DateRangePicker
                   date={dateTo}
                   onDateChange={(date) => date && setDateTo(date)}
+                  disabled={period === "daily"}
                 />
               </div>
               {reportType === "member" ? (
@@ -317,6 +325,16 @@ export default function Reports() {
                 reportType === "member"
                   ? facultyReport?.entries.length || 0
                   : departmentReport?.facultyBreakdown.reduce((sum, f) => sum + f.entryCount, 0) || 0
+              }
+              approvedCount={
+                reportType === "member"
+                  ? facultyReport?.approvedCount
+                  : departmentReport?.facultyBreakdown.reduce((sum, f) => sum + f.approvedCount, 0)
+              }
+              pendingCount={
+                reportType === "member"
+                  ? facultyReport?.pendingCount
+                  : departmentReport?.facultyBreakdown.reduce((sum, f) => sum + f.pendingCount, 0)
               }
               averageDailyHours={currentReport.averageDailyHours}
             />
