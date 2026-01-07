@@ -211,6 +211,17 @@ export async function fetchDepartmentReport(
   const dateFrom = format(period.dateFrom, "yyyy-MM-dd");
   const dateTo = format(period.dateTo, "yyyy-MM-dd");
 
+  // Get department code if a specific department is selected (for filtering entries)
+  let departmentCode: string | null = null;
+  if (departmentId !== "all") {
+    const { data: dept } = await supabase
+      .from("departments")
+      .select("code")
+      .eq("id", departmentId)
+      .single();
+    departmentCode = dept?.code || null;
+  }
+
   // Get users from user_departments junction table (not user_roles)
   let deptUsersQuery = supabase.from("user_departments").select("user_id");
   
@@ -225,13 +236,20 @@ export async function fetchDepartmentReport(
 
   let entries: any[] = [];
   if (userIds.length > 0) {
-    const { data, error } = await supabase
+    let entriesQuery = supabase
       .from("timesheet_entries")
       .select("*")
       .in("user_id", userIds)
       .gte("entry_date", dateFrom)
       .lte("entry_date", dateTo)
       .order("entry_date", { ascending: false });
+
+    // Filter by department_code when a specific department is selected
+    if (departmentCode) {
+      entriesQuery = entriesQuery.eq("department_code", departmentCode);
+    }
+
+    const { data, error } = await entriesQuery;
 
     if (error) throw error;
     entries = data || [];
