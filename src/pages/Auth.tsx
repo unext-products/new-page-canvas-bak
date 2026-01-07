@@ -147,7 +147,7 @@ export default function Auth() {
             <div className="rounded-2xl bg-landing-card border border-landing-border p-8">
               <div className="text-center mb-8">
                 <h2 className="text-2xl font-semibold text-white mb-2">
-                  {isLogin ? "Welcome back" : "Get started"}
+                  {isLogin ? "Welcome" : "Get started"}
                 </h2>
                 <p className="text-landing-secondary text-sm">
                   {isLogin

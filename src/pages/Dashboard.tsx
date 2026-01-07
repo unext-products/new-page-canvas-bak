@@ -523,7 +523,7 @@ const [stats, setStats] = useState({
   const getWelcomeMessage = () => {
     const name = userWithRole?.profile?.full_name || "User";
     const role = userWithRole?.role;
-    return `Welcome back, ${name}${role ? ` (${role.toUpperCase()})` : ""}`;
+    return `Hello, ${name}${role ? ` (${role.toUpperCase()})` : ""}`;
   };
 
   if (!userWithRole?.role) {
