@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, ChevronsUpDown, Search } from "lucide-react";
+import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,12 +16,13 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
+import { Badge } from "@/components/ui/badge";
 
 interface Member {
   id: string;
   full_name: string;
   email: string;
-  department_name?: string;
+  department_names: string[];
 }
 
 interface MemberSelectProps {
@@ -42,6 +43,7 @@ export function MemberSelect({ value, onValueChange, includeAll = false, departm
 
   const fetchMembers = async () => {
     try {
+      // Get all active profiles
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
         .select("id, full_name")
@@ -51,37 +53,69 @@ export function MemberSelect({ value, onValueChange, includeAll = false, departm
       if (profilesError) throw profilesError;
 
       const userIds = profiles?.map(p => p.id) || [];
-      
-      let rolesQuery = supabase
+
+      // Get faculty roles to filter only faculty users
+      const { data: roles, error: rolesError } = await supabase
         .from("user_roles")
-        .select("user_id, department_id")
+        .select("user_id")
         .in("user_id", userIds)
         .eq("role", "faculty");
 
-      // Filter by department IDs if provided
-      if (departmentIds && departmentIds.length > 0) {
-        rolesQuery = rolesQuery.in("department_id", departmentIds);
-      }
-
-      const { data: roles, error: rolesError } = await rolesQuery;
-
       if (rolesError) throw rolesError;
 
-      const deptIds = roles?.map(r => r.department_id).filter(Boolean) || [];
+      const facultyIds = new Set(roles?.map(r => r.user_id) || []);
+
+      // Get department assignments from user_departments junction table
+      let deptAssignmentsQuery = supabase
+        .from("user_departments")
+        .select("user_id, department_id")
+        .in("user_id", Array.from(facultyIds));
+
+      const { data: deptAssignments, error: deptAssignmentsError } = await deptAssignmentsQuery;
+
+      if (deptAssignmentsError) throw deptAssignmentsError;
+
+      // Build a map of user_id -> department_ids[]
+      const userDeptMap = new Map<string, string[]>();
+      deptAssignments?.forEach(da => {
+        if (!userDeptMap.has(da.user_id)) {
+          userDeptMap.set(da.user_id, []);
+        }
+        userDeptMap.get(da.user_id)!.push(da.department_id);
+      });
+
+      // Filter users by departmentIds if provided
+      let filteredFacultyIds = Array.from(facultyIds);
+      if (departmentIds && departmentIds.length > 0) {
+        filteredFacultyIds = filteredFacultyIds.filter(userId => {
+          const userDepts = userDeptMap.get(userId) || [];
+          return userDepts.some(deptId => departmentIds.includes(deptId));
+        });
+      }
+
+      // Get all department names
+      const allDeptIds = Array.from(new Set(deptAssignments?.map(da => da.department_id) || []));
       const { data: departments } = await supabase
         .from("departments")
         .select("id, name")
-        .in("id", deptIds.length > 0 ? deptIds : ['__none__']);
+        .in("id", allDeptIds.length > 0 ? allDeptIds : ['__none__']);
 
-      const deptMap = new Map(departments?.map(d => [d.id, d.name]) || []);
-      const rolesMap = new Map(roles?.map(r => [r.user_id, r.department_id]) || []);
+      const deptNameMap = new Map(departments?.map(d => [d.id, d.name]) || []);
 
-      const memberData = profiles?.map(p => ({
-        id: p.id,
-        full_name: p.full_name,
-        email: p.id,
-        department_name: deptMap.get(rolesMap.get(p.id) || "") || "N/A",
-      })).filter(m => rolesMap.has(m.id)) || [];
+      // Build member data with all department names
+      const memberData = profiles
+        ?.filter(p => filteredFacultyIds.includes(p.id))
+        .map(p => {
+          const deptIds = userDeptMap.get(p.id) || [];
+          const deptNames = deptIds.map(id => deptNameMap.get(id) || "Unknown").filter(Boolean);
+          
+          return {
+            id: p.id,
+            full_name: p.full_name,
+            email: p.id,
+            department_names: deptNames.length > 0 ? deptNames : ["N/A"],
+          };
+        }) || [];
 
       setMembers(memberData);
     } catch (error) {
@@ -92,6 +126,12 @@ export function MemberSelect({ value, onValueChange, includeAll = false, departm
   };
 
   const selectedMember = members.find((m) => m.id === value);
+
+  const formatDepartmentDisplay = (deptNames: string[]) => {
+    if (deptNames.length === 0) return "N/A";
+    if (deptNames.length === 1) return deptNames[0];
+    return `${deptNames[0]} +${deptNames.length - 1}`;
+  };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -111,7 +151,7 @@ export function MemberSelect({ value, onValueChange, includeAll = false, departm
             <span className="truncate">
               {selectedMember.full_name}
               <span className="text-muted-foreground ml-2 text-xs">
-                {selectedMember.department_name}
+                {formatDepartmentDisplay(selectedMember.department_names)}
               </span>
             </span>
           ) : (
@@ -160,9 +200,16 @@ export function MemberSelect({ value, onValueChange, includeAll = false, departm
                   />
                   <div className="flex flex-col">
                     <span>{member.full_name}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {member.department_name}
-                    </span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-muted-foreground">
+                        {member.department_names[0]}
+                      </span>
+                      {member.department_names.length > 1 && (
+                        <Badge variant="secondary" className="text-[10px] px-1 py-0">
+                          +{member.department_names.length - 1}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 </CommandItem>
               ))}
