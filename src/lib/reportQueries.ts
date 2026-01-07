@@ -37,6 +37,8 @@ export interface FacultyReportData {
   activityBreakdown: ActivityBreakdown[];
   entries: any[];
   averageDailyHours: number;
+  approvedCount: number;
+  pendingCount: number;
 }
 
 export interface DepartmentReportData {
@@ -57,6 +59,8 @@ export interface FacultyBreakdown {
   totalHours: number;
   completionRate: number;
   entryCount: number;
+  approvedCount: number;
+  pendingCount: number;
 }
 
 // Helper function to get duration from an entry
@@ -191,6 +195,10 @@ export async function fetchFacultyReport(
   const workingDays = differenceInCalendarDays(period.dateTo, period.dateFrom) + 1;
   const averageDailyHours = workingDays > 0 ? totalHours / workingDays : 0;
 
+  // Calculate status counts
+  const approvedCount = entries?.filter(e => e.status === "approved").length || 0;
+  const pendingCount = entries?.filter(e => e.status === "submitted").length || 0;
+
   return {
     userId,
     facultyName: profile?.full_name || "Unknown",
@@ -201,6 +209,8 @@ export async function fetchFacultyReport(
     activityBreakdown,
     entries: entries || [],
     averageDailyHours,
+    approvedCount,
+    pendingCount,
   };
 }
 
@@ -288,6 +298,8 @@ export async function fetchDepartmentReport(
       totalHours: userMinutes / 60,
       completionRate: calculateCompletionRate(userMinutes, userExpectedMinutes),
       entryCount: userEntries.length,
+      approvedCount: userEntries.filter(e => e.status === "approved").length,
+      pendingCount: userEntries.filter(e => e.status === "submitted").length,
     };
   });
 
