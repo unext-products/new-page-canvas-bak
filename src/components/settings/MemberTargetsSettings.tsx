@@ -12,6 +12,7 @@ import { useLabels } from "@/contexts/LabelContext";
 import { useDepartmentSettings } from "@/hooks/useDepartmentSettings";
 import { useUserSettings, useDepartmentUserSettings } from "@/hooks/useUserSettings";
 import { Loader2, Info, RotateCcw, User } from "lucide-react";
+import { fetchOrgDefaultDailyTargetMinutes } from "@/lib/targets";
 
 interface Department {
   id: string;
@@ -22,6 +23,7 @@ interface Member {
   id: string;
   full_name: string;
   email?: string;
+  primaryDepartmentId: string | null;
 }
 
 export default function MemberTargetsSettings() {
@@ -34,6 +36,7 @@ export default function MemberTargetsSettings() {
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [savingUser, setSavingUser] = useState<string | null>(null);
   const [localTargets, setLocalTargets] = useState<Record<string, { hours: number; minutes: number }>>({});
+  const [orgDefaultMinutes, setOrgDefaultMinutes] = useState(480);
 
   const isOrgAdmin = userWithRole?.role === "org_admin";
   const isHod = userWithRole?.role === "manager";
@@ -50,6 +53,8 @@ export default function MemberTargetsSettings() {
     if (isOrgAdmin) {
       fetchDepartments();
     }
+    // Fetch org default
+    fetchOrgDefaultDailyTargetMinutes().then(setOrgDefaultMinutes);
   }, [isOrgAdmin]);
 
   useEffect(() => {
@@ -61,18 +66,31 @@ export default function MemberTargetsSettings() {
   }, [effectiveDepartmentId]);
 
   // Initialize local targets when members or settings change
+  // Use correct defaults: primary dept = org default, non-primary = 0
   useEffect(() => {
     const newTargets: Record<string, { hours: number; minutes: number }> = {};
     members.forEach(member => {
       const userSetting = userSettingsMap[member.id];
-      const targetMinutes = userSetting?.daily_target_minutes ?? deptSettings.daily_target_minutes;
+      let targetMinutes: number;
+      
+      if (userSetting?.daily_target_minutes !== null && userSetting?.daily_target_minutes !== undefined) {
+        // Has custom setting for this department
+        targetMinutes = userSetting.daily_target_minutes;
+      } else if (member.primaryDepartmentId === effectiveDepartmentId) {
+        // This is primary department - use org default
+        targetMinutes = orgDefaultMinutes;
+      } else {
+        // Non-primary department without custom setting - default to 0
+        targetMinutes = 0;
+      }
+      
       newTargets[member.id] = {
         hours: Math.floor(targetMinutes / 60),
         minutes: targetMinutes % 60,
       };
     });
     setLocalTargets(newTargets);
-  }, [members, userSettingsMap, deptSettings]);
+  }, [members, userSettingsMap, effectiveDepartmentId, orgDefaultMinutes]);
 
   const fetchDepartments = async () => {
     const { data, error } = await supabase
@@ -101,16 +119,22 @@ export default function MemberTargetsSettings() {
       if (departmentUsers && departmentUsers.length > 0) {
         const userIds = departmentUsers.map(du => du.user_id);
         
-        // Filter to only faculty users
+        // Filter to only faculty users and get their primary department
         const { data: facultyRoles, error: rolesError } = await supabase
           .from("user_roles")
-          .select("user_id")
+          .select("user_id, department_id")
           .in("user_id", userIds)
           .eq("role", "faculty");
 
         if (rolesError) throw rolesError;
 
         const facultyUserIds = facultyRoles?.map(r => r.user_id) || [];
+        
+        // Build a map of userId -> primaryDepartmentId
+        const primaryDeptMap = new Map<string, string | null>();
+        facultyRoles?.forEach(r => {
+          primaryDeptMap.set(r.user_id, r.department_id);
+        });
         
         if (facultyUserIds.length > 0) {
           const { data: profiles, error: profilesError } = await supabase
@@ -122,7 +146,14 @@ export default function MemberTargetsSettings() {
 
           if (profilesError) throw profilesError;
 
-          setMembers(profiles || []);
+          // Add primaryDepartmentId to each member
+          const membersWithPrimary: Member[] = (profiles || []).map(p => ({
+            id: p.id,
+            full_name: p.full_name,
+            primaryDepartmentId: primaryDeptMap.get(p.id) || null,
+          }));
+
+          setMembers(membersWithPrimary);
         } else {
           setMembers([]);
         }
@@ -252,9 +283,10 @@ export default function MemberTargetsSettings() {
           ) : (
             <div className="space-y-3">
               {members.map((member) => {
-                const target = localTargets[member.id] || { hours: 8, minutes: 0 };
+                const target = localTargets[member.id] || { hours: 0, minutes: 0 };
                 const isCustom = hasCustomTarget(member.id);
                 const isSaving = savingUser === member.id;
+                const isPrimaryDept = member.primaryDepartmentId === effectiveDepartmentId;
 
                 return (
                   <div 
@@ -266,8 +298,10 @@ export default function MemberTargetsSettings() {
                       <div className="flex items-center gap-2 mt-1">
                         {isCustom ? (
                           <Badge variant="secondary" className="text-xs">Custom</Badge>
+                        ) : isPrimaryDept ? (
+                          <Badge variant="outline" className="text-xs">Primary Dept</Badge>
                         ) : (
-                          <Badge variant="outline" className="text-xs">Default</Badge>
+                          <Badge variant="outline" className="text-xs text-muted-foreground">Non-Primary (0h default)</Badge>
                         )}
                       </div>
                     </div>
