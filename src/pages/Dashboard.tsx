@@ -95,7 +95,24 @@ export default function Dashboard() {
       // Fetch user's resolved daily target (sum across all departments)
       const targetBreakdown = await calculateUserTotalDailyTargetMinutes(userWithRole.user.id);
       const resolvedDailyTargetMinutes = targetBreakdown.totalDailyTargetMinutes;
-      const expectedWeeklyMinutes = resolvedDailyTargetMinutes * 5; // 5 working days
+      
+      // Calculate this week's date range
+      const weekStartDate = new Date();
+      weekStartDate.setDate(weekStartDate.getDate() - weekStartDate.getDay() + 1); // Monday
+      const weekEndDate = new Date(weekStartDate);
+      weekEndDate.setDate(weekEndDate.getDate() + 4); // Friday (working days only)
+      
+      // Fetch leave days for current week
+      const { data: weekLeaves } = await supabase
+        .from("leave_days")
+        .select("leave_date")
+        .eq("user_id", userWithRole.user.id)
+        .gte("leave_date", weekStartDate.toISOString().split("T")[0])
+        .lte("leave_date", weekEndDate.toISOString().split("T")[0]);
+      
+      const leaveDaysThisWeek = weekLeaves?.length || 0;
+      const workingDaysThisWeek = Math.max(0, 5 - leaveDaysThisWeek);
+      const expectedWeeklyMinutes = resolvedDailyTargetMinutes * workingDaysThisWeek;
 
       // Fetch user's departments from user_departments table
       const { data: userDepts } = await supabase

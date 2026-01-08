@@ -113,8 +113,12 @@ export default function Team() {
       monthStart.setDate(1);
       const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
 
-      // Fetch profiles, entries, today's leaves, and month's leaves in parallel
-      const [profilesRes, entriesRes, leavesRes, monthLeavesRes] = await Promise.all([
+      // Calculate working week range (Mon-Fri)
+      const weekFriday = new Date(weekStart);
+      weekFriday.setDate(weekFriday.getDate() + 4); // Friday
+
+      // Fetch profiles, entries, today's leaves, month's leaves, and this week's leaves in parallel
+      const [profilesRes, entriesRes, leavesRes, monthLeavesRes, weekLeavesRes] = await Promise.all([
         supabase
           .from("profiles")
           .select("id, full_name, avatar_url, is_active")
@@ -136,12 +140,19 @@ export default function Team() {
           .in("user_id", userIds)
           .gte("leave_date", format(monthStart, "yyyy-MM-dd"))
           .lte("leave_date", format(monthEnd, "yyyy-MM-dd")),
+        supabase
+          .from("leave_days")
+          .select("user_id, leave_date")
+          .in("user_id", userIds)
+          .gte("leave_date", format(weekStart, "yyyy-MM-dd"))
+          .lte("leave_date", format(weekFriday, "yyyy-MM-dd")),
       ]);
 
       const profiles = profilesRes.data || [];
       const entries = entriesRes.data || [];
       const todayLeaves = leavesRes.data || [];
       const monthLeaves = monthLeavesRes.data || [];
+      const weekLeaves = weekLeavesRes.data || [];
 
       // Build team member data with per-user targets
       const memberPromises = profiles
@@ -153,7 +164,11 @@ export default function Team() {
           
           // Fetch user's actual daily target
           const targetBreakdown = await calculateUserTotalDailyTargetMinutes(profile.id);
-          const weeklyTargetHours = (targetBreakdown.totalDailyTargetMinutes / 60) * 5;
+          
+          // Calculate working days minus leave days for this member
+          const memberWeekLeaves = weekLeaves.filter((l) => l.user_id === profile.id).length;
+          const workingDaysThisWeek = Math.max(0, 5 - memberWeekLeaves);
+          const weeklyTargetHours = (targetBreakdown.totalDailyTargetMinutes / 60) * workingDaysThisWeek;
           
           const completionRate = weeklyTargetHours > 0 
             ? Math.min(Math.round((weeklyHours / weeklyTargetHours) * 100), 100)
