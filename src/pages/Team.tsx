@@ -15,6 +15,7 @@ import { Users, Clock, CheckCircle, Calendar, Eye, TrendingUp } from "lucide-rea
 import { format, startOfWeek, endOfWeek } from "date-fns";
 import { MemberCalendar } from "@/components/reports/MemberCalendar";
 import { calculateDurationMinutes } from "@/lib/timesheetUtils";
+import { calculateUserTotalDailyTargetMinutes } from "@/lib/targets";
 
 interface TeamMember {
   id: string;
@@ -23,6 +24,7 @@ interface TeamMember {
   avatarUrl: string | null;
   isActive: boolean;
   weeklyHours: number;
+  weeklyTargetHours: number;
   entriesCount: number;
   completionRate: number;
   isOnLeaveToday: boolean;
@@ -36,8 +38,6 @@ interface TeamStats {
   membersOnTrack: number;
   membersOnLeaveToday: number;
 }
-
-const WEEKLY_HOURS_TARGET = 40;
 
 export default function Team() {
   const { userWithRole, loading: authLoading } = useAuth();
@@ -143,14 +143,21 @@ export default function Team() {
       const todayLeaves = leavesRes.data || [];
       const monthLeaves = monthLeavesRes.data || [];
 
-      // Build team member data
-      const members: TeamMember[] = profiles
+      // Build team member data with per-user targets
+      const memberPromises = profiles
         .filter((p) => p.id !== userWithRole.user.id) // Exclude self
-        .map((profile) => {
+        .map(async (profile) => {
           const memberEntries = entries.filter((e) => e.user_id === profile.id);
           const totalMinutes = memberEntries.reduce((sum, e) => sum + calculateDurationMinutes(e.start_time, e.end_time), 0);
           const weeklyHours = Math.round((totalMinutes / 60) * 10) / 10;
-          const completionRate = Math.min(Math.round((weeklyHours / WEEKLY_HOURS_TARGET) * 100), 100);
+          
+          // Fetch user's actual daily target
+          const targetBreakdown = await calculateUserTotalDailyTargetMinutes(profile.id);
+          const weeklyTargetHours = (targetBreakdown.totalDailyTargetMinutes / 60) * 5;
+          
+          const completionRate = weeklyTargetHours > 0 
+            ? Math.min(Math.round((weeklyHours / weeklyTargetHours) * 100), 100)
+            : 0;
           const isOnLeaveToday = todayLeaves.some((l) => l.user_id === profile.id);
           const leavesThisMonth = monthLeaves.filter((l) => l.user_id === profile.id).length;
 
@@ -161,12 +168,15 @@ export default function Team() {
             avatarUrl: profile.avatar_url,
             isActive: profile.is_active,
             weeklyHours,
+            weeklyTargetHours: Math.round(weeklyTargetHours * 10) / 10,
             entriesCount: memberEntries.length,
             completionRate,
             isOnLeaveToday,
             leavesThisMonth,
           };
         });
+
+      const members = await Promise.all(memberPromises);
 
       // Calculate team stats
       const avgCompletion = members.length > 0
@@ -346,7 +356,7 @@ export default function Team() {
                       <div className="flex justify-between text-sm mb-1">
                         <span className="text-muted-foreground">Weekly Hours</span>
                         <span className="font-medium">
-                          {member.weeklyHours}h / {WEEKLY_HOURS_TARGET}h
+                          {member.weeklyHours}h / {member.weeklyTargetHours}h
                         </span>
                       </div>
                       <div className="h-2 bg-muted rounded-full overflow-hidden">

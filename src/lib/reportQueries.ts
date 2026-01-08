@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { differenceInDays, differenceInCalendarDays, eachDayOfInterval, format } from "date-fns";
+import { differenceInCalendarDays, eachDayOfInterval, format, isWeekend } from "date-fns";
 import { calculateDurationMinutes } from "./timesheetUtils";
 import { calculateUserTotalDailyTargetMinutes } from "./targets";
 
@@ -157,15 +157,26 @@ export async function fetchFacultyReport(
   const targetBreakdown = await calculateUserTotalDailyTargetMinutes(userId);
   const userDailyTargetMinutes = targetBreakdown.totalDailyTargetMinutes;
 
-  const { data: entries, error } = await supabase
-    .from("timesheet_entries")
-    .select("*")
-    .eq("user_id", userId)
-    .gte("entry_date", dateFrom)
-    .lte("entry_date", dateTo)
-    .order("entry_date", { ascending: false });
+  // Fetch entries and leave days in parallel
+  const [entriesRes, leavesRes] = await Promise.all([
+    supabase
+      .from("timesheet_entries")
+      .select("*")
+      .eq("user_id", userId)
+      .gte("entry_date", dateFrom)
+      .lte("entry_date", dateTo)
+      .order("entry_date", { ascending: false }),
+    supabase
+      .from("leave_days")
+      .select("leave_date")
+      .eq("user_id", userId)
+      .gte("leave_date", dateFrom)
+      .lte("leave_date", dateTo),
+  ]);
 
-  if (error) throw error;
+  if (entriesRes.error) throw entriesRes.error;
+  const entries = entriesRes.data;
+  const leaveDates = new Set(leavesRes.data?.map(l => l.leave_date) || []);
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -194,12 +205,14 @@ export async function fetchFacultyReport(
   const totalMinutes = entries?.reduce((sum, e) => sum + getEntryDuration(e), 0) || 0;
   const totalHours = totalMinutes / 60;
   
+  // Calculate working days excluding weekends and leave days
+  const workingDays = countWorkingDays(period.dateFrom, period.dateTo, leaveDates);
+  
   // Use user's resolved daily target for expected hours calculation
-  const expectedHours = calculateExpectedHours(period, userDailyTargetMinutes);
+  const expectedHours = (workingDays * userDailyTargetMinutes) / 60;
   const completionRate = calculateCompletionRate(totalMinutes, expectedHours * 60);
   const activityBreakdown = generateActivityBreakdown(entries || []);
   
-  const workingDays = differenceInCalendarDays(period.dateTo, period.dateFrom) + 1;
   const averageDailyHours = workingDays > 0 ? totalHours / workingDays : 0;
 
   // Calculate status counts
@@ -326,19 +339,23 @@ export async function fetchDepartmentReport(
   };
 }
 
+// Helper to count working days (excluding weekends and leave days)
+export function countWorkingDays(dateFrom: Date, dateTo: Date, leaveDates: Set<string> = new Set()): number {
+  const allDays = eachDayOfInterval({ start: dateFrom, end: dateTo });
+  return allDays.filter(day => {
+    if (isWeekend(day)) return false;
+    const dateStr = format(day, "yyyy-MM-dd");
+    if (leaveDates.has(dateStr)) return false;
+    return true;
+  }).length;
+}
+
 export function calculateExpectedHours(period: ReportPeriod, dailyTargetMinutes: number = 480): number {
-  const workingDays = differenceInCalendarDays(period.dateTo, period.dateFrom) + 1;
-  
-  switch (period.type) {
-    case "daily":
-      return dailyTargetMinutes / 60;
-    case "weekly":
-      return Math.min(workingDays, 5) * (dailyTargetMinutes / 60);
-    case "monthly":
-      return Math.min(workingDays, 20) * (dailyTargetMinutes / 60);
-    default:
-      return workingDays * (dailyTargetMinutes / 60);
-  }
+  // This function is now mainly used for department reports where we don't have per-user leave data
+  // For faculty reports, we calculate expected hours directly using countWorkingDays
+  const allDays = eachDayOfInterval({ start: period.dateFrom, end: period.dateTo });
+  const workingDays = allDays.filter(day => !isWeekend(day)).length;
+  return (workingDays * dailyTargetMinutes) / 60;
 }
 
 export function calculateCompletionRate(actualMinutes: number, expectedMinutes: number): number {
