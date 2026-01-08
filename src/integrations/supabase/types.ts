@@ -455,6 +455,44 @@ export type Database = {
           },
         ]
       }
+      user_settings: {
+        Row: {
+          created_at: string | null
+          department_id: string | null
+          id: string
+          key: string
+          updated_at: string | null
+          user_id: string
+          value: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          department_id?: string | null
+          id?: string
+          key: string
+          updated_at?: string | null
+          user_id: string
+          value?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          department_id?: string | null
+          id?: string
+          key?: string
+          updated_at?: string | null
+          user_id?: string
+          value?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_settings_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
