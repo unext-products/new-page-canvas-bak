@@ -146,9 +146,7 @@ export default function Index() {
             {/* Form Card */}
             <div className="rounded-2xl bg-card border border-border p-8 shadow-sm">
               <div className="text-center mb-8">
-                <h2 className="text-2xl font-semibold text-foreground mb-2">
-                  {isLogin ? "Welcome" : "Get started"}
-                </h2>
+                <h2 className="text-2xl font-semibold text-foreground mb-2">{isLogin ? "Welcome" : "Get started"}</h2>
                 <p className="text-muted-foreground text-sm">
                   {isLogin ? "Sign in to access your dashboard" : "Create your account to begin"}
                 </p>
@@ -250,7 +248,7 @@ export default function Index() {
                 {/* Trust badge */}
                 <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground pt-4 border-t border-border">
                   <Shield className="h-3.5 w-3.5" />
-                  <span>256-bit SSL encryption</span>
+                  <span>Login secured with 256-bit SSL encryption</span>
                 </div>
 
                 {/* Mobile User Guide Link */}

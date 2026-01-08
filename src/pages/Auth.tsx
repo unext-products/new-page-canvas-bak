@@ -94,9 +94,9 @@ export default function Auth() {
       <nav className="fixed top-0 left-0 right-0 z-50 px-6 py-4">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <Logo to="/" variant="light" />
-          
-          <Link 
-            to="/" 
+
+          <Link
+            to="/"
             className="flex items-center gap-2 text-sm text-landing-secondary hover:text-white transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -116,9 +116,7 @@ export default function Auth() {
                 <br />
                 simplified.
               </h1>
-              <p className="text-lg text-landing-secondary">
-                Log hours, get approvals, understand where time goes.
-              </p>
+              <p className="text-lg text-landing-secondary">Log hours, get approvals, understand where time goes.</p>
             </div>
 
             {/* Features List */}
@@ -146,16 +144,12 @@ export default function Auth() {
             {/* Form Card */}
             <div className="rounded-2xl bg-landing-card border border-landing-border p-8">
               <div className="text-center mb-8">
-                <h2 className="text-2xl font-semibold text-white mb-2">
-                  {isLogin ? "Welcome" : "Get started"}
-                </h2>
+                <h2 className="text-2xl font-semibold text-white mb-2">{isLogin ? "Welcome" : "Get started"}</h2>
                 <p className="text-landing-secondary text-sm">
-                  {isLogin
-                    ? "Sign in to access your dashboard"
-                    : "Create your account to begin"}
+                  {isLogin ? "Sign in to access your dashboard" : "Create your account to begin"}
                 </p>
               </div>
-              
+
               <form onSubmit={handleSubmit} className="space-y-4">
                 {!isLogin && (
                   <>
@@ -173,7 +167,7 @@ export default function Auth() {
                         className="h-11 bg-landing-dark border-landing-border text-white placeholder:text-landing-muted focus:border-primary"
                       />
                     </div>
-                    
+
                     <div className="space-y-2">
                       <Label htmlFor="organizationName" className="text-landing-secondary text-sm">
                         Organization Name
@@ -188,7 +182,7 @@ export default function Auth() {
                         className="h-11 bg-landing-dark border-landing-border text-white placeholder:text-landing-muted focus:border-primary"
                       />
                     </div>
-                    
+
                     <div className="space-y-2">
                       <Label htmlFor="organizationCode" className="text-landing-secondary text-sm">
                         Organization Code
@@ -205,7 +199,7 @@ export default function Auth() {
                     </div>
                   </>
                 )}
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="email" className="text-landing-secondary text-sm">
                     Email
@@ -220,7 +214,7 @@ export default function Auth() {
                     className="h-11 bg-landing-dark border-landing-border text-white placeholder:text-landing-muted focus:border-primary"
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="password" className="text-landing-secondary text-sm">
                     Password
@@ -234,7 +228,7 @@ export default function Auth() {
                     className="h-11 bg-landing-dark border-landing-border text-white placeholder:text-landing-muted focus:border-primary"
                   />
                 </div>
-                
+
                 <Button
                   type="submit"
                   className="w-full h-11 bg-white text-landing-dark hover:bg-white/90 font-medium"
@@ -243,13 +237,12 @@ export default function Auth() {
                   {loading ? "Loading..." : isLogin ? "Sign In" : "Create Account"}
                 </Button>
               </form>
-              
+
               <div className="mt-6 space-y-4">
                 <div className="text-center">
                   <span className="text-sm text-landing-muted">
                     {isLogin ? "Don't have an account?" : "Already have an account?"}
-                  </span>
-                  {" "}
+                  </span>{" "}
                   <button
                     type="button"
                     className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
@@ -258,11 +251,11 @@ export default function Auth() {
                     {isLogin ? "Sign up" : "Sign in"}
                   </button>
                 </div>
-                
+
                 {/* Trust badge */}
                 <div className="flex items-center justify-center gap-2 text-xs text-landing-muted pt-4 border-t border-landing-border">
                   <Shield className="h-3.5 w-3.5" />
-                  <span>256-bit SSL encryption</span>
+                  <span>Login secured with 256-bit SSL encryption</span>
                 </div>
               </div>
             </div>
