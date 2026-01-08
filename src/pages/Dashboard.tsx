@@ -4,7 +4,20 @@ import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Plus, Clock, CheckCircle, XCircle, AlertCircle, Users, Building2, TrendingUp, Activity, CalendarDays, UserCheck, Target } from "lucide-react";
+import {
+  Plus,
+  Clock,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  Users,
+  Building2,
+  TrendingUp,
+  Activity,
+  CalendarDays,
+  UserCheck,
+  Target,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ActivityBreakdownChart } from "@/components/reports/ActivityBreakdownChart";
@@ -16,13 +29,13 @@ import { calculateDurationMinutes } from "@/lib/timesheetUtils";
 import { calculateUserTotalDailyTargetMinutes } from "@/lib/targets";
 
 // Helper to get duration from entry
-const getEntryDuration = (e: { start_time: string; end_time: string }) => 
+const getEntryDuration = (e: { start_time: string; end_time: string }) =>
   calculateDurationMinutes(e.start_time, e.end_time);
 
 export default function Dashboard() {
   const { userWithRole } = useAuth();
   const navigate = useNavigate();
-const [stats, setStats] = useState({
+  const [stats, setStats] = useState({
     todayMinutes: 0,
     targetMinutes: 480,
     pending: 0,
@@ -66,7 +79,7 @@ const [stats, setStats] = useState({
 
   const loadDashboardData = async () => {
     if (!userWithRole) return;
-    
+
     setLoading(true);
     const today = new Date().toISOString().split("T")[0];
 
@@ -91,21 +104,18 @@ const [stats, setStats] = useState({
         .eq("user_id", userWithRole.user.id);
 
       let deptIds: string[] = [];
-      
+
       if (userDepts && userDepts.length > 0) {
-        deptIds = userDepts.map(ud => ud.department_id);
+        deptIds = userDepts.map((ud) => ud.department_id);
       } else if (userWithRole.departmentId) {
         // Fallback to user_roles.department_id if user_departments is empty
         deptIds = [userWithRole.departmentId];
       }
 
       if (deptIds.length > 0) {
-        const { data: deptDetails } = await supabase
-          .from("departments")
-          .select("name, code")
-          .in("id", deptIds);
-        
-        setUserDepartments(deptDetails?.map(d => `${d.name} (${d.code})`) || []);
+        const { data: deptDetails } = await supabase.from("departments").select("name, code").in("id", deptIds);
+
+        setUserDepartments(deptDetails?.map((d) => `${d.name} (${d.code})`) || []);
       }
 
       const { data: entries } = await supabase
@@ -139,7 +149,7 @@ const [stats, setStats] = useState({
         const todayTotal = entries
           .filter((e) => e.status === "approved" || e.status === "submitted")
           .reduce((sum, e) => sum + getEntryDuration(e), 0);
-        
+
         setStats((prev) => ({
           ...prev,
           todayMinutes: todayTotal,
@@ -178,11 +188,10 @@ const [stats, setStats] = useState({
         const weeklyActualMinutes = weekEntries
           .filter((e) => e.status === "approved" || e.status === "submitted")
           .reduce((sum, e) => sum + getEntryDuration(e), 0);
-        
-        const weeklyCompletionRate = expectedWeeklyMinutes > 0 
-          ? (weeklyActualMinutes / expectedWeeklyMinutes) * 100 
-          : 0;
-        
+
+        const weeklyCompletionRate =
+          expectedWeeklyMinutes > 0 ? (weeklyActualMinutes / expectedWeeklyMinutes) * 100 : 0;
+
         setStats((prev) => ({
           ...prev,
           weeklyActualMinutes,
@@ -209,7 +218,7 @@ const [stats, setStats] = useState({
       setLoading(false);
       return;
     }
-    
+
     setLoading(false);
   };
 
@@ -220,7 +229,7 @@ const [stats, setStats] = useState({
       .select("department_id")
       .eq("user_id", hodUserId);
 
-    const hodDeptIds = hodDepartments?.map(d => d.department_id) || [];
+    const hodDeptIds = hodDepartments?.map((d) => d.department_id) || [];
 
     if (hodDeptIds.length === 0) {
       // No departments assigned
@@ -241,20 +250,17 @@ const [stats, setStats] = useState({
     }
 
     // Fetch department names for display
-    const { data: deptData } = await supabase
-      .from("departments")
-      .select("name, code")
-      .in("id", hodDeptIds);
-    
+    const { data: deptData } = await supabase.from("departments").select("name, code").in("id", hodDeptIds);
+
     if (deptData && deptData.length > 0) {
-      setUserDepartments(deptData.map(d => `${d.name} (${d.code})`));
+      setUserDepartments(deptData.map((d) => `${d.name} (${d.code})`));
     }
 
     const today = new Date().toISOString().split("T")[0];
     const startOfWeek = new Date();
     startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay() + 1); // Monday
     const weekStart = startOfWeek.toISOString().split("T")[0];
-    
+
     const endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(endOfWeek.getDate() + 6);
     const weekEnd = endOfWeek.toISOString().split("T")[0];
@@ -265,7 +271,7 @@ const [stats, setStats] = useState({
       .select("user_id")
       .in("department_id", hodDeptIds);
 
-    const allDeptUserIds = [...new Set(deptUsers?.map(d => d.user_id) || [])];
+    const allDeptUserIds = [...new Set(deptUsers?.map((d) => d.user_id) || [])];
 
     // Fetch faculty roles to filter to only faculty
     const { data: facultyRoles } = await supabase
@@ -275,7 +281,7 @@ const [stats, setStats] = useState({
       .in("user_id", allDeptUserIds.length > 0 ? allDeptUserIds : [hodUserId]);
 
     // Team = faculty in HOD's departments, excluding HOD themselves
-    const teamUserIds = (facultyRoles?.map(r => r.user_id) || []).filter(id => id !== hodUserId);
+    const teamUserIds = (facultyRoles?.map((r) => r.user_id) || []).filter((id) => id !== hodUserId);
 
     // Fetch team profiles
     const { data: teamProfiles } = await supabase
@@ -306,13 +312,13 @@ const [stats, setStats] = useState({
       .eq("leave_date", today);
 
     // Get profiles for leave users
-    const leaveUserIds = todayLeavesRaw?.map(l => l.user_id) || [];
+    const leaveUserIds = todayLeavesRaw?.map((l) => l.user_id) || [];
     const { data: leaveProfiles } = await supabase
       .from("profiles")
       .select("id, full_name")
       .in("id", leaveUserIds.length > 0 ? leaveUserIds : [hodUserId]);
-    
-    const leaveProfileMap = new Map(leaveProfiles?.map(p => [p.id, p.full_name]) || []);
+
+    const leaveProfileMap = new Map(leaveProfiles?.map((p) => [p.id, p.full_name]) || []);
 
     // Calculate weekly hours using start_time/end_time
     const totalWeeklyMinutes = weekEntries?.reduce((sum, e) => sum + getEntryDuration(e), 0) || 0;
@@ -322,7 +328,7 @@ const [stats, setStats] = useState({
 
     // Activity breakdown
     const activityMap = new Map();
-    weekEntries?.forEach(entry => {
+    weekEntries?.forEach((entry) => {
       const type = entry.activity_type;
       if (!type) return;
       if (!activityMap.has(type)) {
@@ -345,7 +351,7 @@ const [stats, setStats] = useState({
 
     // Team performance - per member stats
     const memberStatsMap = new Map();
-    teamProfiles?.forEach(profile => {
+    teamProfiles?.forEach((profile) => {
       memberStatsMap.set(profile.id, {
         id: profile.id,
         name: profile.full_name,
@@ -355,7 +361,7 @@ const [stats, setStats] = useState({
       });
     });
 
-    weekEntries?.forEach(entry => {
+    weekEntries?.forEach((entry) => {
       const userId = entry.user_id;
       if (memberStatsMap.has(userId)) {
         const current = memberStatsMap.get(userId);
@@ -369,7 +375,7 @@ const [stats, setStats] = useState({
     });
 
     const teamPerformance = Array.from(memberStatsMap.values())
-      .map(member => ({
+      .map((member) => ({
         ...member,
         hours: member.minutes / 60,
         expectedHours: 40, // 5 days * 8 hours
@@ -380,16 +386,18 @@ const [stats, setStats] = useState({
     // Recent activity (last 10 entries from team)
     const { data: recentActivity } = await supabase
       .from("timesheet_entries")
-      .select(`
+      .select(
+        `
         id, start_time, end_time, user_id, activity_type, entry_date, status, created_at,
         profiles:user_id(full_name)
-      `)
+      `,
+      )
       .in("user_id", teamUserIds.length > 0 ? teamUserIds : ["no-id"])
       .order("created_at", { ascending: false })
       .limit(10);
 
     // Calculate today working (team members not on leave)
-    const onLeaveIds = new Set(todayLeavesRaw?.map(l => l.user_id) || []);
+    const onLeaveIds = new Set(todayLeavesRaw?.map((l) => l.user_id) || []);
     const todayWorking = teamCount - onLeaveIds.size;
 
     setHodStats({
@@ -401,10 +409,11 @@ const [stats, setStats] = useState({
       activityBreakdown,
       teamPerformance,
       recentActivity: recentActivity || [],
-      todayLeaves: todayLeavesRaw?.map(l => ({
-        ...l,
-        userName: leaveProfileMap.get(l.user_id) || "Unknown",
-      })) || [],
+      todayLeaves:
+        todayLeavesRaw?.map((l) => ({
+          ...l,
+          userName: leaveProfileMap.get(l.user_id) || "Unknown",
+        })) || [],
       todayWorking,
     });
   };
@@ -413,37 +422,29 @@ const [stats, setStats] = useState({
     const startOfWeek = new Date();
     startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
     const weekStart = startOfWeek.toISOString().split("T")[0];
-    
+
     const endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(endOfWeek.getDate() + 6);
     const weekEnd = endOfWeek.toISOString().split("T")[0];
 
     // Fetch total faculty count and their department mappings
-    const { data: users } = await supabase
-      .from("user_roles")
-      .select("user_id, department_id")
-      .eq("role", "faculty");
+    const { data: users } = await supabase.from("user_roles").select("user_id, department_id").eq("role", "faculty");
 
     // Create user to department mapping
     const userDeptMap = new Map<string, string>();
-    users?.forEach(u => {
+    users?.forEach((u) => {
       if (u.department_id) userDeptMap.set(u.user_id, u.department_id);
     });
 
     // Fetch total departments
-    const { data: departments } = await supabase
-      .from("departments")
-      .select("id, name");
-    
+    const { data: departments } = await supabase.from("departments").select("id, name");
+
     // Create department id to name mapping
     const deptNameMap = new Map<string, string>();
-    departments?.forEach(d => deptNameMap.set(d.id, d.name));
+    departments?.forEach((d) => deptNameMap.set(d.id, d.name));
 
     // Fetch pending approvals org-wide
-    const { data: pendingEntries } = await supabase
-      .from("timesheet_entries")
-      .select("id")
-      .eq("status", "submitted");
+    const { data: pendingEntries } = await supabase.from("timesheet_entries").select("id").eq("status", "submitted");
 
     // Fetch this week's entries
     const { data: weekEntries } = await supabase
@@ -459,7 +460,7 @@ const [stats, setStats] = useState({
 
     // Activity breakdown
     const activityMap = new Map();
-    weekEntries?.forEach(entry => {
+    weekEntries?.forEach((entry) => {
       const type = entry.activity_type;
       if (!type) return; // Skip entries without activity type
       if (!activityMap.has(type)) {
@@ -482,7 +483,7 @@ const [stats, setStats] = useState({
 
     // Department performance - get department from user_roles mapping
     const deptMap = new Map();
-    weekEntries?.forEach(entry => {
+    weekEntries?.forEach((entry) => {
       const deptId = userDeptMap.get(entry.user_id);
       if (!deptId) return; // Skip if user has no department
       const deptName = deptNameMap.get(deptId) || "Unknown";
@@ -495,29 +496,33 @@ const [stats, setStats] = useState({
       current.facultyCount.add(entry.user_id);
     });
 
-    const deptPerformance = Array.from(deptMap.entries()).map(([id, data]) => {
-      const facultyCount = data.facultyCount.size;
-      const expectedDeptMinutes = facultyCount * 5 * 480;
-      const completionRate = expectedDeptMinutes > 0 ? (data.minutes / expectedDeptMinutes) * 100 : 0;
-      return {
-        id,
-        name: data.name,
-        minutes: data.minutes,
-        completionRate,
-        facultyCount,
-      };
-    }).sort((a, b) => b.completionRate - a.completionRate);
+    const deptPerformance = Array.from(deptMap.entries())
+      .map(([id, data]) => {
+        const facultyCount = data.facultyCount.size;
+        const expectedDeptMinutes = facultyCount * 5 * 480;
+        const completionRate = expectedDeptMinutes > 0 ? (data.minutes / expectedDeptMinutes) * 100 : 0;
+        return {
+          id,
+          name: data.name,
+          minutes: data.minutes,
+          completionRate,
+          facultyCount,
+        };
+      })
+      .sort((a, b) => b.completionRate - a.completionRate);
 
-    const topDepartments = deptPerformance.filter(d => d.completionRate >= 70).slice(0, 3);
-    const strugglingDepartments = deptPerformance.filter(d => d.completionRate < 70);
+    const topDepartments = deptPerformance.filter((d) => d.completionRate >= 70).slice(0, 3);
+    const strugglingDepartments = deptPerformance.filter((d) => d.completionRate < 70);
 
     // Recent activity (last 10 entries)
     const { data: recentActivity } = await supabase
       .from("timesheet_entries")
-      .select(`
+      .select(
+        `
         id, start_time, end_time, user_id, activity_type, entry_date, status, department_code, created_at,
         profiles:user_id(full_name)
-      `)
+      `,
+      )
       .order("created_at", { ascending: false })
       .limit(10);
 
@@ -544,7 +549,7 @@ const [stats, setStats] = useState({
   const getWelcomeMessage = () => {
     const name = userWithRole?.profile?.full_name || "User";
     const role = userWithRole?.role;
-    return `Hello, ${name}${role ? ` (${role.toUpperCase()})` : ""}`;
+    return `Hello ${name}${role ? ` (${role.toUpperCase()})` : ""}`;
   };
 
   if (!userWithRole?.role) {
@@ -564,11 +569,16 @@ const [stats, setStats] = useState({
 
   const getRoleDescription = () => {
     switch (userWithRole.role) {
-      case "member": return "Track your working hours and submit timesheets";
-      case "manager": return "Review and approve team timesheets";
-      case "org_admin": return "Manage users, departments, and reports";
-      case "program_manager": return "Manage programs and departments";
-      default: return "";
+      case "member":
+        return "Track your working hours and submit timesheets";
+      case "manager":
+        return "Review and approve team timesheets";
+      case "org_admin":
+        return "Manage users, departments, and reports";
+      case "program_manager":
+        return "Manage programs and departments";
+      default:
+        return "";
     }
   };
 
@@ -580,12 +590,8 @@ const [stats, setStats] = useState({
             <Clock className="h-6 w-6 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">
-              {getWelcomeMessage()}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {getRoleDescription()}
-            </p>
+            <h1 className="text-2xl font-semibold tracking-tight">{getWelcomeMessage()}</h1>
+            <p className="text-sm text-muted-foreground">{getRoleDescription()}</p>
             {(userWithRole.role === "member" || userWithRole.role === "manager") && userDepartments.length > 0 && (
               <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
                 <Building2 className="h-3.5 w-3.5" />
@@ -604,12 +610,8 @@ const [stats, setStats] = useState({
                   <Clock className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">
-                    {formatMinutes(stats.todayMinutes)}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Target: {formatMinutes(stats.targetMinutes)}
-                  </p>
+                  <div className="text-2xl font-bold">{formatMinutes(stats.todayMinutes)}</div>
+                  <p className="text-xs text-muted-foreground mt-1">Target: {formatMinutes(stats.targetMinutes)}</p>
                 </CardContent>
               </Card>
 
@@ -619,9 +621,7 @@ const [stats, setStats] = useState({
                   <AlertCircle className="h-4 w-4 text-warning" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-warning">
-                    {stats.pending}
-                  </div>
+                  <div className="text-2xl font-bold text-warning">{stats.pending}</div>
                   <p className="text-xs text-muted-foreground mt-1">Total awaiting approval</p>
                 </CardContent>
               </Card>
@@ -632,9 +632,7 @@ const [stats, setStats] = useState({
                   <CheckCircle className="h-4 w-4 text-success" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-success">
-                    {stats.approved}
-                  </div>
+                  <div className="text-2xl font-bold text-success">{stats.approved}</div>
                   <p className="text-xs text-muted-foreground mt-1">This week</p>
                 </CardContent>
               </Card>
@@ -645,9 +643,7 @@ const [stats, setStats] = useState({
                   <CalendarDays className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">
-                    {stats.leavesThisMonth}
-                  </div>
+                  <div className="text-2xl font-bold">{stats.leavesThisMonth}</div>
                   <p className="text-xs text-muted-foreground mt-1">This month</p>
                 </CardContent>
               </Card>
@@ -677,7 +673,9 @@ const [stats, setStats] = useState({
               </CardHeader>
               <CardContent>
                 {recentEntries.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No entries yet. Start by creating your first timesheet entry.</p>
+                  <p className="text-sm text-muted-foreground">
+                    No entries yet. Start by creating your first timesheet entry.
+                  </p>
                 ) : (
                   <div className="space-y-3">
                     {recentEntries.map((entry) => (
@@ -732,10 +730,12 @@ const [stats, setStats] = useState({
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                       <CardTitle className="text-sm font-medium text-muted-foreground">Pending Approvals</CardTitle>
-                      <AlertCircle className={`h-4 w-4 ${hodStats.pendingApprovals > 0 ? 'text-warning' : 'text-muted-foreground'}`} />
+                      <AlertCircle
+                        className={`h-4 w-4 ${hodStats.pendingApprovals > 0 ? "text-warning" : "text-muted-foreground"}`}
+                      />
                     </CardHeader>
                     <CardContent>
-                      <div className={`text-2xl font-bold ${hodStats.pendingApprovals > 0 ? 'text-warning' : ''}`}>
+                      <div className={`text-2xl font-bold ${hodStats.pendingApprovals > 0 ? "text-warning" : ""}`}>
                         {hodStats.pendingApprovals}
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">Awaiting your review</p>
@@ -748,9 +748,7 @@ const [stats, setStats] = useState({
                       <Clock className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold text-success">
-                        {Math.round(hodStats.weeklyHours)}h
-                      </div>
+                      <div className="text-2xl font-bold text-success">{Math.round(hodStats.weeklyHours)}h</div>
                       <p className="text-xs text-muted-foreground mt-1">
                         / {Math.round(hodStats.expectedWeeklyHours)}h expected
                       </p>
@@ -784,14 +782,20 @@ const [stats, setStats] = useState({
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm text-muted-foreground">Completion Rate</p>
-                        <p className={`text-4xl font-bold ${hodStats.completionRate >= 90 ? 'text-success' : hodStats.completionRate >= 70 ? 'text-warning' : 'text-destructive'}`}>
+                        <p
+                          className={`text-4xl font-bold ${hodStats.completionRate >= 90 ? "text-success" : hodStats.completionRate >= 70 ? "text-warning" : "text-destructive"}`}
+                        >
                           {hodStats.completionRate}%
                         </p>
                       </div>
                       <div className="text-right">
                         <p className="text-sm text-muted-foreground">Status</p>
                         <p className="text-lg font-semibold">
-                          {hodStats.completionRate >= 90 ? '✓ On Track' : hodStats.completionRate >= 70 ? '⚠ Good' : '⚠ Needs Attention'}
+                          {hodStats.completionRate >= 90
+                            ? "✓ On Track"
+                            : hodStats.completionRate >= 70
+                              ? "⚠ Good"
+                              : "⚠ Needs Attention"}
                         </p>
                       </div>
                     </div>
@@ -834,21 +838,20 @@ const [stats, setStats] = useState({
                                   <TableCell className="font-medium">
                                     <div className="flex items-center gap-2">
                                       {member.completionRate >= 90 && (
-                                        <span className="text-xs bg-success/10 text-success px-1.5 py-0.5 rounded">★</span>
+                                        <span className="text-xs bg-success/10 text-success px-1.5 py-0.5 rounded">
+                                          ★
+                                        </span>
                                       )}
                                       {member.name}
                                     </div>
                                   </TableCell>
-                                  <TableCell className="text-right">
-                                    {member.hours.toFixed(1)}h
-                                  </TableCell>
+                                  <TableCell className="text-right">{member.hours.toFixed(1)}h</TableCell>
                                   <TableCell className="text-right">
                                     <div className="flex items-center justify-end gap-2">
-                                      <Progress 
-                                        value={Math.min(member.completionRate, 100)} 
-                                        className="h-2 w-16"
-                                      />
-                                      <span className={`text-xs font-medium ${member.completionRate >= 90 ? 'text-success' : member.completionRate >= 70 ? 'text-warning' : 'text-muted-foreground'}`}>
+                                      <Progress value={Math.min(member.completionRate, 100)} className="h-2 w-16" />
+                                      <span
+                                        className={`text-xs font-medium ${member.completionRate >= 90 ? "text-success" : member.completionRate >= 70 ? "text-warning" : "text-muted-foreground"}`}
+                                      >
                                         {Math.round(member.completionRate)}%
                                       </span>
                                     </div>
@@ -898,7 +901,10 @@ const [stats, setStats] = useState({
                       ) : (
                         <div className="space-y-3">
                           {hodStats.todayLeaves.map((leave: any) => (
-                            <div key={leave.id} className="flex items-center justify-between py-2 border-b last:border-0">
+                            <div
+                              key={leave.id}
+                              className="flex items-center justify-between py-2 border-b last:border-0"
+                            >
                               <div>
                                 <p className="font-medium text-sm">{leave.userName}</p>
                                 <p className="text-xs text-muted-foreground capitalize">
@@ -928,7 +934,10 @@ const [stats, setStats] = useState({
                       ) : (
                         <div className="space-y-3">
                           {hodStats.recentActivity.slice(0, 5).map((entry: any) => (
-                            <div key={entry.id} className="flex items-center justify-between py-2 border-b last:border-0">
+                            <div
+                              key={entry.id}
+                              className="flex items-center justify-between py-2 border-b last:border-0"
+                            >
                               <div className="flex-1">
                                 <p className="font-medium text-sm">{entry.profiles?.full_name || "Unknown"}</p>
                                 <p className="text-xs text-muted-foreground">
@@ -962,7 +971,10 @@ const [stats, setStats] = useState({
                         Review Approvals ({hodStats.pendingApprovals})
                       </Button>
                     )}
-                    <Button variant={hodStats.pendingApprovals > 0 ? "outline" : "default"} onClick={() => navigate("/reports")}>
+                    <Button
+                      variant={hodStats.pendingApprovals > 0 ? "outline" : "default"}
+                      onClick={() => navigate("/reports")}
+                    >
                       <TrendingUp className="mr-2 h-4 w-4" />
                       View Reports
                     </Button>
@@ -1003,9 +1015,7 @@ const [stats, setStats] = useState({
                       <Users className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold">
-                        {adminStats.totalUsers}
-                      </div>
+                      <div className="text-2xl font-bold">{adminStats.totalUsers}</div>
                       <p className="text-xs text-muted-foreground mt-1">Active users</p>
                     </CardContent>
                   </Card>
@@ -1016,9 +1026,7 @@ const [stats, setStats] = useState({
                       <Building2 className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold">
-                        {adminStats.totalDepartments}
-                      </div>
+                      <div className="text-2xl font-bold">{adminStats.totalDepartments}</div>
                       <p className="text-xs text-muted-foreground mt-1">Total departments</p>
                     </CardContent>
                   </Card>
@@ -1026,10 +1034,12 @@ const [stats, setStats] = useState({
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                       <CardTitle className="text-sm font-medium text-muted-foreground">Pending Approvals</CardTitle>
-                      <AlertCircle className={`h-4 w-4 ${adminStats.pendingApprovals > 0 ? 'text-warning' : 'text-muted-foreground'}`} />
+                      <AlertCircle
+                        className={`h-4 w-4 ${adminStats.pendingApprovals > 0 ? "text-warning" : "text-muted-foreground"}`}
+                      />
                     </CardHeader>
                     <CardContent>
-                      <div className={`text-2xl font-bold ${adminStats.pendingApprovals > 0 ? 'text-warning' : ''}`}>
+                      <div className={`text-2xl font-bold ${adminStats.pendingApprovals > 0 ? "text-warning" : ""}`}>
                         {adminStats.pendingApprovals}
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">Awaiting review</p>
@@ -1042,9 +1052,7 @@ const [stats, setStats] = useState({
                       <Clock className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold text-success">
-                        {Math.round(adminStats.weeklyHours)}h
-                      </div>
+                      <div className="text-2xl font-bold text-success">{Math.round(adminStats.weeklyHours)}h</div>
                       <p className="text-xs text-muted-foreground mt-1">
                         / {Math.round(adminStats.expectedWeeklyHours)}h expected
                       </p>
@@ -1065,14 +1073,20 @@ const [stats, setStats] = useState({
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm text-muted-foreground">Completion Rate</p>
-                        <p className={`text-4xl font-bold ${adminStats.completionRate >= 90 ? 'text-success' : adminStats.completionRate >= 70 ? 'text-warning' : 'text-destructive'}`}>
+                        <p
+                          className={`text-4xl font-bold ${adminStats.completionRate >= 90 ? "text-success" : adminStats.completionRate >= 70 ? "text-warning" : "text-destructive"}`}
+                        >
                           {adminStats.completionRate}%
                         </p>
                       </div>
                       <div className="text-right">
                         <p className="text-sm text-muted-foreground">Status</p>
                         <p className="text-lg font-semibold">
-                          {adminStats.completionRate >= 90 ? '✓ Excellent' : adminStats.completionRate >= 70 ? '⚠ Good' : '⚠ Needs Attention'}
+                          {adminStats.completionRate >= 90
+                            ? "✓ Excellent"
+                            : adminStats.completionRate >= 70
+                              ? "⚠ Good"
+                              : "⚠ Needs Attention"}
                         </p>
                       </div>
                     </div>
@@ -1110,7 +1124,7 @@ const [stats, setStats] = useState({
                           </div>
                         </div>
                       )}
-                      
+
                       {adminStats.strugglingDepartments.length > 0 && (
                         <div>
                           <h4 className="text-sm font-semibold mb-2 text-warning flex items-center gap-2">
@@ -1169,7 +1183,8 @@ const [stats, setStats] = useState({
                             <div className="flex-1">
                               <p className="font-medium text-sm">{entry.profiles?.full_name || "Unknown"}</p>
                               <p className="text-xs text-muted-foreground">
-                                {entry.department_code || "N/A"} • {entry.activity_type} • {formatMinutes(getEntryDuration(entry))}
+                                {entry.department_code || "N/A"} • {entry.activity_type} •{" "}
+                                {formatMinutes(getEntryDuration(entry))}
                               </p>
                             </div>
                             <div className="flex flex-col items-end gap-1 text-right">
