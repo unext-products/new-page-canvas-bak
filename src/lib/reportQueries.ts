@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { differenceInDays, differenceInCalendarDays, eachDayOfInterval, format } from "date-fns";
 import { calculateDurationMinutes } from "./timesheetUtils";
+import { calculateUserTotalDailyTargetMinutes } from "./targets";
 
 export interface ReportFilters {
   dateFrom?: string;
@@ -152,6 +153,10 @@ export async function fetchFacultyReport(
   const dateFrom = format(period.dateFrom, "yyyy-MM-dd");
   const dateTo = format(period.dateTo, "yyyy-MM-dd");
 
+  // Fetch user's resolved daily target (sum across all departments)
+  const targetBreakdown = await calculateUserTotalDailyTargetMinutes(userId);
+  const userDailyTargetMinutes = targetBreakdown.totalDailyTargetMinutes;
+
   const { data: entries, error } = await supabase
     .from("timesheet_entries")
     .select("*")
@@ -188,7 +193,9 @@ export async function fetchFacultyReport(
 
   const totalMinutes = entries?.reduce((sum, e) => sum + getEntryDuration(e), 0) || 0;
   const totalHours = totalMinutes / 60;
-  const expectedHours = calculateExpectedHours(period);
+  
+  // Use user's resolved daily target for expected hours calculation
+  const expectedHours = calculateExpectedHours(period, userDailyTargetMinutes);
   const completionRate = calculateCompletionRate(totalMinutes, expectedHours * 60);
   const activityBreakdown = generateActivityBreakdown(entries || []);
   

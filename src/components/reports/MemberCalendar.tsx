@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend } from "date-fns";
 import { cn } from "@/lib/utils";
+import { calculateUserTotalDailyTargetMinutes } from "@/lib/targets";
 
 interface MemberCalendarProps {
   memberId: string;
@@ -42,34 +43,9 @@ export function MemberCalendar({ memberId, month }: MemberCalendarProps) {
     const monthStart = startOfMonth(month);
     const monthEnd = endOfMonth(month);
 
-    // Fetch org-level daily target setting as default
-    const { data: settingsData } = await supabase
-      .from("settings")
-      .select("value")
-      .eq("key", "daily_target_minutes")
-      .maybeSingle();
-    
-    const orgDefaultMinutes = settingsData?.value ? parseInt(settingsData.value) : 480;
-
-    // Check for user-specific target settings (per-department)
-    // First get user's departments, then check for any custom target
-    const { data: userSettingsData } = await supabase
-      .from("user_settings")
-      .select("value")
-      .eq("user_id", memberId)
-      .eq("key", "daily_target_minutes");
-
-    // If user has multiple department targets, use the average or first one found
-    // For simplicity, use the first custom setting found (or sum approach later)
-    let dailyTargetMinutes = orgDefaultMinutes;
-    if (userSettingsData && userSettingsData.length > 0) {
-      // Use the first custom target found
-      const firstSetting = userSettingsData[0];
-      if (firstSetting.value) {
-        dailyTargetMinutes = parseInt(firstSetting.value);
-      }
-    }
-    
+    // Use the centralized target resolver to get user's total daily target
+    const targetBreakdown = await calculateUserTotalDailyTargetMinutes(memberId);
+    const dailyTargetMinutes = targetBreakdown.totalDailyTargetMinutes;
     const targetHoursValue = Math.ceil(dailyTargetMinutes / 60);
     setTargetHours(targetHoursValue);
 

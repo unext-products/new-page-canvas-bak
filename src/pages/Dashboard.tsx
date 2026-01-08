@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { calculateDurationMinutes } from "@/lib/timesheetUtils";
+import { calculateUserTotalDailyTargetMinutes } from "@/lib/targets";
 
 // Helper to get duration from entry
 const getEntryDuration = (e: { start_time: string; end_time: string }) => 
@@ -78,6 +79,11 @@ const [stats, setStats] = useState({
 
     // Load today's total minutes for members
     if (userWithRole.role === "member") {
+      // Fetch user's resolved daily target (sum across all departments)
+      const targetBreakdown = await calculateUserTotalDailyTargetMinutes(userWithRole.user.id);
+      const resolvedDailyTargetMinutes = targetBreakdown.totalDailyTargetMinutes;
+      const expectedWeeklyMinutes = resolvedDailyTargetMinutes * 5; // 5 working days
+
       // Fetch user's departments from user_departments table
       const { data: userDepts } = await supabase
         .from("user_departments")
@@ -137,8 +143,17 @@ const [stats, setStats] = useState({
         setStats((prev) => ({
           ...prev,
           todayMinutes: todayTotal,
+          targetMinutes: resolvedDailyTargetMinutes,
           pending: allPendingEntries?.length || 0,
           approved: entries.filter((e) => e.status === "approved").length,
+          leavesThisMonth: leavesData?.length || 0,
+        }));
+      } else {
+        // Still update target even if no entries
+        setStats((prev) => ({
+          ...prev,
+          targetMinutes: resolvedDailyTargetMinutes,
+          pending: allPendingEntries?.length || 0,
           leavesThisMonth: leavesData?.length || 0,
         }));
       }
@@ -164,9 +179,9 @@ const [stats, setStats] = useState({
           .filter((e) => e.status === "approved" || e.status === "submitted")
           .reduce((sum, e) => sum + getEntryDuration(e), 0);
         
-        // Expected: 8 hours/day * 5 working days = 40 hours = 2400 minutes
-        const expectedWeeklyMinutes = 2400;
-        const weeklyCompletionRate = (weeklyActualMinutes / expectedWeeklyMinutes) * 100;
+        const weeklyCompletionRate = expectedWeeklyMinutes > 0 
+          ? (weeklyActualMinutes / expectedWeeklyMinutes) * 100 
+          : 0;
         
         setStats((prev) => ({
           ...prev,
