@@ -88,7 +88,7 @@ export default function Index() {
   ];
 
   // Placeholder link for User Guide - replace with actual link
-  const userGuideLink = "https://drive.google.com/file/d/18fqbNj6iTKGlmN6xOQwLuWI2P0FjlV0X/view?usp=sharing";
+  const userGuideLink = "https://drive.google.com/file/d/1CkrO9DyGA2PDVfiuXOvVWTOm9rcZJSvj/view?usp=sharing";
 
   if (authLoading) {
     return null;
