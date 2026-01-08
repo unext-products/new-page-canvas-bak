@@ -196,6 +196,16 @@ export default function Timesheet() {
       return;
     }
 
+    // Validate department code is selected
+    if (!departmentCode || departmentCode.trim() === "") {
+      toast({
+        title: "Department Required",
+        description: "Please select a department for this entry",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Check if the date is marked as leave
     if (userLeaveDays.has(entryDate)) {
       toast({
@@ -602,16 +612,15 @@ export default function Timesheet() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="departmentCode">Department (Optional)</Label>
+                  <Label htmlFor="departmentCode">Department <span className="text-destructive">*</span></Label>
                   <Select 
-                    value={departmentCode || "none"} 
-                    onValueChange={(val) => setDepartmentCode(val === "none" ? "" : val)}
+                    value={departmentCode} 
+                    onValueChange={setDepartmentCode}
                   >
                     <SelectTrigger id="departmentCode">
                       <SelectValue placeholder="Select department" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
                       {userDepartments.map((dept) => (
                         <SelectItem key={dept.id} value={dept.code.toUpperCase()}>
                           {dept.name} ({dept.code})
