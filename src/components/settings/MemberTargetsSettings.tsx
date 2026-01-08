@@ -44,7 +44,7 @@ export default function MemberTargetsSettings() {
   // Get department default settings for comparison
   const { settings: deptSettings } = useDepartmentSettings(effectiveDepartmentId);
   const { userSettingsMap, refetch: refetchUserSettings } = useDepartmentUserSettings(effectiveDepartmentId);
-  const { updateUserSetting, resetUserSetting } = useUserSettings();
+  const { updateUserSetting, resetUserSetting } = useUserSettings(null, effectiveDepartmentId);
 
   useEffect(() => {
     if (isOrgAdmin) {
@@ -90,28 +90,42 @@ export default function MemberTargetsSettings() {
     
     setLoadingMembers(true);
     try {
-      // Get faculty users in the department
-      const { data: roles, error: rolesError } = await supabase
-        .from("user_roles")
+      // Get users in the department via junction table
+      const { data: departmentUsers, error: deptUsersError } = await supabase
+        .from("user_departments")
         .select("user_id")
-        .eq("department_id", effectiveDepartmentId)
-        .eq("role", "faculty");
+        .eq("department_id", effectiveDepartmentId);
 
-      if (rolesError) throw rolesError;
+      if (deptUsersError) throw deptUsersError;
 
-      if (roles && roles.length > 0) {
-        const userIds = roles.map(r => r.user_id);
+      if (departmentUsers && departmentUsers.length > 0) {
+        const userIds = departmentUsers.map(du => du.user_id);
         
-        const { data: profiles, error: profilesError } = await supabase
-          .from("profiles")
-          .select("id, full_name")
-          .in("id", userIds)
-          .eq("is_active", true)
-          .order("full_name");
+        // Filter to only faculty users
+        const { data: facultyRoles, error: rolesError } = await supabase
+          .from("user_roles")
+          .select("user_id")
+          .in("user_id", userIds)
+          .eq("role", "faculty");
 
-        if (profilesError) throw profilesError;
+        if (rolesError) throw rolesError;
 
-        setMembers(profiles || []);
+        const facultyUserIds = facultyRoles?.map(r => r.user_id) || [];
+        
+        if (facultyUserIds.length > 0) {
+          const { data: profiles, error: profilesError } = await supabase
+            .from("profiles")
+            .select("id, full_name")
+            .in("id", facultyUserIds)
+            .eq("is_active", true)
+            .order("full_name");
+
+          if (profilesError) throw profilesError;
+
+          setMembers(profiles || []);
+        } else {
+          setMembers([]);
+        }
       } else {
         setMembers([]);
       }
@@ -132,12 +146,12 @@ export default function MemberTargetsSettings() {
 
   const handleSaveTarget = async (userId: string) => {
     const target = localTargets[userId];
-    if (!target) return;
+    if (!target || !effectiveDepartmentId) return;
 
     const totalMinutes = target.hours * 60 + target.minutes;
     
     setSavingUser(userId);
-    const { error } = await updateUserSetting(userId, "daily_target_minutes", totalMinutes);
+    const { error } = await updateUserSetting(userId, "daily_target_minutes", totalMinutes, effectiveDepartmentId);
     setSavingUser(null);
 
     if (error) {
@@ -156,8 +170,10 @@ export default function MemberTargetsSettings() {
   };
 
   const handleResetTarget = async (userId: string) => {
+    if (!effectiveDepartmentId) return;
+    
     setSavingUser(userId);
-    const { error } = await resetUserSetting(userId, "daily_target_minutes");
+    const { error } = await resetUserSetting(userId, "daily_target_minutes", effectiveDepartmentId);
     setSavingUser(null);
 
     if (error) {
