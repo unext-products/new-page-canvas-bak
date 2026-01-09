@@ -245,11 +245,6 @@ export default function Index() {
                   </button>
                 </div>
 
-                {/* Trust badge */}
-                <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground pt-4 border-t border-border">
-                  <Shield className="h-3.5 w-3.5" />
-                  <span>Login secured with 256-bit SSL encryption</span>
-                </div>
 
                 {/* Mobile User Guide Link */}
                 <div className="flex lg:hidden items-center justify-center pt-2">
