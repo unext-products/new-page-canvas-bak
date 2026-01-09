@@ -252,11 +252,6 @@ export default function Auth() {
                   </button>
                 </div>
 
-                {/* Trust badge */}
-                <div className="flex items-center justify-center gap-2 text-xs text-landing-muted pt-4 border-t border-landing-border">
-                  <Shield className="h-3.5 w-3.5" />
-                  <span>Login secured with 256-bit SSL encryption</span>
-                </div>
               </div>
             </div>
           </div>

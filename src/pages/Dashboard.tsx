@@ -936,43 +936,6 @@ export default function Dashboard() {
                     </CardContent>
                   </Card>
 
-                  {/* Recent Activity */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Activity className="h-5 w-5" />
-                        Recent Submissions
-                      </CardTitle>
-                      <CardDescription>Latest entries from your team</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      {hodStats.recentActivity.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">No recent activity.</p>
-                      ) : (
-                        <div className="space-y-3">
-                          {hodStats.recentActivity.slice(0, 5).map((entry: any) => (
-                            <div
-                              key={entry.id}
-                              className="flex items-center justify-between py-2 border-b last:border-0"
-                            >
-                              <div className="flex-1">
-                                <p className="font-medium text-sm">{entry.profiles?.full_name || "Unknown"}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {entry.activity_type} • {formatMinutes(getEntryDuration(entry))}
-                                </p>
-                              </div>
-                              <div className="flex flex-col items-end gap-1">
-                                <StatusBadge status={entry.status} />
-                                <p className="text-xs text-muted-foreground">
-                                  {new Date(entry.entry_date).toLocaleDateString()}
-                                </p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
                 </div>
 
                 {/* Quick Actions */}
@@ -1180,42 +1143,6 @@ export default function Dashboard() {
                     </CardContent>
                   </Card>
                 </div>
-
-                {/* Recent Activity */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Activity className="h-5 w-5" />
-                      Recent System Activity
-                    </CardTitle>
-                    <CardDescription>Latest timesheet submissions across organization</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {adminStats.recentActivity.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">No recent activity.</p>
-                    ) : (
-                      <div className="space-y-3">
-                        {adminStats.recentActivity.map((entry: any) => (
-                          <div key={entry.id} className="flex items-center justify-between py-2 border-b last:border-0">
-                            <div className="flex-1">
-                              <p className="font-medium text-sm">{entry.profiles?.full_name || "Unknown"}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {entry.department_code || "N/A"} • {entry.activity_type} •{" "}
-                                {formatMinutes(getEntryDuration(entry))}
-                              </p>
-                            </div>
-                            <div className="flex flex-col items-end gap-1 text-right">
-                              <StatusBadge status={entry.status} />
-                              <p className="text-xs text-muted-foreground">
-                                {new Date(entry.entry_date).toLocaleDateString()}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
 
                 {/* Quick Actions */}
                 <Card>
