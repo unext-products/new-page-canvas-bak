@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-import { CheckCircle, XCircle, Clock, Calendar, User, Filter, X, ClipboardCheck } from "lucide-react";
+import { CheckCircle, XCircle, Clock, Calendar, User, Filter, X, ClipboardCheck, CalendarDays, List } from "lucide-react";
 import { format } from "date-fns";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -22,6 +22,9 @@ import { EmptyState } from "@/components/EmptyState";
 import { PageSkeleton } from "@/components/PageSkeleton";
 import { useApprovalSettings } from "@/hooks/useApprovalSettings";
 import { calculateDurationMinutes } from "@/lib/timesheetUtils";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { DayMatrixView, MatrixTimesheetEntry } from "@/components/calendar/DayMatrixView";
 
 interface TimesheetEntry {
   id: string;
@@ -32,6 +35,7 @@ interface TimesheetEntry {
   activity_type: string;
   activity_subtype: string | null;
   notes: string | null;
+  department_code?: string | null;
   profiles: {
     full_name: string;
     avatar_url: string | null;
@@ -70,6 +74,10 @@ export default function Approvals() {
   const [selectedEntries, setSelectedEntries] = useState<Set<string>>(new Set());
   const [filterFaculty, setFilterFaculty] = useState<string | null>(null);
   const [filterActivity, setFilterActivity] = useState<string | null>(null);
+  const [filterDate, setFilterDate] = useState<Date | null>(null);
+  
+  // View mode state
+  const [viewMode, setViewMode] = useState<"list" | "day">("list");
   
   // Bulk action state
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
@@ -94,6 +102,7 @@ export default function Approvals() {
       navigate("/dashboard");
     }
   }, [authLoading, userWithRole, navigate]);
+
   const getOrgId = useCallback(async (): Promise<string | null> => {
     const { data } = await supabase
       .from("user_roles")
@@ -332,7 +341,7 @@ export default function Approvals() {
 
   // Get unique faculty list from entries
   const facultyList = useMemo(() => {
-    const uniqueFaculty = new Map<string, { name: string; count: number }>();
+    const uniqueFaculty = new Map<string, { name: string; count: number; avatarUrl: string | null }>();
     entries.forEach(entry => {
       const existing = uniqueFaculty.get(entry.user_id);
       if (existing) {
@@ -340,7 +349,8 @@ export default function Approvals() {
       } else {
         uniqueFaculty.set(entry.user_id, {
           name: entry.profiles.full_name,
-          count: 1
+          count: 1,
+          avatarUrl: entry.profiles.avatar_url
         });
       }
     });
@@ -402,17 +412,19 @@ export default function Approvals() {
     return entries.filter(entry => {
       if (filterFaculty && entry.user_id !== filterFaculty) return false;
       if (filterActivity && entry.activity_type !== filterActivity) return false;
+      if (filterDate && entry.entry_date !== format(filterDate, "yyyy-MM-dd")) return false;
       return true;
     });
-  }, [entries, filterFaculty, filterActivity]);
+  }, [entries, filterFaculty, filterActivity, filterDate]);
 
   // Filter leave entries based on faculty selection
   const filteredLeaveEntries = useMemo(() => {
     return leaveEntries.filter(entry => {
       if (filterFaculty && entry.user_id !== filterFaculty) return false;
+      if (filterDate && entry.leave_date !== format(filterDate, "yyyy-MM-dd")) return false;
       return true;
     });
-  }, [leaveEntries, filterFaculty]);
+  }, [leaveEntries, filterFaculty, filterDate]);
 
   // Combined filtered entries for display
   const filteredCombinedEntries = useMemo(() => {
@@ -432,6 +444,73 @@ export default function Approvals() {
       new Date(b.sortDate).getTime() - new Date(a.sortDate).getTime()
     );
   }, [filteredEntries, filteredLeaveEntries]);
+
+  // Prepare faculty data for day matrix view
+  const dayMatrixData = useMemo(() => {
+    const dateToUse = filterDate || new Date();
+    const dateStr = format(dateToUse, "yyyy-MM-dd");
+    
+    // Get unique faculty with entries for this date
+    const facultyMap = new Map<string, {
+      userId: string;
+      name: string;
+      avatarUrl: string | null;
+      entries: MatrixTimesheetEntry[];
+      isOnLeave: boolean;
+      leaveType?: string;
+    }>();
+    
+    // Add faculty with entries
+    filteredEntries
+      .filter(entry => entry.entry_date === dateStr)
+      .forEach(entry => {
+        const matrixEntry: MatrixTimesheetEntry = {
+          id: entry.id,
+          user_id: entry.user_id,
+          entry_date: entry.entry_date,
+          start_time: entry.start_time,
+          end_time: entry.end_time,
+          activity_type: entry.activity_type,
+          activity_subtype: entry.activity_subtype,
+          notes: entry.notes,
+          status: "submitted",
+        };
+        const existing = facultyMap.get(entry.user_id);
+        if (existing) {
+          existing.entries.push(matrixEntry);
+        } else {
+          facultyMap.set(entry.user_id, {
+            userId: entry.user_id,
+            name: entry.profiles.full_name,
+            avatarUrl: entry.profiles.avatar_url,
+            entries: [matrixEntry],
+            isOnLeave: false,
+          });
+        }
+      });
+    
+    // Add faculty on leave
+    filteredLeaveEntries
+      .filter(leave => leave.leave_date === dateStr)
+      .forEach(leave => {
+        if (!facultyMap.has(leave.user_id)) {
+          facultyMap.set(leave.user_id, {
+            userId: leave.user_id,
+            name: leave.profiles.full_name,
+            avatarUrl: leave.profiles.avatar_url,
+            entries: [],
+            isOnLeave: true,
+            leaveType: leave.leave_type,
+          });
+        } else {
+          const existing = facultyMap.get(leave.user_id)!;
+          existing.isOnLeave = true;
+          existing.leaveType = leave.leave_type;
+        }
+      });
+    
+    return Array.from(facultyMap.values());
+  }, [filteredEntries, filteredLeaveEntries, filterDate]);
 
   // Selection handlers
   const toggleEntrySelection = (entryId: string) => {
@@ -459,6 +538,7 @@ export default function Approvals() {
   const clearFilters = () => {
     setFilterFaculty(null);
     setFilterActivity(null);
+    setFilterDate(null);
   };
 
   // Bulk actions
@@ -530,6 +610,7 @@ export default function Approvals() {
       setSelectedEntries(new Set());
       setFilterFaculty(null);
       setFilterActivity(null);
+      setFilterDate(null);
       
       fetchEntries();
     } catch (error) {
@@ -564,6 +645,14 @@ export default function Approvals() {
     const date = new Date();
     date.setHours(parseInt(hours), parseInt(minutes));
     return format(date, "h:mm a");
+  };
+
+  const handleMatrixEntryClick = (entry: MatrixTimesheetEntry) => {
+    // Find the original entry to get the profile info
+    const originalEntry = entries.find(e => e.id === entry.id);
+    if (originalEntry) {
+      handleAction(originalEntry, "approve");
+    }
   };
 
   if (authLoading || loading) {
@@ -605,7 +694,7 @@ export default function Approvals() {
             {/* Filters and Selection Toolbar */}
             <Card>
               <CardContent className="pt-6 space-y-4">
-                {/* Filters Row */}
+                {/* View Mode Toggle and Filters Row */}
                 <div className="flex flex-col sm:flex-row gap-3">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Filter className="h-4 w-4" />
@@ -640,17 +729,75 @@ export default function Approvals() {
                       </SelectContent>
                     </Select>
                     
-                    {(filterFaculty || filterActivity) && (
+                    {/* Date Filter */}
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-[200px] justify-start text-left font-normal",
+                            !filterDate && "text-muted-foreground"
+                          )}
+                        >
+                          <Calendar className="mr-2 h-4 w-4" />
+                          {filterDate ? format(filterDate, "MMM d, yyyy") : "By Date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={filterDate || undefined}
+                          onSelect={(date) => setFilterDate(date || null)}
+                          initialFocus
+                          className="p-3 pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    
+                    {(filterFaculty || filterActivity || filterDate) && (
                       <Button variant="ghost" size="sm" onClick={clearFilters}>
                         <X className="h-4 w-4 mr-1" />
                         Clear Filters
                       </Button>
                     )}
                   </div>
+                  
+                  {/* View Mode Toggle */}
+                  <div className="flex items-center rounded-lg border bg-muted/50 p-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setViewMode("list")}
+                      className={cn(
+                        "h-8 px-3 rounded-md",
+                        viewMode === "list" && "bg-background shadow-sm"
+                      )}
+                    >
+                      <List className="h-4 w-4 mr-2" />
+                      List
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setViewMode("day");
+                        if (!filterDate) {
+                          setFilterDate(new Date());
+                        }
+                      }}
+                      className={cn(
+                        "h-8 px-3 rounded-md",
+                        viewMode === "day" && "bg-background shadow-sm"
+                      )}
+                    >
+                      <CalendarDays className="h-4 w-4 mr-2" />
+                      Day
+                    </Button>
+                  </div>
                 </div>
 
                 {/* Filter Badges */}
-                {(filterFaculty || filterActivity) && (
+                {(filterFaculty || filterActivity || filterDate) && (
                   <div className="flex flex-wrap gap-2">
                     {filterFaculty && (
                       <Badge variant="secondary" className="gap-1">
@@ -664,219 +811,238 @@ export default function Approvals() {
                         <X className="h-3 w-3 cursor-pointer" onClick={() => setFilterActivity(null)} />
                       </Badge>
                     )}
+                    {filterDate && (
+                      <Badge variant="secondary" className="gap-1">
+                        Date: {format(filterDate, "MMM d, yyyy")}
+                        <X className="h-3 w-3 cursor-pointer" onClick={() => setFilterDate(null)} />
+                      </Badge>
+                    )}
                   </div>
                 )}
 
-                {/* Selection Actions */}
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2 border-t">
-                  <div className="flex items-center gap-3">
-                    <Checkbox
-                      checked={isAllSelected}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          selectAllEntries();
-                        } else {
-                          clearSelection();
-                        }
-                      }}
-                    />
-                    <span className="text-sm font-medium">
-                      {selectedEntries.size > 0 ? (
-                        <>Selected: {selectedEntries.size} {selectedEntries.size === 1 ? 'entry' : 'entries'}</>
-                      ) : (
-                        <>Select All ({filteredEntries.length})</>
+                {/* Selection Actions - Only in list view */}
+                {viewMode === "list" && (
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2 border-t">
+                    <div className="flex items-center gap-3">
+                      <Checkbox
+                        checked={isAllSelected}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            selectAllEntries();
+                          } else {
+                            clearSelection();
+                          }
+                        }}
+                      />
+                      <span className="text-sm font-medium">
+                        {selectedEntries.size > 0 ? (
+                          <>Selected: {selectedEntries.size} {selectedEntries.size === 1 ? 'entry' : 'entries'}</>
+                        ) : (
+                          <>Select All ({filteredEntries.length})</>
+                        )}
+                      </span>
+                      {selectedEntries.size > 0 && (
+                        <Button variant="ghost" size="sm" onClick={clearSelection}>
+                          Clear Selection
+                        </Button>
                       )}
-                    </span>
-                    {selectedEntries.size > 0 && (
-                      <Button variant="ghost" size="sm" onClick={clearSelection}>
-                        Clear Selection
+                    </div>
+                    
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => handleBulkAction("approve")}
+                        disabled={selectedEntries.size === 0}
+                        variant="default"
+                        size="sm"
+                      >
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        Approve Selected
                       </Button>
-                    )}
+                      <Button
+                        onClick={() => handleBulkAction("reject")}
+                        disabled={selectedEntries.size === 0}
+                        variant="destructive"
+                        size="sm"
+                      >
+                        <XCircle className="h-4 w-4 mr-2" />
+                        Reject Selected
+                      </Button>
+                    </div>
                   </div>
-                  
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={() => handleBulkAction("approve")}
-                      disabled={selectedEntries.size === 0}
-                      variant="default"
-                      size="sm"
-                    >
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      Approve Selected
-                    </Button>
-                    <Button
-                      onClick={() => handleBulkAction("reject")}
-                      disabled={selectedEntries.size === 0}
-                      variant="destructive"
-                      size="sm"
-                    >
-                      <XCircle className="h-4 w-4 mr-2" />
-                      Reject Selected
-                    </Button>
-                  </div>
-                </div>
+                )}
               </CardContent>
             </Card>
 
-            {/* Entries List */}
-            {filteredCombinedEntries.length === 0 ? (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <Filter className="h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No entries found</h3>
-                  <p className="text-muted-foreground text-center mb-4">
-                    No entries match the selected filters.
-                  </p>
-                  <Button variant="outline" onClick={clearFilters}>
-                    Clear Filters
-                  </Button>
-                </CardContent>
-              </Card>
+            {/* Content based on view mode */}
+            {viewMode === "day" ? (
+              <DayMatrixView
+                date={filterDate || new Date()}
+                facultyData={dayMatrixData}
+                onEntryClick={handleMatrixEntryClick}
+                showAllStatuses={false}
+                title="Pending Approvals - Day View"
+              />
             ) : (
-              <div className="grid gap-4">
-                {filteredCombinedEntries.map((item) => (
-                  item.type === 'timesheet' ? (
-                    <Card 
-                      key={item.id}
-                      className={cn(
-                        "relative transition-all duration-200",
-                        selectedEntries.has(item.id) && "border-primary bg-primary/5 shadow-md"
-                      )}
-                    >
-                      <div className="absolute top-4 left-4 z-10">
-                        <Checkbox
-                          checked={selectedEntries.has(item.id)}
-                          onCheckedChange={() => toggleEntrySelection(item.id)}
-                        />
-                      </div>
-                      <CardHeader className="pl-12">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-3">
-                            <Avatar>
-                              <AvatarImage src={item.profiles.avatar_url || undefined} />
-                              <AvatarFallback>
-                                {item.profiles.full_name.split(" ").map(n => n[0]).join("")}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <CardTitle className="text-base">{item.profiles.full_name}</CardTitle>
-                              <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
-                                <Calendar className="h-3 w-3" />
-                                {format(new Date(item.entry_date), "EEEE, MMM d, yyyy")}
-                              </div>
-                            </div>
-                          </div>
-                          <Badge variant="outline" className="bg-warning/10 text-warning-foreground border-warning/20">
-                            Pending Review
-                          </Badge>
+              /* List View */
+              filteredCombinedEntries.length === 0 ? (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-12">
+                    <Filter className="h-12 w-12 text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">No entries found</h3>
+                    <p className="text-muted-foreground text-center mb-4">
+                      No entries match the selected filters.
+                    </p>
+                    <Button variant="outline" onClick={clearFilters}>
+                      Clear Filters
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid gap-4">
+                  {filteredCombinedEntries.map((item) => (
+                    item.type === 'timesheet' ? (
+                      <Card 
+                        key={item.id}
+                        className={cn(
+                          "relative transition-all duration-200",
+                          selectedEntries.has(item.id) && "border-primary bg-primary/5 shadow-md"
+                        )}
+                      >
+                        <div className="absolute top-4 left-4 z-10">
+                          <Checkbox
+                            checked={selectedEntries.has(item.id)}
+                            onCheckedChange={() => toggleEntrySelection(item.id)}
+                          />
                         </div>
-                      </CardHeader>
-                      <CardContent className="space-y-4 pl-12">
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                          <div>
-                            <div className="text-sm text-muted-foreground mb-1">Activity</div>
-                            <div className="font-medium capitalize">
-                              {item.activity_type.replace(/_/g, " ")}
-                              {item.activity_subtype && (
-                                <span className="text-muted-foreground"> • {item.activity_subtype}</span>
-                              )}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="text-sm text-muted-foreground mb-1">Time</div>
-                            <div className="font-medium flex items-center gap-1">
-                              <Clock className="h-4 w-4" />
-                              {formatTime(item.start_time)} - {formatTime(item.end_time)}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="text-sm text-muted-foreground mb-1">Duration</div>
-                            <div className="font-medium">
-                              {(() => { const mins = calculateDurationMinutes(item.start_time, item.end_time); return `${Math.floor(mins / 60)}h ${mins % 60}m`; })()}
-                            </div>
-                          </div>
-                          {(item as any).department_code && (
-                            <div>
-                              <div className="text-sm text-muted-foreground mb-1">Department</div>
-                              <div className="font-medium">
-                                <Badge variant="outline">{(item as any).department_code}</Badge>
+                        <CardHeader className="pl-12">
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-3">
+                              <Avatar>
+                                <AvatarImage src={item.profiles.avatar_url || undefined} />
+                                <AvatarFallback>
+                                  {item.profiles.full_name.split(" ").map(n => n[0]).join("")}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <CardTitle className="text-base">{item.profiles.full_name}</CardTitle>
+                                <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
+                                  <Calendar className="h-3 w-3" />
+                                  {format(new Date(item.entry_date), "EEEE, MMM d, yyyy")}
+                                </div>
                               </div>
+                            </div>
+                            <Badge variant="outline" className="bg-warning/10 text-warning-foreground border-warning/20">
+                              Pending Review
+                            </Badge>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="space-y-4 pl-12">
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div>
+                              <div className="text-sm text-muted-foreground mb-1">Activity</div>
+                              <div className="font-medium capitalize">
+                                {item.activity_type.replace(/_/g, " ")}
+                                {item.activity_subtype && (
+                                  <span className="text-muted-foreground"> • {item.activity_subtype}</span>
+                                )}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-sm text-muted-foreground mb-1">Time</div>
+                              <div className="font-medium flex items-center gap-1">
+                                <Clock className="h-4 w-4" />
+                                {formatTime(item.start_time)} - {formatTime(item.end_time)}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-sm text-muted-foreground mb-1">Duration</div>
+                              <div className="font-medium">
+                                {(() => { const mins = calculateDurationMinutes(item.start_time, item.end_time); return `${Math.floor(mins / 60)}h ${mins % 60}m`; })()}
+                              </div>
+                            </div>
+                            {(item as any).department_code && (
+                              <div>
+                                <div className="text-sm text-muted-foreground mb-1">Department</div>
+                                <div className="font-medium">
+                                  <Badge variant="outline">{(item as any).department_code}</Badge>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {item.notes && (
+                            <div>
+                              <div className="text-sm text-muted-foreground mb-1">Notes</div>
+                              <p className="text-sm bg-muted/50 rounded-md p-3">{item.notes}</p>
                             </div>
                           )}
-                        </div>
 
-                        {item.notes && (
-                          <div>
-                            <div className="text-sm text-muted-foreground mb-1">Notes</div>
-                            <p className="text-sm bg-muted/50 rounded-md p-3">{item.notes}</p>
+                          <div className="flex gap-2 pt-2">
+                            <Button
+                              onClick={() => handleAction(item, "approve")}
+                              className="flex-1"
+                              variant="default"
+                            >
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                              Approve
+                            </Button>
+                            <Button
+                              onClick={() => handleAction(item, "reject")}
+                              className="flex-1"
+                              variant="destructive"
+                            >
+                              <XCircle className="h-4 w-4 mr-2" />
+                              Reject
+                            </Button>
                           </div>
-                        )}
-
-                        <div className="flex gap-2 pt-2">
-                          <Button
-                            onClick={() => handleAction(item, "approve")}
-                            className="flex-1"
-                            variant="default"
-                          >
-                            <CheckCircle className="h-4 w-4 mr-2" />
-                            Approve
-                          </Button>
-                          <Button
-                            onClick={() => handleAction(item, "reject")}
-                            className="flex-1"
-                            variant="destructive"
-                          >
-                            <XCircle className="h-4 w-4 mr-2" />
-                            Reject
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    <Card key={item.id} className="relative transition-all duration-200">
-                      <CardHeader>
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-3">
-                            <Avatar>
-                              <AvatarImage src={item.profiles.avatar_url || undefined} />
-                              <AvatarFallback>
-                                {item.profiles.full_name.split(" ").map(n => n[0]).join("")}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <CardTitle className="text-base">{item.profiles.full_name}</CardTitle>
-                              <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
-                                <Calendar className="h-3 w-3" />
-                                {format(new Date(item.leave_date), "EEEE, MMM d, yyyy")}
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <Card key={item.id} className="relative transition-all duration-200">
+                        <CardHeader>
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-3">
+                              <Avatar>
+                                <AvatarImage src={item.profiles.avatar_url || undefined} />
+                                <AvatarFallback>
+                                  {item.profiles.full_name.split(" ").map(n => n[0]).join("")}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <CardTitle className="text-base">{item.profiles.full_name}</CardTitle>
+                                <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
+                                  <Calendar className="h-3 w-3" />
+                                  {format(new Date(item.leave_date), "EEEE, MMM d, yyyy")}
+                                </div>
                               </div>
                             </div>
+                            <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                              Leave
+                            </Badge>
                           </div>
-                          <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-                            Leave
-                          </Badge>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div>
-                          <div className="text-sm text-muted-foreground mb-1">Leave Type</div>
-                          <div className="font-medium">{formatLeaveType(item.leave_type)}</div>
-                        </div>
-
-                        {item.comments && (
+                        </CardHeader>
+                        <CardContent className="space-y-4">
                           <div>
-                            <div className="text-sm text-muted-foreground mb-1">Comments</div>
-                            <p className="text-sm bg-muted/50 rounded-md p-3">{item.comments}</p>
+                            <div className="text-sm text-muted-foreground mb-1">Leave Type</div>
+                            <div className="font-medium">{formatLeaveType(item.leave_type)}</div>
                           </div>
-                        )}
 
-                        <div className="text-sm text-muted-foreground italic pt-2">
-                          Leave entries do not require approval
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )
-                ))}
-              </div>
+                          {item.comments && (
+                            <div>
+                              <div className="text-sm text-muted-foreground mb-1">Comments</div>
+                              <p className="text-sm bg-muted/50 rounded-md p-3">{item.comments}</p>
+                            </div>
+                          )}
+
+                          <div className="text-sm text-muted-foreground italic pt-2">
+                            Leave entries do not require approval
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )
+                  ))}
+                </div>
+              )
             )}
           </>
         )}
