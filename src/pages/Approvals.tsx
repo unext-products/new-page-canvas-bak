@@ -651,9 +651,44 @@ export default function Approvals() {
     // Find the original entry to get the profile info
     const originalEntry = entries.find(e => e.id === entry.id);
     if (originalEntry) {
+      // Open dialog with both options
+      setSelectedEntry(originalEntry);
+      setActionType(null); // Will let user choose in dialog
+      setComment("");
+      setDialogOpen(true);
+    }
+  };
+
+  const handleMatrixApprove = (entry: MatrixTimesheetEntry) => {
+    const originalEntry = entries.find(e => e.id === entry.id);
+    if (originalEntry) {
       handleAction(originalEntry, "approve");
     }
   };
+
+  const handleMatrixReject = (entry: MatrixTimesheetEntry) => {
+    const originalEntry = entries.find(e => e.id === entry.id);
+    if (originalEntry) {
+      handleAction(originalEntry, "reject");
+    }
+  };
+
+  // Get entries for day view selection
+  const dayViewEntryIds = useMemo(() => {
+    const dateToUse = filterDate || new Date();
+    const dateStr = format(dateToUse, "yyyy-MM-dd");
+    return filteredEntries
+      .filter(entry => entry.entry_date === dateStr)
+      .map(entry => entry.id);
+  }, [filteredEntries, filterDate]);
+
+  const selectAllDayEntries = () => {
+    const allIds = new Set(dayViewEntryIds);
+    setSelectedEntries(allIds);
+  };
+
+  const isAllDaySelected = dayViewEntryIds.length > 0 && 
+    dayViewEntryIds.every(id => selectedEntries.has(id));
 
   if (authLoading || loading) {
     return (
@@ -820,56 +855,54 @@ export default function Approvals() {
                   </div>
                 )}
 
-                {/* Selection Actions - Only in list view */}
-                {viewMode === "list" && (
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2 border-t">
-                    <div className="flex items-center gap-3">
-                      <Checkbox
-                        checked={isAllSelected}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            selectAllEntries();
-                          } else {
-                            clearSelection();
-                          }
-                        }}
-                      />
-                      <span className="text-sm font-medium">
-                        {selectedEntries.size > 0 ? (
-                          <>Selected: {selectedEntries.size} {selectedEntries.size === 1 ? 'entry' : 'entries'}</>
-                        ) : (
-                          <>Select All ({filteredEntries.length})</>
-                        )}
-                      </span>
-                      {selectedEntries.size > 0 && (
-                        <Button variant="ghost" size="sm" onClick={clearSelection}>
-                          Clear Selection
-                        </Button>
+                {/* Selection Actions - Works for both views */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2 border-t">
+                  <div className="flex items-center gap-3">
+                    <Checkbox
+                      checked={viewMode === "list" ? isAllSelected : isAllDaySelected}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          viewMode === "list" ? selectAllEntries() : selectAllDayEntries();
+                        } else {
+                          clearSelection();
+                        }
+                      }}
+                    />
+                    <span className="text-sm font-medium">
+                      {selectedEntries.size > 0 ? (
+                        <>Selected: {selectedEntries.size} {selectedEntries.size === 1 ? 'entry' : 'entries'}</>
+                      ) : (
+                        <>Select All ({viewMode === "list" ? filteredEntries.length : dayViewEntryIds.length})</>
                       )}
-                    </div>
-                    
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={() => handleBulkAction("approve")}
-                        disabled={selectedEntries.size === 0}
-                        variant="default"
-                        size="sm"
-                      >
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                        Approve Selected
+                    </span>
+                    {selectedEntries.size > 0 && (
+                      <Button variant="ghost" size="sm" onClick={clearSelection}>
+                        Clear Selection
                       </Button>
-                      <Button
-                        onClick={() => handleBulkAction("reject")}
-                        disabled={selectedEntries.size === 0}
-                        variant="destructive"
-                        size="sm"
-                      >
-                        <XCircle className="h-4 w-4 mr-2" />
-                        Reject Selected
-                      </Button>
-                    </div>
+                    )}
                   </div>
-                )}
+                  
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => handleBulkAction("approve")}
+                      disabled={selectedEntries.size === 0}
+                      variant="default"
+                      size="sm"
+                    >
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Approve Selected
+                    </Button>
+                    <Button
+                      onClick={() => handleBulkAction("reject")}
+                      disabled={selectedEntries.size === 0}
+                      variant="destructive"
+                      size="sm"
+                    >
+                      <XCircle className="h-4 w-4 mr-2" />
+                      Reject Selected
+                    </Button>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
@@ -879,8 +912,21 @@ export default function Approvals() {
                 date={filterDate || new Date()}
                 facultyData={dayMatrixData}
                 onEntryClick={handleMatrixEntryClick}
+                onApprove={handleMatrixApprove}
+                onReject={handleMatrixReject}
                 showAllStatuses={false}
                 title="Pending Approvals - Day View"
+                selectedEntries={selectedEntries}
+                onSelectionChange={(entryId, selected) => {
+                  const newSelected = new Set(selectedEntries);
+                  if (selected) {
+                    newSelected.add(entryId);
+                  } else {
+                    newSelected.delete(entryId);
+                  }
+                  setSelectedEntries(newSelected);
+                }}
+                showSelection={true}
               />
             ) : (
               /* List View */
@@ -1053,7 +1099,7 @@ export default function Approvals() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {actionType === "approve" ? "Approve" : "Reject"} Entry
+              {actionType ? (actionType === "approve" ? "Approve" : "Reject") : "Review"} Entry
             </DialogTitle>
             <DialogDescription>
               {selectedEntry && (
@@ -1066,6 +1112,15 @@ export default function Approvals() {
                     {format(new Date(selectedEntry.entry_date), "MMMM d, yyyy")} • 
                     {formatTime(selectedEntry.start_time)} - {formatTime(selectedEntry.end_time)}
                   </div>
+                  <div className="text-sm capitalize">
+                    <span className="text-muted-foreground">Activity:</span> {selectedEntry.activity_type.replace(/_/g, " ")}
+                    {selectedEntry.activity_subtype && ` • ${selectedEntry.activity_subtype}`}
+                  </div>
+                  {selectedEntry.notes && (
+                    <div className="text-sm">
+                      <span className="text-muted-foreground">Notes:</span> {selectedEntry.notes}
+                    </div>
+                  )}
                 </div>
               )}
             </DialogDescription>
@@ -1083,21 +1138,53 @@ export default function Approvals() {
                 }
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
-                rows={4}
+                rows={3}
               />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
             <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={submitting}>
               Cancel
             </Button>
-            <Button
-              onClick={handleSubmit}
-              disabled={submitting || (actionType === "reject" && !comment.trim())}
-              variant={actionType === "approve" ? "default" : "destructive"}
-            >
-              {submitting ? "Processing..." : actionType === "approve" ? "Approve" : "Reject"}
-            </Button>
+            {/* Show both buttons when no action is pre-selected (clicked from day view entry) */}
+            {!actionType ? (
+              <>
+                <Button
+                  onClick={() => {
+                    setActionType("reject");
+                    if (!comment.trim()) {
+                      // Don't submit yet, let user add reason
+                      return;
+                    }
+                    handleSubmit();
+                  }}
+                  disabled={submitting}
+                  variant="destructive"
+                >
+                  <XCircle className="h-4 w-4 mr-2" />
+                  Reject
+                </Button>
+                <Button
+                  onClick={() => {
+                    setActionType("approve");
+                    handleSubmit();
+                  }}
+                  disabled={submitting}
+                  variant="default"
+                >
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Approve
+                </Button>
+              </>
+            ) : (
+              <Button
+                onClick={handleSubmit}
+                disabled={submitting || (actionType === "reject" && !comment.trim())}
+                variant={actionType === "approve" ? "default" : "destructive"}
+              >
+                {submitting ? "Processing..." : actionType === "approve" ? "Approve" : "Reject"}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
