@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,10 +11,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
-import { StatusBadge } from "@/components/StatusBadge";
-import { Plus, ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, addMonths, subMonths, isSameDay } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, addMonths, subMonths, addDays, subDays } from "date-fns";
 import { timesheetEntrySchema } from "@/lib/validation";
 import { getUserErrorMessage } from "@/lib/errorHandler";
 import { useConfetti } from "@/hooks/useConfetti";
@@ -22,6 +21,10 @@ import { useActivityCategories } from "@/hooks/useActivityCategories";
 import { formatDisplayDate } from "@/lib/dateUtils";
 import { cn } from "@/lib/utils";
 import { calculateDurationMinutes } from "@/lib/timesheetUtils";
+import { ViewToggle } from "@/components/calendar/ViewToggle";
+import { DayHourlyView } from "@/components/calendar/DayHourlyView";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface TimesheetEntry {
   id: string;
@@ -49,7 +52,11 @@ export default function CalendarPage() {
   const { fireConfetti } = useConfetti();
   const { categories } = useActivityCategories(userWithRole?.departmentId);
   
+  // View mode state
+  const [viewMode, setViewMode] = useState<"month" | "day">("month");
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [selectedDay, setSelectedDay] = useState(new Date());
+  
   const [entries, setEntries] = useState<TimesheetEntry[]>([]);
   const [leaveEntries, setLeaveEntries] = useState<LeaveEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -131,6 +138,17 @@ export default function CalendarPage() {
     return map;
   }, [leaveEntries]);
 
+  // Get entries for day view
+  const dayEntries = useMemo(() => {
+    const dateKey = format(selectedDay, "yyyy-MM-dd");
+    return entriesByDate.get(dateKey) || [];
+  }, [selectedDay, entriesByDate]);
+
+  const dayLeave = useMemo(() => {
+    const dateKey = format(selectedDay, "yyyy-MM-dd");
+    return leavesByDate.get(dateKey);
+  }, [selectedDay, leavesByDate]);
+
   const getFirstDayOffset = () => {
     const firstDay = startOfMonth(currentMonth).getDay();
     return firstDay === 0 ? 6 : firstDay - 1; // Monday = 0
@@ -152,6 +170,25 @@ export default function CalendarPage() {
     }
     
     setSelectedDate(day);
+    setDialogOpen(true);
+  };
+
+  const handleSlotClick = (slotStartTime: string, slotEndTime: string) => {
+    if (selectedDay > new Date()) return;
+    
+    const dateKey = format(selectedDay, "yyyy-MM-dd");
+    if (leavesByDate.has(dateKey)) {
+      toast({
+        title: "Leave Day",
+        description: "Cannot add timesheet entries on leave days",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setSelectedDate(selectedDay);
+    setStartTime(slotStartTime);
+    setEndTime(slotEndTime);
     setDialogOpen(true);
   };
 
@@ -251,6 +288,40 @@ export default function CalendarPage() {
     return { dayEntries, leave, totalMinutes, hours, mins };
   };
 
+  const handleTodayClick = () => {
+    const today = new Date();
+    if (viewMode === "month") {
+      setCurrentMonth(today);
+    } else {
+      setSelectedDay(today);
+      setCurrentMonth(today);
+    }
+  };
+
+  const handleViewModeChange = (mode: "month" | "day") => {
+    setViewMode(mode);
+    if (mode === "day") {
+      setSelectedDay(new Date());
+    }
+  };
+
+  const handleDayNavigation = (direction: "prev" | "next") => {
+    if (direction === "prev") {
+      const newDay = subDays(selectedDay, 1);
+      setSelectedDay(newDay);
+      // Update current month if we crossed month boundary
+      if (newDay.getMonth() !== currentMonth.getMonth()) {
+        setCurrentMonth(newDay);
+      }
+    } else {
+      const newDay = addDays(selectedDay, 1);
+      setSelectedDay(newDay);
+      if (newDay.getMonth() !== currentMonth.getMonth()) {
+        setCurrentMonth(newDay);
+      }
+    }
+  };
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -264,22 +335,65 @@ export default function CalendarPage() {
               <p className="text-sm text-muted-foreground">View and add timesheet entries</p>
             </div>
           </div>
+          <ViewToggle viewMode={viewMode} onViewModeChange={handleViewModeChange} />
         </div>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
             <div className="flex items-center gap-4">
-              <Button variant="outline" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <CardTitle className="text-xl">
-                {format(currentMonth, "MMMM yyyy")}
-              </CardTitle>
-              <Button variant="outline" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+              {viewMode === "month" ? (
+                <>
+                  <Button variant="outline" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <CardTitle className="text-xl">
+                    {format(currentMonth, "MMMM yyyy")}
+                  </CardTitle>
+                  <Button variant="outline" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="outline" size="icon" onClick={() => handleDayNavigation("prev")}>
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <div className="flex items-center gap-3">
+                    <CardTitle className="text-xl">
+                      {format(selectedDay, "EEEE, MMMM d, yyyy")}
+                    </CardTitle>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          <CalendarDays className="h-4 w-4 mr-2" />
+                          Change Date
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={selectedDay}
+                          onSelect={(date) => {
+                            if (date) {
+                              setSelectedDay(date);
+                              if (date.getMonth() !== currentMonth.getMonth()) {
+                                setCurrentMonth(date);
+                              }
+                            }
+                          }}
+                          initialFocus
+                          className="p-3 pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <Button variant="outline" size="icon" onClick={() => handleDayNavigation("next")}>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </>
+              )}
             </div>
-            <Button variant="outline" size="sm" onClick={() => setCurrentMonth(new Date())}>
+            <Button variant="outline" size="sm" onClick={handleTodayClick}>
               Today
             </Button>
           </CardHeader>
@@ -288,7 +402,7 @@ export default function CalendarPage() {
               <div className="flex items-center justify-center h-96">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
-            ) : (
+            ) : viewMode === "month" ? (
               <>
                 {/* Weekday headers */}
                 <div className="grid grid-cols-7 gap-1 mb-2">
@@ -400,6 +514,14 @@ export default function CalendarPage() {
                   </div>
                 </div>
               </>
+            ) : (
+              /* Day View */
+              <DayHourlyView
+                date={selectedDay}
+                entries={dayEntries}
+                leaveEntry={dayLeave}
+                onSlotClick={handleSlotClick}
+              />
             )}
           </CardContent>
         </Card>
