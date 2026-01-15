@@ -40,20 +40,22 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check if the requesting user is an admin
+    // Check if the requesting user is an admin or super_admin
     const { data: roleData, error: roleError } = await supabaseClient
       .from('user_roles')
-      .select('role')
+      .select('role, organization_id')
       .eq('user_id', user.id)
       .single();
 
-    if (roleError || roleData?.role !== 'org_admin') {
+    if (roleError || (roleData?.role !== 'org_admin' && roleData?.role !== 'super_admin')) {
       console.error('User is not an admin:', user.id);
       return new Response(
         JSON.stringify({ error: 'Forbidden: Admin access required' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    const isSuperAdmin = roleData.role === 'super_admin';
 
     // Parse request body
     const { user_id, password } = await req.json();
@@ -64,6 +66,39 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: 'user_id is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // If not super_admin, verify target user is in same organization
+    if (!isSuperAdmin) {
+      const { data: targetUserRole, error: targetRoleError } = await supabaseClient
+        .from('user_roles')
+        .select('organization_id, role')
+        .eq('user_id', user_id)
+        .single();
+
+      if (targetRoleError) {
+        console.error('Error fetching target user role:', targetRoleError);
+        return new Response(
+          JSON.stringify({ error: 'User not found' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Cannot update super_admin users
+      if (targetUserRole.role === 'super_admin') {
+        return new Response(
+          JSON.stringify({ error: 'Cannot modify Super Admin users' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Verify same organization
+      if (targetUserRole.organization_id !== roleData.organization_id) {
+        return new Response(
+          JSON.stringify({ error: 'Cannot modify users from other organizations' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     // Validate password if provided

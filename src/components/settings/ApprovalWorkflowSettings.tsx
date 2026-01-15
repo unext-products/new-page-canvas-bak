@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useApprovalSettings, ApproverType } from "@/hooks/useApprovalSettings";
 import { useLabels } from "@/contexts/LabelContext";
-import { ArrowRight, RotateCcw, Loader2 } from "lucide-react";
+import { ArrowRight, RotateCcw } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface RoleSettingRowProps {
@@ -64,7 +64,7 @@ function RoleSettingRow({
 
 export default function ApprovalWorkflowSettings() {
   const { settings, loading, updateSettings, resetToDefaults, getApprovalChain } = useApprovalSettings();
-  const { labels } = useLabels();
+  const { roleLabel } = useLabels();
 
   if (loading) {
     return (
@@ -95,18 +95,19 @@ export default function ApprovalWorkflowSettings() {
     );
   }
 
-  const memberApproverOptions: { value: ApproverType; label: string }[] = [
-    { value: "manager", label: labels.role_manager },
-    { value: "org_admin", label: labels.role_org_admin },
+  // New approval chain: L1 -> L2 -> L3 -> Admin
+  const l1ApproverOptions: { value: ApproverType; label: string }[] = [
+    { value: "l2", label: roleLabel("l2") },
+    { value: "l3", label: roleLabel("l3") },
   ];
 
-  const programManagerApproverOptions: { value: ApproverType; label: string }[] = [
-    { value: "manager", label: labels.role_manager },
-    { value: "org_admin", label: labels.role_org_admin },
+  const l2ApproverOptions: { value: ApproverType; label: string }[] = [
+    { value: "l3", label: roleLabel("l3") },
+    { value: "org_admin", label: roleLabel("org_admin") },
   ];
 
-  const managerApproverOptions: { value: ApproverType; label: string }[] = [
-    { value: "org_admin", label: labels.role_org_admin },
+  const l3ApproverOptions: { value: ApproverType; label: string }[] = [
+    { value: "org_admin", label: roleLabel("org_admin") },
   ];
 
   const approvalChain = getApprovalChain();
@@ -123,45 +124,45 @@ export default function ApprovalWorkflowSettings() {
         {/* Role Settings */}
         <div className="space-y-4">
           <RoleSettingRow
-            roleLabel={labels.role_member}
-            requiresApproval={settings.member_requires_approval}
-            approvedBy={settings.member_approved_by}
+            roleLabel={roleLabel("l1")}
+            requiresApproval={settings.l1_requires_approval}
+            approvedBy={settings.l1_approved_by}
             onRequiresApprovalChange={(value) => 
               updateSettings({ 
-                member_requires_approval: value,
-                member_approved_by: value ? "manager" : null 
+                l1_requires_approval: value,
+                l1_approved_by: value ? "l2" : null 
               })
             }
-            onApprovedByChange={(value) => updateSettings({ member_approved_by: value })}
-            approverOptions={memberApproverOptions}
+            onApprovedByChange={(value) => updateSettings({ l1_approved_by: value })}
+            approverOptions={l1ApproverOptions}
           />
 
           <RoleSettingRow
-            roleLabel={labels.role_program_manager}
-            requiresApproval={settings.program_manager_requires_approval}
-            approvedBy={settings.program_manager_approved_by}
+            roleLabel={roleLabel("l2")}
+            requiresApproval={settings.l2_requires_approval}
+            approvedBy={settings.l2_approved_by}
             onRequiresApprovalChange={(value) => 
               updateSettings({ 
-                program_manager_requires_approval: value,
-                program_manager_approved_by: value ? "manager" : null 
+                l2_requires_approval: value,
+                l2_approved_by: value ? "l3" : null 
               })
             }
-            onApprovedByChange={(value) => updateSettings({ program_manager_approved_by: value })}
-            approverOptions={programManagerApproverOptions}
+            onApprovedByChange={(value) => updateSettings({ l2_approved_by: value })}
+            approverOptions={l2ApproverOptions}
           />
 
           <RoleSettingRow
-            roleLabel={labels.role_manager}
-            requiresApproval={settings.manager_requires_approval}
-            approvedBy={settings.manager_approved_by}
+            roleLabel={roleLabel("l3")}
+            requiresApproval={settings.l3_requires_approval}
+            approvedBy={settings.l3_approved_by}
             onRequiresApprovalChange={(value) => 
               updateSettings({ 
-                manager_requires_approval: value,
-                manager_approved_by: value ? "org_admin" : null 
+                l3_requires_approval: value,
+                l3_approved_by: value ? "org_admin" : null 
               })
             }
-            onApprovedByChange={(value) => updateSettings({ manager_approved_by: value })}
-            approverOptions={managerApproverOptions}
+            onApprovedByChange={(value) => updateSettings({ l3_approved_by: value })}
+            approverOptions={l3ApproverOptions}
           />
         </div>
 

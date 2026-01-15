@@ -6,16 +6,12 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useLabels, OrganizationLabels } from "@/contexts/LabelContext";
+import { useLabels, OrganizationLabels, RoleLabels } from "@/contexts/LabelContext";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tag, RotateCcw, Save, Info, Building, ChevronDown, Check, Minus } from "lucide-react";
 
-const defaultLabels: OrganizationLabels = {
-  role_org_admin: "Organization Admin",
-  role_program_manager: "Program Manager",
-  role_manager: "Manager",
-  role_member: "Member",
+const defaultEntityLabels: OrganizationLabels = {
   entity_department: "Department",
   entity_department_plural: "Departments",
   entity_program: "Program",
@@ -30,19 +26,29 @@ const defaultLabels: OrganizationLabels = {
   entity_subject_plural: "Subjects",
 };
 
+const defaultRoleLabels: RoleLabels = {
+  role_super_admin: "Super Admin",
+  role_admin: "Admin",
+  role_l3: "L3",
+  role_l2: "L2",
+  role_l1: "L1",
+};
+
 export default function LabelSettings() {
   const { userWithRole } = useAuth();
-  const { labels, refetchLabels } = useLabels();
+  const { labels, roleLabels, refetchLabels } = useLabels();
   const { toast } = useToast();
-  const [formData, setFormData] = useState<OrganizationLabels>(labels);
+  const [entityFormData, setEntityFormData] = useState<OrganizationLabels>(labels);
+  const [roleFormData, setRoleFormData] = useState<RoleLabels>(roleLabels);
   const [isSaving, setIsSaving] = useState(false);
   const [permissionsOpen, setPermissionsOpen] = useState(false);
 
   useEffect(() => {
-    setFormData(labels);
-  }, [labels]);
+    setEntityFormData(labels);
+    setRoleFormData(roleLabels);
+  }, [labels, roleLabels]);
 
-  const isOrgAdmin = userWithRole?.role === "org_admin";
+  const isOrgAdmin = userWithRole?.role === "org_admin" || userWithRole?.role === "admin";
 
   const handleSave = async () => {
     if (!isOrgAdmin) return;
@@ -50,29 +56,39 @@ export default function LabelSettings() {
     try {
       setIsSaving(true);
 
-      const { error } = await supabase
+      // Update entity labels
+      const { error: entityError } = await supabase
         .from("organization_labels")
         .update({
-          role_org_admin: formData.role_org_admin,
-          role_program_manager: formData.role_program_manager,
-          role_manager: formData.role_manager,
-          role_member: formData.role_member,
-          entity_department: formData.entity_department,
-          entity_department_plural: formData.entity_department_plural,
-          entity_program: formData.entity_program,
-          entity_program_plural: formData.entity_program_plural,
-          entity_vertical: formData.entity_vertical,
-          entity_vertical_plural: formData.entity_vertical_plural,
-          entity_batch: formData.entity_batch,
-          entity_batch_plural: formData.entity_batch_plural,
-          entity_term: formData.entity_term,
-          entity_term_plural: formData.entity_term_plural,
-          entity_subject: formData.entity_subject,
-          entity_subject_plural: formData.entity_subject_plural,
+          entity_department: entityFormData.entity_department,
+          entity_department_plural: entityFormData.entity_department_plural,
+          entity_program: entityFormData.entity_program,
+          entity_program_plural: entityFormData.entity_program_plural,
+          entity_vertical: entityFormData.entity_vertical,
+          entity_vertical_plural: entityFormData.entity_vertical_plural,
+          entity_batch: entityFormData.entity_batch,
+          entity_batch_plural: entityFormData.entity_batch_plural,
+          entity_term: entityFormData.entity_term,
+          entity_term_plural: entityFormData.entity_term_plural,
+          entity_subject: entityFormData.entity_subject,
+          entity_subject_plural: entityFormData.entity_subject_plural,
         })
         .not("organization_id", "is", null);
 
-      if (error) throw error;
+      if (entityError) throw entityError;
+
+      // Update role labels
+      const { error: roleError } = await supabase
+        .from("organization_role_labels")
+        .update({
+          role_l3: roleFormData.role_l3,
+          role_l2: roleFormData.role_l2,
+          role_l1: roleFormData.role_l1,
+          // Admin and Super Admin labels are not customizable
+        })
+        .not("organization_id", "is", null);
+
+      if (roleError) throw roleError;
 
       await refetchLabels();
 
@@ -92,7 +108,8 @@ export default function LabelSettings() {
   };
 
   const handleReset = () => {
-    setFormData(defaultLabels);
+    setEntityFormData(defaultEntityLabels);
+    setRoleFormData(defaultRoleLabels);
   };
 
   if (!isOrgAdmin) {
@@ -124,16 +141,19 @@ export default function LabelSettings() {
         <CardContent className="pt-0">
           <div className="space-y-3 text-sm text-blue-900 dark:text-blue-200">
             <div>
-              <strong>Organization Admin</strong> — Full access to manage users, verticals, programs, settings, and view all reports across the organization.
+              <strong>Super Admin</strong> — Full system access across all organizations. Can manage orgs and all users.
             </div>
             <div>
-              <strong>Program Manager</strong> — Can view and manage programs within their assigned vertical, and view program-level reports.
+              <strong>Admin</strong> — Full access within their organization. Can manage users, verticals, programs, settings, and view all reports.
             </div>
             <div>
-              <strong>Manager</strong> — Approves or rejects timesheets for their vertical, manages vertical members, and views vertical reports.
+              <strong>L3</strong> — Senior manager role. Approves L2 and L1 timesheets within their verticals. Also submits own timesheets.
             </div>
             <div>
-              <strong>Member</strong> — Submits timesheets, views their own data, and can request leave.
+              <strong>L2</strong> — Manager role. Approves L1 timesheets within their assigned programs. Also submits own timesheets.
+            </div>
+            <div>
+              <strong>L1</strong> — Team member role. Submits timesheets, views their own data, and can request leave.
             </div>
           </div>
 
@@ -148,10 +168,10 @@ export default function LabelSettings() {
                   <TableHeader>
                     <TableRow className="bg-blue-100/50 dark:bg-blue-900/30">
                       <TableHead className="text-blue-900 dark:text-blue-200">Permission</TableHead>
-                      <TableHead className="text-center text-blue-900 dark:text-blue-200">Member</TableHead>
-                      <TableHead className="text-center text-blue-900 dark:text-blue-200">Manager</TableHead>
-                      <TableHead className="text-center text-blue-900 dark:text-blue-200">Program Mgr</TableHead>
-                      <TableHead className="text-center text-blue-900 dark:text-blue-200">Org Admin</TableHead>
+                      <TableHead className="text-center text-blue-900 dark:text-blue-200">L1</TableHead>
+                      <TableHead className="text-center text-blue-900 dark:text-blue-200">L2</TableHead>
+                      <TableHead className="text-center text-blue-900 dark:text-blue-200">L3</TableHead>
+                      <TableHead className="text-center text-blue-900 dark:text-blue-200">Admin</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody className="text-blue-800 dark:text-blue-300">
@@ -160,41 +180,48 @@ export default function LabelSettings() {
                       <TableCell className="text-center"><Check className="h-4 w-4 mx-auto text-green-600" /></TableCell>
                       <TableCell className="text-center"><Check className="h-4 w-4 mx-auto text-green-600" /></TableCell>
                       <TableCell className="text-center"><Check className="h-4 w-4 mx-auto text-green-600" /></TableCell>
+                      <TableCell className="text-center"><Minus className="h-4 w-4 mx-auto text-muted-foreground" /></TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>Approve L1 timesheets</TableCell>
+                      <TableCell className="text-center"><Minus className="h-4 w-4 mx-auto text-muted-foreground" /></TableCell>
+                      <TableCell className="text-center text-xs">Program</TableCell>
+                      <TableCell className="text-center text-xs">Vertical</TableCell>
                       <TableCell className="text-center"><Check className="h-4 w-4 mx-auto text-green-600" /></TableCell>
                     </TableRow>
                     <TableRow>
-                      <TableCell>Approve timesheets</TableCell>
+                      <TableCell>Approve L2 timesheets</TableCell>
                       <TableCell className="text-center"><Minus className="h-4 w-4 mx-auto text-muted-foreground" /></TableCell>
-                      <TableCell className="text-center text-xs">Vertical only</TableCell>
+                      <TableCell className="text-center"><Minus className="h-4 w-4 mx-auto text-muted-foreground" /></TableCell>
+                      <TableCell className="text-center text-xs">Vertical</TableCell>
+                      <TableCell className="text-center"><Check className="h-4 w-4 mx-auto text-green-600" /></TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>Approve L3 timesheets</TableCell>
+                      <TableCell className="text-center"><Minus className="h-4 w-4 mx-auto text-muted-foreground" /></TableCell>
+                      <TableCell className="text-center"><Minus className="h-4 w-4 mx-auto text-muted-foreground" /></TableCell>
                       <TableCell className="text-center"><Minus className="h-4 w-4 mx-auto text-muted-foreground" /></TableCell>
                       <TableCell className="text-center"><Check className="h-4 w-4 mx-auto text-green-600" /></TableCell>
                     </TableRow>
                     <TableRow>
                       <TableCell>View reports</TableCell>
                       <TableCell className="text-center text-xs">Own</TableCell>
-                      <TableCell className="text-center text-xs">Vertical</TableCell>
                       <TableCell className="text-center text-xs">Program</TableCell>
+                      <TableCell className="text-center text-xs">Vertical</TableCell>
                       <TableCell className="text-center"><Check className="h-4 w-4 mx-auto text-green-600" /></TableCell>
                     </TableRow>
                     <TableRow>
                       <TableCell>Manage users</TableCell>
                       <TableCell className="text-center"><Minus className="h-4 w-4 mx-auto text-muted-foreground" /></TableCell>
-                      <TableCell className="text-center text-xs">Vertical only</TableCell>
-                      <TableCell className="text-center"><Minus className="h-4 w-4 mx-auto text-muted-foreground" /></TableCell>
-                      <TableCell className="text-center"><Check className="h-4 w-4 mx-auto text-green-600" /></TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>Manage verticals</TableCell>
-                      <TableCell className="text-center"><Minus className="h-4 w-4 mx-auto text-muted-foreground" /></TableCell>
                       <TableCell className="text-center"><Minus className="h-4 w-4 mx-auto text-muted-foreground" /></TableCell>
                       <TableCell className="text-center"><Minus className="h-4 w-4 mx-auto text-muted-foreground" /></TableCell>
                       <TableCell className="text-center"><Check className="h-4 w-4 mx-auto text-green-600" /></TableCell>
                     </TableRow>
                     <TableRow>
-                      <TableCell>Manage programs</TableCell>
+                      <TableCell>Manage verticals/programs</TableCell>
                       <TableCell className="text-center"><Minus className="h-4 w-4 mx-auto text-muted-foreground" /></TableCell>
                       <TableCell className="text-center"><Minus className="h-4 w-4 mx-auto text-muted-foreground" /></TableCell>
-                      <TableCell className="text-center text-xs">Assigned</TableCell>
+                      <TableCell className="text-center"><Minus className="h-4 w-4 mx-auto text-muted-foreground" /></TableCell>
                       <TableCell className="text-center"><Check className="h-4 w-4 mx-auto text-green-600" /></TableCell>
                     </TableRow>
                     <TableRow>
@@ -212,7 +239,7 @@ export default function LabelSettings() {
         </CardContent>
       </Card>
 
-      {/* Role Labels Form */}
+      {/* Role Labels Form - Only L1, L2, L3 are customizable */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -220,53 +247,42 @@ export default function LabelSettings() {
             Role Labels
           </CardTitle>
           <CardDescription>
-            Customize how roles are displayed throughout your organization
+            Customize how L1, L2, and L3 roles are displayed throughout your organization
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="role_manager" className="text-muted-foreground text-sm">
-                Manager (default: "Manager")
+              <Label htmlFor="role_l3" className="text-muted-foreground text-sm">
+                L3 (default: "L3")
               </Label>
               <Input
-                id="role_manager"
-                value={formData.role_manager}
-                onChange={(e) => setFormData({ ...formData, role_manager: e.target.value })}
-                placeholder="e.g., HOD, Team Lead, Supervisor"
+                id="role_l3"
+                value={roleFormData.role_l3}
+                onChange={(e) => setRoleFormData({ ...roleFormData, role_l3: e.target.value })}
+                placeholder="e.g., HOD, Senior Manager"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="role_member" className="text-muted-foreground text-sm">
-                Member (default: "Member")
+              <Label htmlFor="role_l2" className="text-muted-foreground text-sm">
+                L2 (default: "L2")
               </Label>
               <Input
-                id="role_member"
-                value={formData.role_member}
-                onChange={(e) => setFormData({ ...formData, role_member: e.target.value })}
+                id="role_l2"
+                value={roleFormData.role_l2}
+                onChange={(e) => setRoleFormData({ ...roleFormData, role_l2: e.target.value })}
+                placeholder="e.g., Program Manager, Team Lead"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="role_l1" className="text-muted-foreground text-sm">
+                L1 (default: "L1")
+              </Label>
+              <Input
+                id="role_l1"
+                value={roleFormData.role_l1}
+                onChange={(e) => setRoleFormData({ ...roleFormData, role_l1: e.target.value })}
                 placeholder="e.g., Faculty, Employee, Staff"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="role_program_manager" className="text-muted-foreground text-sm">
-                Program Manager (default: "Program Manager")
-              </Label>
-              <Input
-                id="role_program_manager"
-                value={formData.role_program_manager}
-                onChange={(e) => setFormData({ ...formData, role_program_manager: e.target.value })}
-                placeholder="e.g., Course Director, Program Coordinator"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="role_org_admin" className="text-muted-foreground text-sm">
-                Organization Admin (default: "Organization Admin")
-              </Label>
-              <Input
-                id="role_org_admin"
-                value={formData.role_org_admin}
-                onChange={(e) => setFormData({ ...formData, role_org_admin: e.target.value })}
-                placeholder="e.g., Administrator, Principal"
               />
             </div>
           </div>
@@ -318,8 +334,8 @@ export default function LabelSettings() {
               </Label>
               <Input
                 id="entity_vertical"
-                value={formData.entity_vertical}
-                onChange={(e) => setFormData({ ...formData, entity_vertical: e.target.value })}
+                value={entityFormData.entity_vertical}
+                onChange={(e) => setEntityFormData({ ...entityFormData, entity_vertical: e.target.value })}
                 placeholder="e.g., School, Division, Department"
               />
             </div>
@@ -329,8 +345,8 @@ export default function LabelSettings() {
               </Label>
               <Input
                 id="entity_vertical_plural"
-                value={formData.entity_vertical_plural}
-                onChange={(e) => setFormData({ ...formData, entity_vertical_plural: e.target.value })}
+                value={entityFormData.entity_vertical_plural}
+                onChange={(e) => setEntityFormData({ ...entityFormData, entity_vertical_plural: e.target.value })}
                 placeholder="e.g., Schools, Divisions, Departments"
               />
             </div>
@@ -340,8 +356,8 @@ export default function LabelSettings() {
               </Label>
               <Input
                 id="entity_program"
-                value={formData.entity_program}
-                onChange={(e) => setFormData({ ...formData, entity_program: e.target.value })}
+                value={entityFormData.entity_program}
+                onChange={(e) => setEntityFormData({ ...entityFormData, entity_program: e.target.value })}
                 placeholder="e.g., Course, Track"
               />
             </div>
@@ -351,8 +367,8 @@ export default function LabelSettings() {
               </Label>
               <Input
                 id="entity_program_plural"
-                value={formData.entity_program_plural}
-                onChange={(e) => setFormData({ ...formData, entity_program_plural: e.target.value })}
+                value={entityFormData.entity_program_plural}
+                onChange={(e) => setEntityFormData({ ...entityFormData, entity_program_plural: e.target.value })}
                 placeholder="e.g., Courses, Tracks"
               />
             </div>
@@ -362,8 +378,8 @@ export default function LabelSettings() {
               </Label>
               <Input
                 id="entity_batch"
-                value={formData.entity_batch}
-                onChange={(e) => setFormData({ ...formData, entity_batch: e.target.value })}
+                value={entityFormData.entity_batch}
+                onChange={(e) => setEntityFormData({ ...entityFormData, entity_batch: e.target.value })}
                 placeholder="e.g., Cohort, Group"
               />
             </div>
@@ -373,8 +389,8 @@ export default function LabelSettings() {
               </Label>
               <Input
                 id="entity_batch_plural"
-                value={formData.entity_batch_plural}
-                onChange={(e) => setFormData({ ...formData, entity_batch_plural: e.target.value })}
+                value={entityFormData.entity_batch_plural}
+                onChange={(e) => setEntityFormData({ ...entityFormData, entity_batch_plural: e.target.value })}
                 placeholder="e.g., Cohorts, Groups"
               />
             </div>
@@ -384,8 +400,8 @@ export default function LabelSettings() {
               </Label>
               <Input
                 id="entity_term"
-                value={formData.entity_term}
-                onChange={(e) => setFormData({ ...formData, entity_term: e.target.value })}
+                value={entityFormData.entity_term}
+                onChange={(e) => setEntityFormData({ ...entityFormData, entity_term: e.target.value })}
                 placeholder="e.g., Semester, Quarter"
               />
             </div>
@@ -395,8 +411,8 @@ export default function LabelSettings() {
               </Label>
               <Input
                 id="entity_term_plural"
-                value={formData.entity_term_plural}
-                onChange={(e) => setFormData({ ...formData, entity_term_plural: e.target.value })}
+                value={entityFormData.entity_term_plural}
+                onChange={(e) => setEntityFormData({ ...entityFormData, entity_term_plural: e.target.value })}
                 placeholder="e.g., Semesters, Quarters"
               />
             </div>
@@ -406,8 +422,8 @@ export default function LabelSettings() {
               </Label>
               <Input
                 id="entity_subject"
-                value={formData.entity_subject}
-                onChange={(e) => setFormData({ ...formData, entity_subject: e.target.value })}
+                value={entityFormData.entity_subject}
+                onChange={(e) => setEntityFormData({ ...entityFormData, entity_subject: e.target.value })}
                 placeholder="e.g., Course, Class, Module"
               />
             </div>
@@ -417,8 +433,8 @@ export default function LabelSettings() {
               </Label>
               <Input
                 id="entity_subject_plural"
-                value={formData.entity_subject_plural}
-                onChange={(e) => setFormData({ ...formData, entity_subject_plural: e.target.value })}
+                value={entityFormData.entity_subject_plural}
+                onChange={(e) => setEntityFormData({ ...entityFormData, entity_subject_plural: e.target.value })}
                 placeholder="e.g., Courses, Classes, Modules"
               />
             </div>

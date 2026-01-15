@@ -3,10 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./AuthContext";
 
 export interface OrganizationLabels {
-  role_org_admin: string;
-  role_program_manager: string;
-  role_manager: string;
-  role_member: string;
+  // Entity labels
   entity_department: string;
   entity_department_plural: string;
   entity_program: string;
@@ -21,11 +18,15 @@ export interface OrganizationLabels {
   entity_subject_plural: string;
 }
 
+export interface RoleLabels {
+  role_super_admin: string;
+  role_admin: string;
+  role_l3: string;
+  role_l2: string;
+  role_l1: string;
+}
+
 const defaultLabels: OrganizationLabels = {
-  role_org_admin: "Organization Admin",
-  role_program_manager: "Program Manager",
-  role_manager: "Manager",
-  role_member: "Member",
   entity_department: "Department",
   entity_department_plural: "Departments",
   entity_program: "Program",
@@ -40,10 +41,19 @@ const defaultLabels: OrganizationLabels = {
   entity_subject_plural: "Subjects",
 };
 
+const defaultRoleLabels: RoleLabels = {
+  role_super_admin: "Super Admin",
+  role_admin: "Admin",
+  role_l3: "L3",
+  role_l2: "L2",
+  role_l1: "L1",
+};
+
 type EntityType = "department" | "program" | "vertical" | "batch" | "term" | "subject";
 
 interface LabelContextType {
   labels: OrganizationLabels;
+  roleLabels: RoleLabels;
   isLoading: boolean;
   roleLabel: (role: string) => string;
   entityLabel: (entity: EntityType, plural?: boolean) => string;
@@ -55,50 +65,66 @@ const LabelContext = createContext<LabelContextType | undefined>(undefined);
 export function LabelProvider({ children }: { children: ReactNode }) {
   const { userWithRole } = useAuth();
   const [labels, setLabels] = useState<OrganizationLabels>(defaultLabels);
+  const [roleLabels, setRoleLabels] = useState<RoleLabels>(defaultRoleLabels);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchLabels = async () => {
     if (!userWithRole?.user?.id) {
       setLabels(defaultLabels);
+      setRoleLabels(defaultRoleLabels);
       setIsLoading(false);
       return;
     }
 
     try {
       setIsLoading(true);
-      const { data, error } = await supabase
+      
+      // Fetch entity labels
+      const { data: entityData, error: entityError } = await supabase
         .from("organization_labels")
         .select("*")
         .maybeSingle();
 
-      if (error) {
-        console.error("Error fetching labels:", error);
-        setLabels(defaultLabels);
-      } else if (data) {
+      if (entityError) {
+        console.error("Error fetching entity labels:", entityError);
+      } else if (entityData) {
         setLabels({
-          role_org_admin: data.role_org_admin,
-          role_program_manager: data.role_program_manager,
-          role_manager: data.role_manager,
-          role_member: data.role_member,
-          entity_department: data.entity_department,
-          entity_department_plural: data.entity_department_plural,
-          entity_program: data.entity_program,
-          entity_program_plural: data.entity_program_plural,
-          entity_vertical: data.entity_vertical || defaultLabels.entity_vertical,
-          entity_vertical_plural: data.entity_vertical_plural || defaultLabels.entity_vertical_plural,
-          entity_batch: data.entity_batch || defaultLabels.entity_batch,
-          entity_batch_plural: data.entity_batch_plural || defaultLabels.entity_batch_plural,
-          entity_term: data.entity_term || defaultLabels.entity_term,
-          entity_term_plural: data.entity_term_plural || defaultLabels.entity_term_plural,
-          entity_subject: data.entity_subject || defaultLabels.entity_subject,
-          entity_subject_plural: data.entity_subject_plural || defaultLabels.entity_subject_plural,
+          entity_department: entityData.entity_department || defaultLabels.entity_department,
+          entity_department_plural: entityData.entity_department_plural || defaultLabels.entity_department_plural,
+          entity_program: entityData.entity_program || defaultLabels.entity_program,
+          entity_program_plural: entityData.entity_program_plural || defaultLabels.entity_program_plural,
+          entity_vertical: entityData.entity_vertical || defaultLabels.entity_vertical,
+          entity_vertical_plural: entityData.entity_vertical_plural || defaultLabels.entity_vertical_plural,
+          entity_batch: entityData.entity_batch || defaultLabels.entity_batch,
+          entity_batch_plural: entityData.entity_batch_plural || defaultLabels.entity_batch_plural,
+          entity_term: entityData.entity_term || defaultLabels.entity_term,
+          entity_term_plural: entityData.entity_term_plural || defaultLabels.entity_term_plural,
+          entity_subject: entityData.entity_subject || defaultLabels.entity_subject,
+          entity_subject_plural: entityData.entity_subject_plural || defaultLabels.entity_subject_plural,
         });
-      } else {
-        setLabels(defaultLabels);
+      }
+
+      // Fetch role labels from organization_role_labels table
+      const { data: roleData, error: roleError } = await supabase
+        .from("organization_role_labels")
+        .select("*")
+        .maybeSingle();
+
+      if (roleError) {
+        console.error("Error fetching role labels:", roleError);
+      } else if (roleData) {
+        setRoleLabels({
+          role_super_admin: roleData.role_super_admin || defaultRoleLabels.role_super_admin,
+          role_admin: roleData.role_admin || defaultRoleLabels.role_admin,
+          role_l3: roleData.role_l3 || defaultRoleLabels.role_l3,
+          role_l2: roleData.role_l2 || defaultRoleLabels.role_l2,
+          role_l1: roleData.role_l1 || defaultRoleLabels.role_l1,
+        });
       }
     } catch (error) {
       console.error("Error fetching labels:", error);
       setLabels(defaultLabels);
+      setRoleLabels(defaultRoleLabels);
     } finally {
       setIsLoading(false);
     }
@@ -109,15 +135,24 @@ export function LabelProvider({ children }: { children: ReactNode }) {
   }, [userWithRole?.user?.id]);
 
   const roleLabel = (role: string): string => {
+    // Map DB roles to display labels
     switch (role) {
+      case "super_admin":
+        return roleLabels.role_super_admin;
       case "org_admin":
-        return labels.role_org_admin;
-      case "program_manager":
-        return labels.role_program_manager;
+      case "admin":
+        return roleLabels.role_admin;
+      case "l3":
+      case "hod":
       case "manager":
-        return labels.role_manager;
+        return roleLabels.role_l3;
+      case "l2":
+      case "program_manager":
+        return roleLabels.role_l2;
+      case "l1":
+      case "faculty":
       case "member":
-        return labels.role_member;
+        return roleLabels.role_l1;
       default:
         return role;
     }
@@ -143,7 +178,7 @@ export function LabelProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <LabelContext.Provider value={{ labels, isLoading, roleLabel, entityLabel, refetchLabels: fetchLabels }}>
+    <LabelContext.Provider value={{ labels, roleLabels, isLoading, roleLabel, entityLabel, refetchLabels: fetchLabels }}>
       {children}
     </LabelContext.Provider>
   );

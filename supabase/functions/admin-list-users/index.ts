@@ -47,7 +47,8 @@ serve(async (req) => {
       .eq('user_id', user.id)
       .single();
 
-    if (roleError || roleData?.role !== 'org_admin') {
+    // Allow super_admin and org_admin to list users
+    if (roleError || (roleData?.role !== 'org_admin' && roleData?.role !== 'super_admin')) {
       console.error('Role check failed:', roleError);
       return new Response(JSON.stringify({ error: 'Forbidden - Admin access required' }), {
         status: 403,
@@ -55,28 +56,8 @@ serve(async (req) => {
       });
     }
 
-    // Get the admin's organization ID
+    const isSuperAdmin = roleData.role === 'super_admin';
     const adminOrgId = roleData.organization_id;
-    if (!adminOrgId) {
-      console.error('Admin has no organization assigned');
-      return new Response(JSON.stringify({ error: 'Admin has no organization assigned' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Get user IDs that belong to the admin's organization
-    const { data: orgUsers, error: orgUsersError } = await supabaseClient
-      .from('user_roles')
-      .select('user_id')
-      .eq('organization_id', adminOrgId);
-
-    if (orgUsersError) {
-      console.error('Error fetching org users:', orgUsersError);
-      throw orgUsersError;
-    }
-
-    const orgUserIds = new Set(orgUsers?.map(u => u.user_id) || []);
 
     // List all users using admin API
     const { data: authUsersData, error: listError } = await supabaseClient.auth.admin.listUsers();
@@ -86,10 +67,53 @@ serve(async (req) => {
       throw listError;
     }
 
-    // Filter to only include users from the admin's organization
-    const filteredUsers = authUsersData.users.filter(u => orgUserIds.has(u.id));
+    let filteredUsers = authUsersData.users;
 
-    console.log(`Listed ${filteredUsers.length} users for organization ${adminOrgId}`);
+    if (isSuperAdmin) {
+      // Super admin can see all users EXCEPT other super_admins
+      const { data: superAdminUsers } = await supabaseClient
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'super_admin')
+        .neq('user_id', user.id);
+
+      const superAdminIds = new Set(superAdminUsers?.map(u => u.user_id) || []);
+      
+      // Filter out other super_admins from the list
+      filteredUsers = authUsersData.users.filter(u => !superAdminIds.has(u.id));
+    } else {
+      // Org admin can only see users in their organization
+      if (!adminOrgId) {
+        console.error('Admin has no organization assigned');
+        return new Response(JSON.stringify({ error: 'Admin has no organization assigned' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Get user IDs that belong to the admin's organization
+      const { data: orgUsers, error: orgUsersError } = await supabaseClient
+        .from('user_roles')
+        .select('user_id, role')
+        .eq('organization_id', adminOrgId);
+
+      if (orgUsersError) {
+        console.error('Error fetching org users:', orgUsersError);
+        throw orgUsersError;
+      }
+
+      // Filter out super_admin users from the visible list
+      const orgUserIds = new Set(
+        orgUsers
+          ?.filter(u => u.role !== 'super_admin')
+          .map(u => u.user_id) || []
+      );
+
+      // Filter to only include users from the admin's organization (excluding super_admins)
+      filteredUsers = authUsersData.users.filter(u => orgUserIds.has(u.id));
+    }
+
+    console.log(`Listed ${filteredUsers.length} users`);
 
     return new Response(JSON.stringify({ 
       users: filteredUsers 
