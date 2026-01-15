@@ -42,9 +42,9 @@ export interface FacultyReportData {
   pendingCount: number;
 }
 
-export interface DepartmentReportData {
-  departmentId: string;
-  departmentName: string;
+export interface VerticalReportData {
+  verticalId: string;
+  verticalName: string;
   totalFaculty: number;
   totalHours: number;
   expectedHours: number;
@@ -53,6 +53,9 @@ export interface DepartmentReportData {
   facultyBreakdown: FacultyBreakdown[];
   averageDailyHours: number;
 }
+
+/** @deprecated Use VerticalReportData instead */
+export type DepartmentReportData = VerticalReportData;
 
 export interface FacultyBreakdown {
   userId: string;
@@ -184,23 +187,31 @@ export async function fetchFacultyReport(
     .eq("id", userId)
     .single();
 
-  // Get ALL departments for the user from user_departments junction table
-  const { data: userDepts } = await supabase
-    .from("user_departments")
-    .select("department_id")
+  // Get ALL verticals for the user from user_verticals junction table
+  const { data: userVerts } = await supabase
+    .from("user_verticals")
+    .select("vertical_id")
     .eq("user_id", userId);
 
-  const deptIds = userDepts?.map(ud => ud.department_id) || [];
+  // Fallback to user_departments for backward compatibility
+  let vertIds = userVerts?.map(uv => uv.vertical_id) || [];
+  if (vertIds.length === 0) {
+    const { data: userDepts } = await supabase
+      .from("user_departments")
+      .select("department_id")
+      .eq("user_id", userId);
+    vertIds = userDepts?.map(ud => ud.department_id) || [];
+  }
 
-  const { data: departments } = deptIds.length > 0
+  const { data: verticals } = vertIds.length > 0
     ? await supabase
-        .from("departments")
+        .from("verticals")
         .select("name")
-        .in("id", deptIds)
+        .in("id", vertIds)
     : { data: [] };
 
-  // Join department names for display (e.g., "Banking, Mathematics")
-  const departmentNames = departments?.map(d => d.name).join(", ") || "N/A";
+  // Join vertical names for display (e.g., "Banking, Mathematics")
+  const verticalNames = verticals?.map(v => v.name).join(", ") || "N/A";
 
   const totalMinutes = entries?.reduce((sum, e) => sum + getEntryDuration(e), 0) || 0;
   const totalHours = totalMinutes / 60;
@@ -222,7 +233,7 @@ export async function fetchFacultyReport(
   return {
     userId,
     facultyName: profile?.full_name || "Unknown",
-    department: departmentNames,
+    department: verticalNames,
     totalHours,
     expectedHours,
     completionRate,
@@ -234,35 +245,58 @@ export async function fetchFacultyReport(
   };
 }
 
-export async function fetchDepartmentReport(
-  departmentId: string,
+export async function fetchVerticalReport(
+  verticalId: string,
   period: ReportPeriod
-): Promise<DepartmentReportData> {
+): Promise<VerticalReportData> {
   const dateFrom = format(period.dateFrom, "yyyy-MM-dd");
   const dateTo = format(period.dateTo, "yyyy-MM-dd");
 
-  // Get department code if a specific department is selected (for filtering entries)
-  let departmentCode: string | null = null;
-  if (departmentId !== "all") {
-    const { data: dept } = await supabase
-      .from("departments")
+  // Get vertical code if a specific vertical is selected (for filtering entries)
+  let verticalCode: string | null = null;
+  if (verticalId !== "all") {
+    const { data: vert } = await supabase
+      .from("verticals")
       .select("code")
-      .eq("id", departmentId)
+      .eq("id", verticalId)
       .single();
-    departmentCode = dept?.code || null;
+    verticalCode = vert?.code || null;
   }
 
-  // Get users from user_departments junction table (not user_roles)
-  let deptUsersQuery = supabase.from("user_departments").select("user_id");
+  // Get users from user_verticals junction table (with fallback to user_departments)
+  let userIds: string[] = [];
   
-  if (departmentId !== "all") {
-    deptUsersQuery = deptUsersQuery.eq("department_id", departmentId);
+  if (verticalId !== "all") {
+    const { data: vertUsers } = await supabase
+      .from("user_verticals")
+      .select("user_id")
+      .eq("vertical_id", verticalId);
+    
+    userIds = [...new Set(vertUsers?.map(u => u.user_id) || [])];
+    
+    // Fallback to user_departments if no user_verticals entries
+    if (userIds.length === 0) {
+      const { data: deptUsers } = await supabase
+        .from("user_departments")
+        .select("user_id")
+        .eq("department_id", verticalId);
+      userIds = [...new Set(deptUsers?.map(u => u.user_id) || [])];
+    }
+  } else {
+    // Get all users from user_verticals
+    const { data: allVertUsers } = await supabase
+      .from("user_verticals")
+      .select("user_id");
+    userIds = [...new Set(allVertUsers?.map(u => u.user_id) || [])];
+    
+    // Also include users from user_departments for backward compatibility
+    if (userIds.length === 0) {
+      const { data: allDeptUsers } = await supabase
+        .from("user_departments")
+        .select("user_id");
+      userIds = [...new Set(allDeptUsers?.map(u => u.user_id) || [])];
+    }
   }
-  
-  const { data: deptUsers } = await deptUsersQuery;
-
-  // Get unique user IDs (a user might appear multiple times if in multiple departments)
-  const userIds = Array.from(new Set(deptUsers?.map(u => u.user_id) || []));
 
   let entries: any[] = [];
   if (userIds.length > 0) {
@@ -274,9 +308,9 @@ export async function fetchDepartmentReport(
       .lte("entry_date", dateTo)
       .order("entry_date", { ascending: false });
 
-    // Filter by department_code when a specific department is selected
-    if (departmentCode) {
-      entriesQuery = entriesQuery.eq("department_code", departmentCode);
+    // Filter by vertical_code when a specific vertical is selected
+    if (verticalCode) {
+      entriesQuery = entriesQuery.or(`vertical_code.eq.${verticalCode},department_code.eq.${verticalCode}`);
     }
 
     const { data, error } = await entriesQuery;
@@ -285,13 +319,13 @@ export async function fetchDepartmentReport(
     entries = data || [];
   }
 
-  const { data: department } = departmentId !== "all"
+  const { data: vertical } = verticalId !== "all"
     ? await supabase
-        .from("departments")
+        .from("verticals")
         .select("name")
-        .eq("id", departmentId)
+        .eq("id", verticalId)
         .single()
-    : { data: { name: "All Departments" } };
+    : { data: { name: "All Verticals" } };
 
   const uniqueFacultyIds = Array.from(new Set(entries?.map(e => e.user_id) || []));
   const { data: profiles } = await supabase
@@ -327,8 +361,8 @@ export async function fetchDepartmentReport(
   const averageDailyHours = workingDays > 0 ? totalHours / workingDays : 0;
 
   return {
-    departmentId,
-    departmentName: department?.name || "Unknown",
+    verticalId,
+    verticalName: vertical?.name || "Unknown",
     totalFaculty: uniqueFacultyIds.length,
     totalHours,
     expectedHours,
@@ -338,6 +372,9 @@ export async function fetchDepartmentReport(
     averageDailyHours,
   };
 }
+
+/** @deprecated Use fetchVerticalReport instead */
+export const fetchDepartmentReport = fetchVerticalReport;
 
 // Helper to count working days (excluding weekends and leave days)
 export function countWorkingDays(dateFrom: Date, dateTo: Date, leaveDates: Set<string> = new Set()): number {

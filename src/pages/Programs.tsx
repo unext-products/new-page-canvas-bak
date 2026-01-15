@@ -16,7 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { toDisplayRole } from "@/lib/roleMapping";
 import { z } from "zod";
-import { DepartmentSelect } from "@/components/DepartmentSelect";
+import { VerticalSelect } from "@/components/VerticalSelect";
 import { PageHeader } from "@/components/PageHeader";
 import { PageSkeleton } from "@/components/PageSkeleton";
 import { EmptyState } from "@/components/EmptyState";
@@ -24,7 +24,7 @@ import { EmptyState } from "@/components/EmptyState";
 const programSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   code: z.string().min(2, "Code must be at least 2 characters").regex(/^[A-Z0-9_]+$/, "Code must be uppercase letters, numbers, and underscores only"),
-  department_id: z.string().uuid("Please select a department"),
+  vertical_id: z.string().uuid("Please select a vertical"),
 });
 
 interface ProgramUser {
@@ -37,21 +37,29 @@ interface Program {
   id: string;
   name: string;
   code: string;
-  department_id: string;
+  vertical_id: string | null;
+  department_id: string | null;
   created_at: string;
   userCount?: number;
   users?: ProgramUser[];
+  verticals?: { 
+    name: string;
+    organizations?: { name: string };
+  };
   departments?: { 
     name: string;
     organizations?: { name: string };
   };
 }
 
-interface Department {
+interface Vertical {
   id: string;
   name: string;
   code: string;
 }
+
+/** @deprecated Use Vertical instead */
+type Department = Vertical;
 
 export default function Programs() {
   const { userWithRole } = useAuth();
@@ -59,13 +67,13 @@ export default function Programs() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [programs, setPrograms] = useState<Program[]>([]);
-  const [departments, setDepartments] = useState<Department[]>([]);
+  const [verticals, setVerticals] = useState<Vertical[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [usersDialogOpen, setUsersDialogOpen] = useState(false);
   const [selectedProgram, setSelectedProgram] = useState<Program | null>(null);
-  const [formData, setFormData] = useState({ name: "", code: "", department_id: "" });
+  const [formData, setFormData] = useState({ name: "", code: "", vertical_id: "" });
 
   useEffect(() => {
     if (!userWithRole) return;
@@ -79,13 +87,13 @@ export default function Programs() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [programsData, deptsData, userProgramsData, userRolesData, profilesData] = await Promise.all([
+      const [programsData, vertsData, userProgramsData, userRolesData, profilesData] = await Promise.all([
         supabase
           .from("programs")
-          .select("*, departments(name, organizations(name))")
+          .select("*, verticals(name, organizations(name)), departments(name, organizations(name))")
           .order("name"),
         supabase
-          .from("departments")
+          .from("verticals")
           .select("id, name, code")
           .order("name"),
         supabase
@@ -100,7 +108,7 @@ export default function Programs() {
       ]);
 
       if (programsData.error) throw programsData.error;
-      if (deptsData.error) throw deptsData.error;
+      if (vertsData.error) throw vertsData.error;
       if (userProgramsData.error) throw userProgramsData.error;
       if (userRolesData.error) throw userRolesData.error;
       if (profilesData.error) throw profilesData.error;
@@ -133,7 +141,7 @@ export default function Programs() {
       })) || [];
 
       setPrograms(programsWithUsers);
-      setDepartments(deptsData.data);
+      setVerticals(vertsData.data);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -150,7 +158,7 @@ export default function Programs() {
       const validated = programSchema.parse(formData);
       const { error } = await supabase
         .from("programs")
-        .insert([{ name: validated.name, code: validated.code, department_id: validated.department_id }]);
+        .insert([{ name: validated.name, code: validated.code, vertical_id: validated.vertical_id, department_id: validated.vertical_id }]);
 
       if (error) throw error;
 
@@ -159,7 +167,7 @@ export default function Programs() {
         description: "Program created successfully",
       });
       setDialogOpen(false);
-      setFormData({ name: "", code: "", department_id: "" });
+      setFormData({ name: "", code: "", vertical_id: "" });
       fetchData();
     } catch (error: any) {
       if (error instanceof z.ZodError) {
@@ -185,7 +193,7 @@ export default function Programs() {
       const validated = programSchema.parse(formData);
       const { error } = await supabase
         .from("programs")
-        .update(validated)
+        .update({ name: validated.name, code: validated.code, vertical_id: validated.vertical_id, department_id: validated.vertical_id })
         .eq("id", selectedProgram.id);
 
       if (error) throw error;
@@ -196,7 +204,7 @@ export default function Programs() {
       });
       setDialogOpen(false);
       setSelectedProgram(null);
-      setFormData({ name: "", code: "", department_id: "" });
+      setFormData({ name: "", code: "", vertical_id: "" });
       fetchData();
     } catch (error: any) {
       if (error instanceof z.ZodError) {
@@ -247,9 +255,10 @@ export default function Programs() {
     setFormData({ 
       name: program.name, 
       code: program.code,
-      department_id: program.department_id 
+      vertical_id: program.vertical_id || program.department_id || "" 
     });
     setDialogOpen(true);
+  };
   };
 
   const openDeleteDialog = (program: Program) => {
@@ -280,7 +289,7 @@ export default function Programs() {
           actions={
             <Button onClick={() => {
               setSelectedProgram(null);
-              setFormData({ name: "", code: "", department_id: "" });
+              setFormData({ name: "", code: "", vertical_id: "" });
               setDialogOpen(true);
             }}>
               <Plus className="mr-2 h-4 w-4" />
@@ -323,7 +332,7 @@ export default function Programs() {
                   <CardDescription>
                     Code: {program.code}
                     <br />
-                    {entityLabel("department")}: {program.departments?.name || "N/A"}
+                    {entityLabel("vertical")}: {program.verticals?.name || program.departments?.name || "N/A"}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="pt-0">
@@ -348,10 +357,10 @@ export default function Programs() {
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="department">{entityLabel("department")}</Label>
-                <DepartmentSelect
-                  value={formData.department_id}
-                  onValueChange={(value) => setFormData({ ...formData, department_id: value })}
+                <Label htmlFor="vertical">{entityLabel("vertical")}</Label>
+                <VerticalSelect
+                  value={formData.vertical_id}
+                  onValueChange={(value) => setFormData({ ...formData, vertical_id: value })}
                 />
               </div>
               <div className="space-y-2">
