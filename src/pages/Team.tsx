@@ -65,41 +65,95 @@ export default function Team() {
       const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
       const weekEnd = endOfWeek(new Date(), { weekStartsOn: 1 });
       const today = format(new Date(), "yyyy-MM-dd");
+      const currentRole = userWithRole.role;
+      const isL3 = currentRole === "l3" || currentRole === "manager";
+      const isL2 = currentRole === "l2" || currentRole === "program_manager";
+      const isAdmin = currentRole === "org_admin" || currentRole === "admin";
 
-      // First, get all departments the HOD belongs to
-      const { data: hodDepartments } = await supabase
-        .from("user_departments")
-        .select("department_id")
-        .eq("user_id", userWithRole.user.id);
+      let userIds: string[] = [];
 
-      if (!hodDepartments || hodDepartments.length === 0) {
-        setTeamMembers([]);
-        setTeamStats(null);
-        setIsLoading(false);
-        return;
+      // L3 sees L2 + L1 in their verticals
+      if (isL3) {
+        // Get L3's verticals
+        const { data: l3Verticals } = await supabase
+          .from("user_verticals")
+          .select("vertical_id")
+          .eq("user_id", userWithRole.user.id);
+
+        const verticalIds = l3Verticals?.map((v) => v.vertical_id) || [];
+
+        if (verticalIds.length > 0) {
+          // Get users in those verticals
+          const { data: verticalUsers } = await supabase
+            .from("user_verticals")
+            .select("user_id")
+            .in("vertical_id", verticalIds);
+
+          const candidateUserIds = [...new Set(verticalUsers?.map((u) => u.user_id) || [])];
+
+          // Filter to L1 and L2 roles only
+          const { data: subordinateRoles } = await supabase
+            .from("user_roles")
+            .select("user_id")
+            .in("user_id", candidateUserIds)
+            .in("role", ["l1", "l2", "faculty", "program_manager"]);
+
+          userIds = (subordinateRoles?.map((r) => r.user_id) || []).filter(
+            (id) => id !== userWithRole.user.id
+          );
+        }
       }
+      // L2 sees L1 in their programs
+      else if (isL2) {
+        // Get L2's programs
+        const { data: l2Programs } = await supabase
+          .from("user_programs")
+          .select("program_id")
+          .eq("user_id", userWithRole.user.id);
 
-      const hodDeptIds = hodDepartments.map((d) => d.department_id);
+        const programIds = l2Programs?.map((p) => p.program_id) || [];
 
-      // Get all users in HOD's departments using the junction table
-      const { data: userDepts } = await supabase
-        .from("user_departments")
-        .select("user_id")
-        .in("department_id", hodDeptIds);
+        if (programIds.length > 0) {
+          // Get users in those programs
+          const { data: programUsers } = await supabase
+            .from("user_programs")
+            .select("user_id")
+            .in("program_id", programIds);
 
-      const allDeptUserIds = [...new Set(userDepts?.map((ud) => ud.user_id) || [])];
+          const candidateUserIds = [...new Set(programUsers?.map((u) => u.user_id) || [])];
 
-      // Fetch faculty roles to filter to only faculty
-      const { data: facultyRoles } = await supabase
-        .from("user_roles")
-        .select("user_id")
-        .eq("role", "faculty")
-        .in("user_id", allDeptUserIds.length > 0 ? allDeptUserIds : [userWithRole.user.id]);
+          // Filter to L1 roles only
+          const { data: l1Roles } = await supabase
+            .from("user_roles")
+            .select("user_id")
+            .in("user_id", candidateUserIds)
+            .in("role", ["l1", "faculty"]);
 
-      // Team = faculty in HOD's departments, excluding HOD themselves
-      const userIds = (facultyRoles?.map((r) => r.user_id) || []).filter(
-        (id) => id !== userWithRole.user.id
-      );
+          userIds = (l1Roles?.map((r) => r.user_id) || []).filter(
+            (id) => id !== userWithRole.user.id
+          );
+        }
+      }
+      // Admin sees all users in org (except super_admin)
+      else if (isAdmin) {
+        const { data: roleData } = await supabase
+          .from("user_roles")
+          .select("organization_id")
+          .eq("user_id", userWithRole.user.id)
+          .single();
+
+        if (roleData?.organization_id) {
+          const { data: orgUsers } = await supabase
+            .from("user_roles")
+            .select("user_id")
+            .eq("organization_id", roleData.organization_id)
+            .neq("role", "super_admin");
+
+          userIds = (orgUsers?.map((u) => u.user_id) || []).filter(
+            (id) => id !== userWithRole.user.id
+          );
+        }
+      }
 
       if (userIds.length === 0) {
         setTeamMembers([]);
@@ -241,7 +295,9 @@ export default function Team() {
     );
   }
 
-  if (!userWithRole || (userWithRole.role !== "manager" && userWithRole.role !== "org_admin")) {
+  // Allow L2, L3, and Admin to view team
+  const allowedRoles = ["l2", "l3", "org_admin", "admin", "manager", "hod", "program_manager"];
+  if (!userWithRole || !allowedRoles.includes(userWithRole.role)) {
     return (
       <Layout>
         <EmptyState
