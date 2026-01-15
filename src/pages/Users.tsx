@@ -22,6 +22,7 @@ import { DepartmentSelect } from "@/components/DepartmentSelect";
 import { DepartmentMultiSelect } from "@/components/DepartmentMultiSelect";
 import { ProgramSelect } from "@/components/ProgramSelect";
 import { ProgramMultiSelect } from "@/components/ProgramMultiSelect";
+import { VerticalMultiSelect } from "@/components/VerticalMultiSelect";
 import { userCreateSchema, type UserCreateInput } from "@/lib/validation";
 import { getUserErrorMessage } from "@/lib/errorHandler";
 import type { UserRole } from "@/lib/supabase";
@@ -62,10 +63,16 @@ export default function Users() {
     email: "",
     phone: "",
     role: "" as UserRole | "",
+    // Legacy department fields (for backward compatibility)
     department_id: "",
     department_ids: [] as string[],
-    program_id: "",
+    // New hierarchy fields
+    vertical_ids: [] as string[],
     program_ids: [] as string[],
+    batch_ids: [] as string[],
+    subject_ids: [] as string[],
+    // Legacy program field
+    program_id: "",
     is_active: true,
     password: "",
     confirmPassword: "",
@@ -76,13 +83,16 @@ export default function Users() {
   const [userToDelete, setUserToDelete] = useState<UserProfile | null>(null);
 
   useEffect(() => {
-    if (!loading && (!userWithRole || userWithRole.role !== "org_admin")) {
+    // Allow org_admin and super_admin to access
+    const isAdmin = userWithRole?.role === "org_admin" || userWithRole?.role === "admin" || userWithRole?.role === "super_admin";
+    if (!loading && (!userWithRole || !isAdmin)) {
       navigate("/dashboard");
     }
   }, [userWithRole, loading, navigate]);
 
   useEffect(() => {
-    if (userWithRole?.role === "org_admin") {
+    const isAdmin = userWithRole?.role === "org_admin" || userWithRole?.role === "admin" || userWithRole?.role === "super_admin";
+    if (isAdmin) {
       fetchUsers();
     }
   }, [userWithRole]);
@@ -250,13 +260,20 @@ export default function Users() {
         program_id: formData.program_ids[0] || formData.program_id || undefined,
       });
 
-      // Call edge function to create user - convert display role to DB role
+      // Call edge function to create user - pass hierarchy data
       const { data, error } = await supabase.functions.invoke('admin-create-user', {
         body: {
-          ...validatedData,
+          full_name: validatedData.full_name,
+          email: validatedData.email,
+          phone: validatedData.phone,
+          password: validatedData.password,
+          is_active: formData.is_active,
           role: displayToDbRole[validatedData.role],
-          department_ids: formData.department_ids.length > 0 ? formData.department_ids : undefined,
+          // New hierarchy fields
+          vertical_ids: formData.vertical_ids.length > 0 ? formData.vertical_ids : undefined,
           program_ids: formData.program_ids.length > 0 ? formData.program_ids : undefined,
+          batch_ids: formData.batch_ids.length > 0 ? formData.batch_ids : undefined,
+          subject_ids: formData.subject_ids.length > 0 ? formData.subject_ids : undefined,
         },
       });
 
@@ -279,8 +296,11 @@ export default function Users() {
         role: "",
         department_id: "",
         department_ids: [],
-        program_id: "",
+        vertical_ids: [],
         program_ids: [],
+        batch_ids: [],
+        subject_ids: [],
+        program_id: "",
         is_active: true,
         password: "",
         confirmPassword: "",
@@ -448,8 +468,11 @@ export default function Users() {
         role: "" as UserRole | "",
         department_id: "",
         department_ids: [],
-        program_id: "",
+        vertical_ids: [],
         program_ids: [],
+        batch_ids: [],
+        subject_ids: [],
+        program_id: "",
         is_active: true,
         password: "",
         confirmPassword: "",
@@ -542,8 +565,11 @@ export default function Users() {
       role: user.role || "",
       department_id: deptIds[0] || user.department_id || "",
       department_ids: deptIds.length > 0 ? deptIds : (user.department_id ? [user.department_id] : []),
-      program_id: progIds[0] || user.program_id || "",
+      vertical_ids: [], // TODO: Load from user_verticals
       program_ids: progIds.length > 0 ? progIds : (user.program_id ? [user.program_id] : []),
+      batch_ids: [], // TODO: Load from user_batches
+      subject_ids: [], // TODO: Load from user_subjects
+      program_id: progIds[0] || user.program_id || "",
       is_active: user.is_active,
       password: "",
       confirmPassword: "",
@@ -554,11 +580,16 @@ export default function Users() {
   const getRoleBadgeVariant = (role: UserRole | null) => {
     switch (role) {
       case "org_admin":
+      case "admin":
+      case "super_admin":
         return "destructive";
-      case "program_manager":
-        return "default";
+      case "l3":
       case "manager":
         return "default";
+      case "l2":
+      case "program_manager":
+        return "default";
+      case "l1":
       case "member":
         return "secondary";
       default:
@@ -692,70 +723,80 @@ export default function Users() {
                   <UserRoleSelect
                     value={formData.role}
                     onValueChange={(value) => {
-                      setFormData({ ...formData, role: value as UserRole, department_id: "", program_id: "" });
+                      setFormData({ 
+                        ...formData, 
+                        role: value as UserRole, 
+                        vertical_ids: [],
+                        program_ids: [],
+                        batch_ids: [],
+                        subject_ids: [],
+                      });
                     }}
                   />
                 </div>
-                <div>
-                  <Label htmlFor="department">
-                    {entityLabel("department", true)} {(formData.role === "manager" || formData.role === "member" || formData.role === "program_manager") && "*"}
-                  </Label>
-                  {(formData.role === "member" || formData.role === "manager") ? (
-                    <DepartmentMultiSelect
-                      value={formData.department_ids}
-                      onValueChange={(value) => setFormData({ ...formData, department_ids: value, department_id: value[0] || "", program_ids: [], program_id: "" })}
-                      disabled={false}
-                    />
-                  ) : (
-                    <DepartmentSelect
-                      value={formData.department_id}
-                      onValueChange={(value) => setFormData({ ...formData, department_id: value, department_ids: value ? [value] : [], program_id: "", program_ids: [] })}
-                      disabled={formData.role === "org_admin"}
-                    />
-                  )}
-                  {formData.role === "org_admin" && (
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Not required for Organization Admin role
-                    </p>
-                  )}
-                  {(formData.role === "manager" || formData.role === "member" || formData.role === "program_manager") && formData.department_ids.length === 0 && !formData.department_id && (
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Required for this role
-                    </p>
-                  )}
-                </div>
-                {(formData.role === "program_manager" || formData.role === "member") && (
+                
+                {/* Vertical assignment for L3, L2, and L1 */}
+                {(formData.role === "l3" || formData.role === "l2" || formData.role === "l1") && (
                   <div>
-                    <Label htmlFor="program">
-                      {entityLabel("program", true)} {formData.role === "program_manager" && "*"}
+                    <Label htmlFor="vertical">
+                      {entityLabel("vertical", true)} *
                     </Label>
-                    {formData.role === "member" ? (
-                      <ProgramMultiSelect
-                        value={formData.program_ids}
-                        onValueChange={(value) => setFormData({ ...formData, program_ids: value, program_id: value[0] || "" })}
-                        departmentIds={formData.department_ids.length > 0 ? formData.department_ids : (formData.department_id ? [formData.department_id] : [])}
-                        disabled={formData.department_ids.length === 0 && !formData.department_id}
-                      />
-                    ) : (
-                      <ProgramSelect
-                        value={formData.program_id}
-                        onValueChange={(value) => setFormData({ ...formData, program_id: value, program_ids: value ? [value] : [] })}
-                        departmentId={formData.department_id}
-                        disabled={!formData.department_id}
-                      />
-                    )}
-                    {formData.role === "program_manager" && !formData.program_id && (
+                    <VerticalMultiSelect
+                      value={formData.vertical_ids}
+                      onValueChange={(value) => setFormData({ 
+                        ...formData, 
+                        vertical_ids: value, 
+                        program_ids: [], 
+                        batch_ids: [],
+                        subject_ids: [],
+                      })}
+                    />
+                    {formData.vertical_ids.length === 0 && (
                       <p className="text-sm text-muted-foreground mt-1">
-                        Required for Program Manager role
-                      </p>
-                    )}
-                    {formData.role === "member" && (
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Optional for {roleLabel("member")} role
+                        Required for {roleLabel(formData.role)} role
                       </p>
                     )}
                   </div>
                 )}
+
+                {/* Program assignment for L2 and L1 */}
+                {(formData.role === "l2" || formData.role === "l1") && formData.vertical_ids.length > 0 && (
+                  <div>
+                    <Label htmlFor="program">
+                      {entityLabel("program", true)} {formData.role === "l1" ? "*" : "(optional)"}
+                    </Label>
+                    <ProgramMultiSelect
+                      value={formData.program_ids}
+                      onValueChange={(value) => setFormData({ 
+                        ...formData, 
+                        program_ids: value,
+                        batch_ids: [],
+                        subject_ids: [],
+                      })}
+                      departmentIds={formData.vertical_ids}
+                      disabled={formData.vertical_ids.length === 0}
+                    />
+                    {formData.role === "l1" && formData.program_ids.length === 0 && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Required for {roleLabel("l1")} role
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Note about L1 full hierarchy - simplified for now */}
+                {formData.role === "l1" && (
+                  <div className="text-sm text-muted-foreground p-3 bg-muted rounded-md">
+                    <p><strong>Note:</strong> {roleLabel("l1")} users require assignment to verticals, programs, batches, and subjects. Additional hierarchy levels can be configured after user creation.</p>
+                  </div>
+                )}
+
+                {formData.role === "org_admin" && (
+                  <div className="text-sm text-muted-foreground p-3 bg-muted rounded-md">
+                    <p>{roleLabel("org_admin")} has full access to the organization. No vertical assignment required.</p>
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between">
                   <Label htmlFor="is_active">Active</Label>
                   <Switch
@@ -779,8 +820,10 @@ export default function Users() {
                     formData.password.length < 8 ||
                     formData.password !== formData.confirmPassword ||
                     !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password) ||
-                    ((formData.role === "manager" || formData.role === "member" || formData.role === "program_manager") && formData.department_ids.length === 0 && !formData.department_id) ||
-                    (formData.role === "program_manager" && !formData.program_id)
+                    // L3, L2, L1 require vertical assignment
+                    ((formData.role === "l3" || formData.role === "l2" || formData.role === "l1") && formData.vertical_ids.length === 0) ||
+                    // L1 requires program assignment
+                    (formData.role === "l1" && formData.program_ids.length === 0)
                   }
                 >
                   Create User
@@ -807,9 +850,9 @@ export default function Users() {
             <SelectContent>
               <SelectItem value="all">All Roles</SelectItem>
               <SelectItem value="org_admin">{roleLabel("org_admin")}</SelectItem>
-              <SelectItem value="program_manager">{roleLabel("program_manager")}</SelectItem>
-              <SelectItem value="manager">{roleLabel("manager")}</SelectItem>
-              <SelectItem value="member">{roleLabel("member")}</SelectItem>
+              <SelectItem value="l3">{roleLabel("l3")}</SelectItem>
+              <SelectItem value="l2">{roleLabel("l2")}</SelectItem>
+              <SelectItem value="l1">{roleLabel("l1")}</SelectItem>
             </SelectContent>
           </Select>
         </div>
