@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLabels } from "@/contexts/LabelContext";
+import { isRole } from "@/lib/roleMapping";
 import { Loader2, Plus, Trash2, GripVertical, Info } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -43,8 +44,8 @@ export default function CategorySettings() {
   const [newCode, setNewCode] = useState("");
   const [newDescription, setNewDescription] = useState("");
 
-  const isOrgAdmin = userWithRole?.role === "org_admin";
-  const isHod = userWithRole?.role === "manager";
+  const isOrgAdmin = isRole(userWithRole?.role, "admin", "org_admin");
+  const isHod = isRole(userWithRole?.role, "l3", "manager");
 
   useEffect(() => {
     if (isOrgAdmin) {

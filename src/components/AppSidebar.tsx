@@ -1,5 +1,6 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useLabels } from "@/contexts/LabelContext";
+import { isRole } from "@/lib/roleMapping";
 import { 
   Clock, 
   Users, 
@@ -43,10 +44,15 @@ import {
 } from "@/components/ui/sidebar";
 
 const roleColors: Record<string, string> = {
+  l1: "bg-muted text-muted-foreground",
   member: "bg-muted text-muted-foreground",
-  manager: "bg-primary/10 text-primary",
-  org_admin: "bg-success/10 text-success",
+  l2: "bg-warning/10 text-warning",
   program_manager: "bg-warning/10 text-warning",
+  l3: "bg-primary/10 text-primary",
+  manager: "bg-primary/10 text-primary",
+  admin: "bg-success/10 text-success",
+  org_admin: "bg-success/10 text-success",
+  super_admin: "bg-destructive/10 text-destructive",
 };
 
 export function AppSidebar() {
@@ -83,7 +89,8 @@ export function AppSidebar() {
       { to: "/dashboard", icon: Clock, label: "Dashboard", group: "Overview" },
     ];
 
-    if (role === "member") {
+    // L1 (Member/Faculty) - Timesheet only
+    if (isRole(role, "l1", "member")) {
       items.push(
         { to: "/timesheet", icon: FileText, label: "Timesheet", group: "Work" },
         { to: "/calendar", icon: CalendarDays, label: "Calendar", group: "Work" },
@@ -91,7 +98,19 @@ export function AppSidebar() {
       );
     }
 
-    if (role === "manager") {
+    // L2 (Program Manager) - Timesheet + Approvals for L1
+    if (isRole(role, "l2", "program_manager")) {
+      items.push(
+        { to: "/timesheet", icon: FileText, label: "Timesheet", group: "Work" },
+        { to: "/calendar", icon: CalendarDays, label: "Calendar", group: "Work" },
+        { to: "/bulk-import", icon: Upload, label: "Bulk Upload", group: "Work" },
+        { to: "/approvals", icon: ClipboardCheck, label: "Approvals", group: "Management" },
+        { to: "/team", icon: UsersRound, label: "Team", group: "Management" }
+      );
+    }
+
+    // L3 (Manager/HOD) - Timesheet + Approvals for L2 & L1 + Team + Reports
+    if (isRole(role, "l3", "manager")) {
       items.push(
         { to: "/timesheet", icon: FileText, label: "Timesheet", group: "Work" },
         { to: "/calendar", icon: CalendarDays, label: "Calendar", group: "Work" },
@@ -103,7 +122,8 @@ export function AppSidebar() {
       );
     }
 
-    if (role === "org_admin") {
+    // Admin (Org Admin) - Full org access
+    if (isRole(role, "admin", "org_admin")) {
       items.push(
         { to: "/organizations", icon: Building2, label: "Organization", group: "Administration" },
         { to: "/verticals", icon: Layers, label: entityLabel("vertical", true), group: "Administration" },
@@ -119,15 +139,18 @@ export function AppSidebar() {
       );
     }
 
-    if (role === "program_manager") {
+    // Super Admin - Cross-org access (extends Admin)
+    if (isRole(role, "super_admin")) {
       items.push(
-        { to: "/timesheet", icon: FileText, label: "Timesheet", group: "Work" },
-        { to: "/calendar", icon: CalendarDays, label: "Calendar", group: "Work" },
-        { to: "/bulk-import", icon: Upload, label: "Bulk Upload", group: "Work" },
-        { to: "/verticals", icon: Layers, label: entityLabel("vertical", true), group: "Management" },
-        { to: "/programs", icon: FolderKanban, label: entityLabel("program", true), group: "Management" },
-        { to: "/batches", icon: Layers3, label: entityLabel("batch", true), group: "Management" },
-        { to: "/reports", icon: BarChart3, label: "Reports", group: "Analytics" }
+        { to: "/organizations", icon: Building2, label: "All Organizations", group: "Super Admin" },
+        { to: "/verticals", icon: Layers, label: entityLabel("vertical", true), group: "Administration" },
+        { to: "/programs", icon: FolderKanban, label: entityLabel("program", true), group: "Administration" },
+        { to: "/batches", icon: Layers3, label: entityLabel("batch", true), group: "Administration" },
+        { to: "/terms", icon: Calendar, label: entityLabel("term", true), group: "Administration" },
+        { to: "/subjects", icon: BookOpen, label: entityLabel("subject", true), group: "Administration" },
+        { to: "/users", icon: Users, label: "Users", group: "Administration" },
+        { to: "/reports", icon: BarChart3, label: "Reports", group: "Analytics" },
+        { to: "/settings", icon: Settings, label: "Settings", group: "Tools" }
       );
     }
 

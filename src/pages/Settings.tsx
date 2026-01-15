@@ -10,6 +10,7 @@ import LabelSettings from "@/components/settings/LabelSettings";
 import CategorySettings from "@/components/settings/CategorySettings";
 import ApprovalWorkflowSettings from "@/components/settings/ApprovalWorkflowSettings";
 import { Clock, Building2, User, Tag, ListChecks, GitMerge } from "lucide-react";
+import { isRole } from "@/lib/roleMapping";
 
 export default function Settings() {
   const { user, loading, userWithRole } = useAuth();
@@ -22,8 +23,8 @@ export default function Settings() {
     return <Navigate to="/auth" replace />;
   }
 
-  const isOrgAdmin = userWithRole?.role === "org_admin";
-  const isHod = userWithRole?.role === "manager";
+  const isOrgAdmin = isRole(userWithRole?.role, "admin", "org_admin");
+  const isHod = isRole(userWithRole?.role, "l3", "manager");
   const canAccessSettings = isOrgAdmin || isHod;
 
   // HODs only see limited tabs
