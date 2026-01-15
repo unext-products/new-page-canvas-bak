@@ -11,6 +11,14 @@ export interface OrganizationLabels {
   entity_department_plural: string;
   entity_program: string;
   entity_program_plural: string;
+  entity_vertical: string;
+  entity_vertical_plural: string;
+  entity_batch: string;
+  entity_batch_plural: string;
+  entity_term: string;
+  entity_term_plural: string;
+  entity_subject: string;
+  entity_subject_plural: string;
 }
 
 const defaultLabels: OrganizationLabels = {
@@ -22,13 +30,23 @@ const defaultLabels: OrganizationLabels = {
   entity_department_plural: "Departments",
   entity_program: "Program",
   entity_program_plural: "Programs",
+  entity_vertical: "Vertical",
+  entity_vertical_plural: "Verticals",
+  entity_batch: "Batch",
+  entity_batch_plural: "Batches",
+  entity_term: "Term",
+  entity_term_plural: "Terms",
+  entity_subject: "Subject",
+  entity_subject_plural: "Subjects",
 };
+
+type EntityType = "department" | "program" | "vertical" | "batch" | "term" | "subject";
 
 interface LabelContextType {
   labels: OrganizationLabels;
   isLoading: boolean;
   roleLabel: (role: string) => string;
-  entityLabel: (entity: "department" | "program", plural?: boolean) => string;
+  entityLabel: (entity: EntityType, plural?: boolean) => string;
   refetchLabels: () => Promise<void>;
 }
 
@@ -66,6 +84,14 @@ export function LabelProvider({ children }: { children: ReactNode }) {
           entity_department_plural: data.entity_department_plural,
           entity_program: data.entity_program,
           entity_program_plural: data.entity_program_plural,
+          entity_vertical: data.entity_vertical || defaultLabels.entity_vertical,
+          entity_vertical_plural: data.entity_vertical_plural || defaultLabels.entity_vertical_plural,
+          entity_batch: data.entity_batch || defaultLabels.entity_batch,
+          entity_batch_plural: data.entity_batch_plural || defaultLabels.entity_batch_plural,
+          entity_term: data.entity_term || defaultLabels.entity_term,
+          entity_term_plural: data.entity_term_plural || defaultLabels.entity_term_plural,
+          entity_subject: data.entity_subject || defaultLabels.entity_subject,
+          entity_subject_plural: data.entity_subject_plural || defaultLabels.entity_subject_plural,
         });
       } else {
         setLabels(defaultLabels);
@@ -97,11 +123,23 @@ export function LabelProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const entityLabel = (entity: "department" | "program", plural = false): string => {
-    if (entity === "department") {
-      return plural ? labels.entity_department_plural : labels.entity_department;
+  const entityLabel = (entity: EntityType, plural = false): string => {
+    switch (entity) {
+      case "department":
+        return plural ? labels.entity_department_plural : labels.entity_department;
+      case "program":
+        return plural ? labels.entity_program_plural : labels.entity_program;
+      case "vertical":
+        return plural ? labels.entity_vertical_plural : labels.entity_vertical;
+      case "batch":
+        return plural ? labels.entity_batch_plural : labels.entity_batch;
+      case "term":
+        return plural ? labels.entity_term_plural : labels.entity_term;
+      case "subject":
+        return plural ? labels.entity_subject_plural : labels.entity_subject;
+      default:
+        return entity;
     }
-    return plural ? labels.entity_program_plural : labels.entity_program;
   };
 
   return (

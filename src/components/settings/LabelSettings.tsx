@@ -20,6 +20,14 @@ const defaultLabels: OrganizationLabels = {
   entity_department_plural: "Departments",
   entity_program: "Program",
   entity_program_plural: "Programs",
+  entity_vertical: "Vertical",
+  entity_vertical_plural: "Verticals",
+  entity_batch: "Batch",
+  entity_batch_plural: "Batches",
+  entity_term: "Term",
+  entity_term_plural: "Terms",
+  entity_subject: "Subject",
+  entity_subject_plural: "Subjects",
 };
 
 export default function LabelSettings() {
@@ -53,6 +61,14 @@ export default function LabelSettings() {
           entity_department_plural: formData.entity_department_plural,
           entity_program: formData.entity_program,
           entity_program_plural: formData.entity_program_plural,
+          entity_vertical: formData.entity_vertical,
+          entity_vertical_plural: formData.entity_vertical_plural,
+          entity_batch: formData.entity_batch,
+          entity_batch_plural: formData.entity_batch_plural,
+          entity_term: formData.entity_term,
+          entity_term_plural: formData.entity_term_plural,
+          entity_subject: formData.entity_subject,
+          entity_subject_plural: formData.entity_subject_plural,
         })
         .not("organization_id", "is", null);
 
@@ -108,13 +124,13 @@ export default function LabelSettings() {
         <CardContent className="pt-0">
           <div className="space-y-3 text-sm text-blue-900 dark:text-blue-200">
             <div>
-              <strong>Organization Admin</strong> — Full access to manage users, departments, programs, settings, and view all reports across the organization.
+              <strong>Organization Admin</strong> — Full access to manage users, verticals, programs, settings, and view all reports across the organization.
             </div>
             <div>
-              <strong>Program Manager</strong> — Can view and manage programs within their assigned department, and view program-level reports.
+              <strong>Program Manager</strong> — Can view and manage programs within their assigned vertical, and view program-level reports.
             </div>
             <div>
-              <strong>Manager</strong> — Approves or rejects timesheets for their department, manages department members, and views department reports.
+              <strong>Manager</strong> — Approves or rejects timesheets for their vertical, manages vertical members, and views vertical reports.
             </div>
             <div>
               <strong>Member</strong> — Submits timesheets, views their own data, and can request leave.
@@ -149,26 +165,26 @@ export default function LabelSettings() {
                     <TableRow>
                       <TableCell>Approve timesheets</TableCell>
                       <TableCell className="text-center"><Minus className="h-4 w-4 mx-auto text-muted-foreground" /></TableCell>
-                      <TableCell className="text-center text-xs">Dept only</TableCell>
+                      <TableCell className="text-center text-xs">Vertical only</TableCell>
                       <TableCell className="text-center"><Minus className="h-4 w-4 mx-auto text-muted-foreground" /></TableCell>
                       <TableCell className="text-center"><Check className="h-4 w-4 mx-auto text-green-600" /></TableCell>
                     </TableRow>
                     <TableRow>
                       <TableCell>View reports</TableCell>
                       <TableCell className="text-center text-xs">Own</TableCell>
-                      <TableCell className="text-center text-xs">Dept</TableCell>
+                      <TableCell className="text-center text-xs">Vertical</TableCell>
                       <TableCell className="text-center text-xs">Program</TableCell>
                       <TableCell className="text-center"><Check className="h-4 w-4 mx-auto text-green-600" /></TableCell>
                     </TableRow>
                     <TableRow>
                       <TableCell>Manage users</TableCell>
                       <TableCell className="text-center"><Minus className="h-4 w-4 mx-auto text-muted-foreground" /></TableCell>
-                      <TableCell className="text-center text-xs">Dept only</TableCell>
+                      <TableCell className="text-center text-xs">Vertical only</TableCell>
                       <TableCell className="text-center"><Minus className="h-4 w-4 mx-auto text-muted-foreground" /></TableCell>
                       <TableCell className="text-center"><Check className="h-4 w-4 mx-auto text-green-600" /></TableCell>
                     </TableRow>
                     <TableRow>
-                      <TableCell>Manage departments</TableCell>
+                      <TableCell>Manage verticals</TableCell>
                       <TableCell className="text-center"><Minus className="h-4 w-4 mx-auto text-muted-foreground" /></TableCell>
                       <TableCell className="text-center"><Minus className="h-4 w-4 mx-auto text-muted-foreground" /></TableCell>
                       <TableCell className="text-center"><Minus className="h-4 w-4 mx-auto text-muted-foreground" /></TableCell>
@@ -270,12 +286,14 @@ export default function LabelSettings() {
             <p>Your organization follows this hierarchy:</p>
             <div className="font-mono bg-green-100/50 dark:bg-green-900/30 p-3 rounded-md text-xs border border-green-200 dark:border-green-800">
               <div>Organization</div>
-              <div className="ml-4">└── Departments <span className="text-green-600 dark:text-green-400">(e.g., "Engineering", "Marketing")</span></div>
-              <div className="ml-8">└── Programs <span className="text-green-600 dark:text-green-400">(e.g., "Project Alpha", "Course 101")</span></div>
-              <div className="ml-12">└── Members assigned here</div>
+              <div className="ml-4">└── Verticals <span className="text-green-600 dark:text-green-400">(e.g., "Engineering", "Marketing")</span></div>
+              <div className="ml-8">└── Programs <span className="text-green-600 dark:text-green-400">(e.g., "PGDRB", "PMIS")</span></div>
+              <div className="ml-12">└── Batches <span className="text-green-600 dark:text-green-400">(e.g., "Batch 1", "Batch 2")</span></div>
+              <div className="ml-16">└── Terms <span className="text-green-600 dark:text-green-400">(e.g., "Term 1", "Term 2")</span></div>
+              <div className="ml-20">└── Subjects <span className="text-green-600 dark:text-green-400">(e.g., "Retail Banking (DBS 601)")</span></div>
             </div>
             <p className="text-green-700 dark:text-green-400">
-              Rename these to match your organization's terminology (e.g., Department → School, Program → Course).
+              Rename these to match your organization's terminology.
             </p>
           </div>
         </CardContent>
@@ -289,31 +307,31 @@ export default function LabelSettings() {
             Entity Labels
           </CardTitle>
           <CardDescription>
-            Customize how organizational units are named (e.g., "Department" → "School")
+            Customize how organizational units are named
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="entity_department" className="text-muted-foreground text-sm">
-                Department (singular)
+              <Label htmlFor="entity_vertical" className="text-muted-foreground text-sm">
+                Vertical (singular)
               </Label>
               <Input
-                id="entity_department"
-                value={formData.entity_department}
-                onChange={(e) => setFormData({ ...formData, entity_department: e.target.value })}
-                placeholder="e.g., School, Division, Unit"
+                id="entity_vertical"
+                value={formData.entity_vertical}
+                onChange={(e) => setFormData({ ...formData, entity_vertical: e.target.value })}
+                placeholder="e.g., School, Division, Department"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="entity_department_plural" className="text-muted-foreground text-sm">
-                Department (plural)
+              <Label htmlFor="entity_vertical_plural" className="text-muted-foreground text-sm">
+                Vertical (plural)
               </Label>
               <Input
-                id="entity_department_plural"
-                value={formData.entity_department_plural}
-                onChange={(e) => setFormData({ ...formData, entity_department_plural: e.target.value })}
-                placeholder="e.g., Schools, Divisions, Units"
+                id="entity_vertical_plural"
+                value={formData.entity_vertical_plural}
+                onChange={(e) => setFormData({ ...formData, entity_vertical_plural: e.target.value })}
+                placeholder="e.g., Schools, Divisions, Departments"
               />
             </div>
             <div className="space-y-2">
@@ -324,7 +342,7 @@ export default function LabelSettings() {
                 id="entity_program"
                 value={formData.entity_program}
                 onChange={(e) => setFormData({ ...formData, entity_program: e.target.value })}
-                placeholder="e.g., Course, Subject, Module"
+                placeholder="e.g., Course, Track"
               />
             </div>
             <div className="space-y-2">
@@ -335,7 +353,73 @@ export default function LabelSettings() {
                 id="entity_program_plural"
                 value={formData.entity_program_plural}
                 onChange={(e) => setFormData({ ...formData, entity_program_plural: e.target.value })}
-                placeholder="e.g., Courses, Subjects, Modules"
+                placeholder="e.g., Courses, Tracks"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="entity_batch" className="text-muted-foreground text-sm">
+                Batch (singular)
+              </Label>
+              <Input
+                id="entity_batch"
+                value={formData.entity_batch}
+                onChange={(e) => setFormData({ ...formData, entity_batch: e.target.value })}
+                placeholder="e.g., Cohort, Group"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="entity_batch_plural" className="text-muted-foreground text-sm">
+                Batch (plural)
+              </Label>
+              <Input
+                id="entity_batch_plural"
+                value={formData.entity_batch_plural}
+                onChange={(e) => setFormData({ ...formData, entity_batch_plural: e.target.value })}
+                placeholder="e.g., Cohorts, Groups"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="entity_term" className="text-muted-foreground text-sm">
+                Term (singular)
+              </Label>
+              <Input
+                id="entity_term"
+                value={formData.entity_term}
+                onChange={(e) => setFormData({ ...formData, entity_term: e.target.value })}
+                placeholder="e.g., Semester, Quarter"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="entity_term_plural" className="text-muted-foreground text-sm">
+                Term (plural)
+              </Label>
+              <Input
+                id="entity_term_plural"
+                value={formData.entity_term_plural}
+                onChange={(e) => setFormData({ ...formData, entity_term_plural: e.target.value })}
+                placeholder="e.g., Semesters, Quarters"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="entity_subject" className="text-muted-foreground text-sm">
+                Subject (singular)
+              </Label>
+              <Input
+                id="entity_subject"
+                value={formData.entity_subject}
+                onChange={(e) => setFormData({ ...formData, entity_subject: e.target.value })}
+                placeholder="e.g., Course, Class, Module"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="entity_subject_plural" className="text-muted-foreground text-sm">
+                Subject (plural)
+              </Label>
+              <Input
+                id="entity_subject_plural"
+                value={formData.entity_subject_plural}
+                onChange={(e) => setFormData({ ...formData, entity_subject_plural: e.target.value })}
+                placeholder="e.g., Courses, Classes, Modules"
               />
             </div>
           </div>
