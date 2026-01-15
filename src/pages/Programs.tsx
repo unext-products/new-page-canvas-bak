@@ -259,7 +259,6 @@ export default function Programs() {
     });
     setDialogOpen(true);
   };
-  };
 
   const openDeleteDialog = (program: Program) => {
     setSelectedProgram(program);
