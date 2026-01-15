@@ -1,28 +1,31 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 
-export type ApproverType = "manager" | "org_admin" | null;
+export type ApproverType = "l3" | "l2" | "org_admin" | null;
 
 export interface ApprovalSettings {
   id: string;
   organization_id: string;
-  member_requires_approval: boolean;
-  program_manager_requires_approval: boolean;
-  manager_requires_approval: boolean;
-  member_approved_by: ApproverType;
-  program_manager_approved_by: ApproverType;
-  manager_approved_by: ApproverType;
+  l1_requires_approval: boolean;
+  l2_requires_approval: boolean;
+  l3_requires_approval: boolean;
+  l1_approved_by: ApproverType;
+  l2_approved_by: ApproverType;
+  l3_approved_by: ApproverType;
 }
 
 const DEFAULT_SETTINGS: ApprovalSettings = {
   id: "default",
   organization_id: "",
-  member_requires_approval: true,
-  program_manager_requires_approval: true,
-  manager_requires_approval: true,
-  member_approved_by: "manager",
-  program_manager_approved_by: "manager",
-  manager_approved_by: "org_admin",
+  l1_requires_approval: true,
+  l2_requires_approval: true,
+  l3_requires_approval: true,
+  // L1 entries approved by L2
+  l1_approved_by: "l2",
+  // L2 entries approved by L3
+  l2_approved_by: "l3",
+  // L3 entries approved by Admin
+  l3_approved_by: "org_admin",
 };
 
 export function useApprovalSettings() {
@@ -61,14 +64,17 @@ export function useApprovalSettings() {
     }
 
     switch (role) {
+      case "l1":
       case "faculty":
       case "member":
-        return settings.member_requires_approval;
+        return settings.l1_requires_approval;
+      case "l2":
       case "program_manager":
-        return settings.program_manager_requires_approval;
+        return settings.l2_requires_approval;
+      case "l3":
       case "hod":
       case "manager":
-        return settings.manager_requires_approval;
+        return settings.l3_requires_approval;
       default:
         return false;
     }
@@ -77,24 +83,30 @@ export function useApprovalSettings() {
   // Helper: Get who approves a specific role
   const getApproverForRole = (role: string): ApproverType => {
     if (!settings) {
-      if (role === "faculty" || role === "member" || role === "program_manager") {
-        return "manager";
+      if (role === "l1" || role === "faculty" || role === "member") {
+        return "l2";
       }
-      if (role === "hod" || role === "manager") {
+      if (role === "l2" || role === "program_manager") {
+        return "l3";
+      }
+      if (role === "l3" || role === "hod" || role === "manager") {
         return "org_admin";
       }
       return null;
     }
 
     switch (role) {
+      case "l1":
       case "faculty":
       case "member":
-        return settings.member_approved_by;
+        return settings.l1_approved_by;
+      case "l2":
       case "program_manager":
-        return settings.program_manager_approved_by;
+        return settings.l2_approved_by;
+      case "l3":
       case "hod":
       case "manager":
-        return settings.manager_approved_by;
+        return settings.l3_approved_by;
       default:
         return null;
     }
@@ -102,37 +114,23 @@ export function useApprovalSettings() {
 
   // Helper: Get which roles a given approver role can approve
   const getApprovableRoles = (approverRole: string | null): string[] => {
-    if (!approverRole || !settings) {
-      if (approverRole === "hod" || approverRole === "manager") {
-        return ["faculty", "program_manager"];
-      }
-      if (approverRole === "org_admin") {
-        return ["hod"];
-      }
-      return [];
-    }
+    if (!approverRole) return [];
 
     const roles: string[] = [];
 
-    if (approverRole === "org_admin") {
-      if (settings.member_requires_approval && settings.member_approved_by === "org_admin") {
-        roles.push("faculty");
-      }
-      if (settings.program_manager_requires_approval && settings.program_manager_approved_by === "org_admin") {
-        roles.push("program_manager");
-      }
-      if (settings.manager_requires_approval && settings.manager_approved_by === "org_admin") {
-        roles.push("hod");
-      }
+    // Admin approves L3
+    if (approverRole === "org_admin" || approverRole === "admin") {
+      roles.push("l3");
     }
 
-    if (approverRole === "hod" || approverRole === "manager") {
-      if (settings.member_requires_approval && settings.member_approved_by === "manager") {
-        roles.push("faculty");
-      }
-      if (settings.program_manager_requires_approval && settings.program_manager_approved_by === "manager") {
-        roles.push("program_manager");
-      }
+    // L3 approves L2 and L1 (in their verticals)
+    if (approverRole === "l3" || approverRole === "hod" || approverRole === "manager") {
+      roles.push("l2", "l1");
+    }
+
+    // L2 approves L1 (in their programs)
+    if (approverRole === "l2" || approverRole === "program_manager") {
+      roles.push("l1");
     }
 
     return roles;
@@ -144,31 +142,32 @@ export function useApprovalSettings() {
 
     const chain = [];
 
-    if (settings.member_requires_approval && settings.member_approved_by) {
+    if (settings.l1_requires_approval && settings.l1_approved_by) {
       chain.push({
-        role: "Member",
-        approver: settings.member_approved_by === "manager" ? "Manager" : "Org Admin",
+        role: "L1",
+        approver: settings.l1_approved_by === "l2" ? "L2" : 
+                  settings.l1_approved_by === "l3" ? "L3" : "Admin",
       });
     } else {
-      chain.push({ role: "Member", approver: "Auto-approved" });
+      chain.push({ role: "L1", approver: "Auto-approved" });
     }
 
-    if (settings.program_manager_requires_approval && settings.program_manager_approved_by) {
+    if (settings.l2_requires_approval && settings.l2_approved_by) {
       chain.push({
-        role: "Program Manager",
-        approver: settings.program_manager_approved_by === "manager" ? "Manager" : "Org Admin",
+        role: "L2",
+        approver: settings.l2_approved_by === "l3" ? "L3" : "Admin",
       });
     } else {
-      chain.push({ role: "Program Manager", approver: "Auto-approved" });
+      chain.push({ role: "L2", approver: "Auto-approved" });
     }
 
-    if (settings.manager_requires_approval && settings.manager_approved_by) {
+    if (settings.l3_requires_approval && settings.l3_approved_by) {
       chain.push({
-        role: "Manager",
-        approver: settings.manager_approved_by === "org_admin" ? "Org Admin" : "Auto-approved",
+        role: "L3",
+        approver: settings.l3_approved_by === "org_admin" ? "Admin" : "Auto-approved",
       });
     } else {
-      chain.push({ role: "Manager", approver: "Auto-approved" });
+      chain.push({ role: "L3", approver: "Auto-approved" });
     }
 
     return chain;

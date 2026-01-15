@@ -29,7 +29,7 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    // Verify user is admin
+    // Verify user is admin or super_admin
     const { data: { user }, error: authError } = await userClient.auth.getUser();
     if (authError || !user) {
       console.error('Auth error:', authError);
@@ -45,7 +45,8 @@ serve(async (req) => {
       .eq('user_id', user.id)
       .single();
 
-    if (roleError || roleData?.role !== 'org_admin') {
+    // Allow super_admin and org_admin to create users
+    if (roleError || (roleData?.role !== 'org_admin' && roleData?.role !== 'super_admin')) {
       console.error('Role check failed:', roleError);
       return new Response(JSON.stringify({ error: 'Forbidden - Admin access required' }), {
         status: 403,
@@ -53,13 +54,31 @@ serve(async (req) => {
       });
     }
 
-    // Get request body - support both single department_id and multiple department_ids
+    const isSuperAdmin = roleData.role === 'super_admin';
+
+    // Get request body
     const body = await req.json();
-    const { full_name, email, phone, role, department_id, department_ids, program_id, program_ids, is_active, password } = body;
+    const { 
+      full_name, email, phone, role, 
+      vertical_id, vertical_ids,
+      program_id, program_ids, 
+      batch_id, batch_ids,
+      subject_id, subject_ids,
+      is_active, password,
+      organization_id: targetOrgId // Only super_admin can specify this
+    } = body;
 
     // Normalize to arrays
-    const deptIds: string[] = department_ids?.length ? department_ids : (department_id ? [department_id] : []);
+    const verticalIds: string[] = vertical_ids?.length ? vertical_ids : (vertical_id ? [vertical_id] : []);
     const progIds: string[] = program_ids?.length ? program_ids : (program_id ? [program_id] : []);
+    const batchIds: string[] = batch_ids?.length ? batch_ids : (batch_id ? [batch_id] : []);
+    const subjectIds: string[] = subject_ids?.length ? subject_ids : (subject_id ? [subject_id] : []);
+
+    // Determine organization ID
+    let organizationId = roleData.organization_id;
+    if (isSuperAdmin && targetOrgId) {
+      organizationId = targetOrgId;
+    }
 
     // Validate inputs
     if (!full_name || !email || !role || !password) {
@@ -76,6 +95,23 @@ serve(async (req) => {
       });
     }
 
+    // Validate role - new role system
+    const validRoles = ['super_admin', 'org_admin', 'l3', 'l2', 'l1'];
+    if (!validRoles.includes(role)) {
+      return new Response(JSON.stringify({ error: 'Invalid role' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Only super_admin can create super_admin users
+    if (role === 'super_admin' && !isSuperAdmin) {
+      return new Response(JSON.stringify({ error: 'Only Super Admins can create Super Admin users' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Validate password
     if (password.length < 8) {
       return new Response(JSON.stringify({ error: 'Password must be at least 8 characters' }), {
@@ -88,6 +124,43 @@ serve(async (req) => {
       return new Response(JSON.stringify({ 
         error: 'Password must contain at least one uppercase letter, one lowercase letter, and one number' 
       }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Validate hierarchy requirements based on role
+    // L1 requires: vertical, program, batch, subject (all mandatory)
+    if (role === 'l1') {
+      if (verticalIds.length === 0) {
+        return new Response(JSON.stringify({ error: 'L1 users require at least one vertical assignment' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      if (progIds.length === 0) {
+        return new Response(JSON.stringify({ error: 'L1 users require at least one program assignment' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      if (batchIds.length === 0) {
+        return new Response(JSON.stringify({ error: 'L1 users require at least one batch assignment' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      if (subjectIds.length === 0) {
+        return new Response(JSON.stringify({ error: 'L1 users require at least one subject assignment' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
+    // L2 and L3 require vertical assignment
+    if ((role === 'l2' || role === 'l3') && verticalIds.length === 0) {
+      return new Response(JSON.stringify({ error: `${role.toUpperCase()} users require at least one vertical assignment` }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -121,8 +194,8 @@ serve(async (req) => {
       throw profileError;
     }
 
-    // Create user role - use first department/program for backward compatibility
-    const primaryDeptId = deptIds[0] || null;
+    // Create user role
+    const primaryVerticalId = verticalIds[0] || null;
     const primaryProgId = progIds[0] || null;
 
     const { error: roleInsertError } = await supabaseClient
@@ -130,9 +203,9 @@ serve(async (req) => {
       .insert({
         user_id: authData.user.id,
         role,
-        organization_id: roleData.organization_id,
-        department_id: role === 'org_admin' ? null : primaryDeptId,
-        program_id: (role === 'program_manager' || role === 'faculty') ? primaryProgId : null,
+        organization_id: role === 'super_admin' ? null : organizationId,
+        vertical_id: (role === 'l3' || role === 'l2' || role === 'l1') ? primaryVerticalId : null,
+        program_id: (role === 'l2' || role === 'l1') ? primaryProgId : null,
       });
 
     if (roleInsertError) {
@@ -140,25 +213,25 @@ serve(async (req) => {
       throw roleInsertError;
     }
 
-    // Insert into user_departments junction table for all departments
-    if (deptIds.length > 0 && role !== 'org_admin') {
-      const deptInserts = deptIds.map(dId => ({
+    // Insert into user_verticals junction table
+    if (verticalIds.length > 0 && role !== 'org_admin' && role !== 'super_admin') {
+      const verticalInserts = verticalIds.map(vId => ({
         user_id: authData.user.id,
-        department_id: dId,
+        vertical_id: vId,
       }));
 
-      const { error: deptInsertError } = await supabaseClient
-        .from('user_departments')
-        .insert(deptInserts);
+      const { error: verticalInsertError } = await supabaseClient
+        .from('user_verticals')
+        .insert(verticalInserts);
 
-      if (deptInsertError) {
-        console.error('Department assignment error:', deptInsertError);
+      if (verticalInsertError) {
+        console.error('Vertical assignment error:', verticalInsertError);
         // Non-fatal, continue
       }
     }
 
-    // Insert into user_programs junction table for all programs
-    if (progIds.length > 0 && (role === 'program_manager' || role === 'faculty')) {
+    // Insert into user_programs junction table
+    if (progIds.length > 0 && (role === 'l2' || role === 'l1')) {
       const progInserts = progIds.map(pId => ({
         user_id: authData.user.id,
         program_id: pId,
@@ -170,6 +243,40 @@ serve(async (req) => {
 
       if (progInsertError) {
         console.error('Program assignment error:', progInsertError);
+        // Non-fatal, continue
+      }
+    }
+
+    // Insert into user_batches junction table (L1 only)
+    if (batchIds.length > 0 && role === 'l1') {
+      const batchInserts = batchIds.map(bId => ({
+        user_id: authData.user.id,
+        batch_id: bId,
+      }));
+
+      const { error: batchInsertError } = await supabaseClient
+        .from('user_batches')
+        .insert(batchInserts);
+
+      if (batchInsertError) {
+        console.error('Batch assignment error:', batchInsertError);
+        // Non-fatal, continue
+      }
+    }
+
+    // Insert into user_subjects junction table (L1 only)
+    if (subjectIds.length > 0 && role === 'l1') {
+      const subjectInserts = subjectIds.map(sId => ({
+        user_id: authData.user.id,
+        subject_id: sId,
+      }));
+
+      const { error: subjectInsertError } = await supabaseClient
+        .from('user_subjects')
+        .insert(subjectInserts);
+
+      if (subjectInsertError) {
+        console.error('Subject assignment error:', subjectInsertError);
         // Non-fatal, continue
       }
     }
