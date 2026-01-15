@@ -10,6 +10,9 @@ import {
   Building2,
   FolderKanban,
   Layers,
+  Layers3,
+  Calendar,
+  BookOpen,
   BarChart3,
   ClipboardCheck,
   UsersRound,
@@ -103,8 +106,11 @@ export function AppSidebar() {
     if (role === "org_admin") {
       items.push(
         { to: "/organizations", icon: Building2, label: "Organization", group: "Administration" },
-        { to: "/departments", icon: Layers, label: entityLabel("department", true), group: "Administration" },
+        { to: "/verticals", icon: Layers, label: entityLabel("vertical", true), group: "Administration" },
         { to: "/programs", icon: FolderKanban, label: entityLabel("program", true), group: "Administration" },
+        { to: "/batches", icon: Layers3, label: entityLabel("batch", true), group: "Administration" },
+        { to: "/terms", icon: Calendar, label: entityLabel("term", true), group: "Administration" },
+        { to: "/subjects", icon: BookOpen, label: entityLabel("subject", true), group: "Administration" },
         { to: "/users", icon: Users, label: "Users", group: "Administration" },
         { to: "/approvals", icon: ClipboardCheck, label: "Approvals", group: "Management" },
         { to: "/reports", icon: BarChart3, label: "Reports", group: "Analytics" },
@@ -118,8 +124,9 @@ export function AppSidebar() {
         { to: "/timesheet", icon: FileText, label: "Timesheet", group: "Work" },
         { to: "/calendar", icon: CalendarDays, label: "Calendar", group: "Work" },
         { to: "/bulk-import", icon: Upload, label: "Bulk Upload", group: "Work" },
+        { to: "/verticals", icon: Layers, label: entityLabel("vertical", true), group: "Management" },
         { to: "/programs", icon: FolderKanban, label: entityLabel("program", true), group: "Management" },
-        { to: "/departments", icon: Layers, label: entityLabel("department", true), group: "Management" },
+        { to: "/batches", icon: Layers3, label: entityLabel("batch", true), group: "Management" },
         { to: "/reports", icon: BarChart3, label: "Reports", group: "Analytics" }
       );
     }

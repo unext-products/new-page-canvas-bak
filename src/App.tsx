@@ -15,6 +15,10 @@ import Users from "./pages/Users";
 import Organizations from "./pages/Organizations";
 import Programs from "./pages/Programs";
 import Departments from "./pages/Departments";
+import Verticals from "./pages/Verticals";
+import Batches from "./pages/Batches";
+import Terms from "./pages/Terms";
+import Subjects from "./pages/Subjects";
 import Reports from "./pages/Reports";
 import BulkImport from "./pages/BulkImport";
 import Pricing from "./pages/Pricing";
@@ -45,6 +49,10 @@ const App = () => (
                 <Route path="/organizations" element={<Organizations />} />
                 <Route path="/programs" element={<Programs />} />
                 <Route path="/departments" element={<Departments />} />
+                <Route path="/verticals" element={<Verticals />} />
+                <Route path="/batches" element={<Batches />} />
+                <Route path="/terms" element={<Terms />} />
+                <Route path="/subjects" element={<Subjects />} />
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/bulk-import" element={<BulkImport />} />
                 <Route path="/pricing" element={<Pricing />} />
