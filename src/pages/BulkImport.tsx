@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
+import { isRole } from "@/lib/roleMapping";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -52,9 +53,9 @@ export default function BulkImport() {
   const [departmentMembers, setDepartmentMembers] = useState<DepartmentMember[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
 
-  const isMember = userWithRole?.role === "member";
-  const isAdmin = userWithRole?.role === "org_admin";
-  const isHod = userWithRole?.role === "manager";
+  const isMember = isRole(userWithRole?.role, "l1", "member");
+  const isAdmin = isRole(userWithRole?.role, "admin", "org_admin");
+  const isHod = isRole(userWithRole?.role, "l3", "manager");
 
   // Fetch department members for HOD
   useEffect(() => {

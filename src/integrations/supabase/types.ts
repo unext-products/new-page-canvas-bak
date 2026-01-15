@@ -220,6 +220,50 @@ export type Database = {
           },
         ]
       }
+      organization_role_labels: {
+        Row: {
+          created_at: string
+          id: string
+          organization_id: string | null
+          role_admin: string
+          role_l1: string
+          role_l2: string
+          role_l3: string
+          role_super_admin: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          organization_id?: string | null
+          role_admin?: string
+          role_l1?: string
+          role_l2?: string
+          role_l3?: string
+          role_super_admin?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          organization_id?: string | null
+          role_admin?: string
+          role_l1?: string
+          role_l2?: string
+          role_l3?: string
+          role_super_admin?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_role_labels_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
           code: string
@@ -846,6 +890,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_role_level: {
+        Args: { p_role: Database["public"]["Enums"]["app_role"] }
+        Returns: number
+      }
       get_user_batches: { Args: { p_user_id: string }; Returns: string[] }
       get_user_department: { Args: { user_id: string }; Returns: string }
       get_user_departments: { Args: { p_user_id: string }; Returns: string[] }
@@ -859,6 +907,7 @@ export type Database = {
       get_user_subjects: { Args: { p_user_id: string }; Returns: string[] }
       get_user_vertical: { Args: { user_id: string }; Returns: string }
       get_user_verticals: { Args: { p_user_id: string }; Returns: string[] }
+      is_super_admin: { Args: { p_user_id: string }; Returns: boolean }
       user_in_batch: {
         Args: { p_batch_id: string; p_user_id: string }
         Returns: boolean
@@ -882,7 +931,15 @@ export type Database = {
     }
     Enums: {
       activity_type: "class" | "quiz" | "invigilation" | "admin" | "other"
-      app_role: "org_admin" | "program_manager" | "hod" | "faculty"
+      app_role:
+        | "org_admin"
+        | "program_manager"
+        | "hod"
+        | "faculty"
+        | "super_admin"
+        | "l3"
+        | "l2"
+        | "l1"
       entry_status: "draft" | "submitted" | "approved" | "rejected"
       leave_type:
         | "casual"
@@ -1019,7 +1076,16 @@ export const Constants = {
   public: {
     Enums: {
       activity_type: ["class", "quiz", "invigilation", "admin", "other"],
-      app_role: ["org_admin", "program_manager", "hod", "faculty"],
+      app_role: [
+        "org_admin",
+        "program_manager",
+        "hod",
+        "faculty",
+        "super_admin",
+        "l3",
+        "l2",
+        "l1",
+      ],
       entry_status: ["draft", "submitted", "approved", "rejected"],
       leave_type: ["casual", "sick", "earned", "half_day", "comp_off", "other"],
     },
