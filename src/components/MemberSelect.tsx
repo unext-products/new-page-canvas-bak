@@ -65,55 +65,84 @@ export function MemberSelect({ value, onValueChange, includeAll = false, departm
 
       const facultyIds = new Set(roles?.map(r => r.user_id) || []);
 
-      // Get department assignments from user_departments junction table
-      let deptAssignmentsQuery = supabase
-        .from("user_departments")
-        .select("user_id, department_id")
+      // Get vertical assignments from user_verticals junction table
+      let vertAssignmentsQuery = supabase
+        .from("user_verticals")
+        .select("user_id, vertical_id")
         .in("user_id", Array.from(facultyIds));
 
-      const { data: deptAssignments, error: deptAssignmentsError } = await deptAssignmentsQuery;
+      const { data: vertAssignments, error: vertAssignmentsError } = await vertAssignmentsQuery;
 
-      if (deptAssignmentsError) throw deptAssignmentsError;
-
-      // Build a map of user_id -> department_ids[]
-      const userDeptMap = new Map<string, string[]>();
-      deptAssignments?.forEach(da => {
-        if (!userDeptMap.has(da.user_id)) {
-          userDeptMap.set(da.user_id, []);
-        }
-        userDeptMap.get(da.user_id)!.push(da.department_id);
-      });
-
-      // Filter users by departmentIds if provided
-      let filteredFacultyIds = Array.from(facultyIds);
-      if (departmentIds && departmentIds.length > 0) {
-        filteredFacultyIds = filteredFacultyIds.filter(userId => {
-          const userDepts = userDeptMap.get(userId) || [];
-          return userDepts.some(deptId => departmentIds.includes(deptId));
+      // Fallback to user_departments if no user_verticals entries
+      let userVertMap = new Map<string, string[]>();
+      
+      if (vertAssignments && vertAssignments.length > 0) {
+        vertAssignments.forEach(va => {
+          if (!userVertMap.has(va.user_id)) {
+            userVertMap.set(va.user_id, []);
+          }
+          userVertMap.get(va.user_id)!.push(va.vertical_id);
+        });
+      } else {
+        // Fallback to user_departments
+        const { data: deptAssignments } = await supabase
+          .from("user_departments")
+          .select("user_id, department_id")
+          .in("user_id", Array.from(facultyIds));
+        
+        deptAssignments?.forEach(da => {
+          if (!userVertMap.has(da.user_id)) {
+            userVertMap.set(da.user_id, []);
+          }
+          userVertMap.get(da.user_id)!.push(da.department_id);
         });
       }
 
-      // Get all department names
-      const allDeptIds = Array.from(new Set(deptAssignments?.map(da => da.department_id) || []));
-      const { data: departments } = await supabase
-        .from("departments")
-        .select("id, name")
-        .in("id", allDeptIds.length > 0 ? allDeptIds : ['__none__']);
+      // Filter users by departmentIds (which now represent verticalIds) if provided
+      let filteredFacultyIds = Array.from(facultyIds);
+      if (departmentIds && departmentIds.length > 0) {
+        filteredFacultyIds = filteredFacultyIds.filter(userId => {
+          const userVerts = userVertMap.get(userId) || [];
+          return userVerts.some(vertId => departmentIds.includes(vertId));
+        });
+      }
 
-      const deptNameMap = new Map(departments?.map(d => [d.id, d.name]) || []);
+      // Get all vertical names (try verticals table first, fallback to departments)
+      const allVertIds = Array.from(new Set(
+        Array.from(userVertMap.values()).flat()
+      ));
+      
+      let vertNameMap = new Map<string, string>();
+      if (allVertIds.length > 0) {
+        const { data: verticals } = await supabase
+          .from("verticals")
+          .select("id, name")
+          .in("id", allVertIds);
+        
+        if (verticals && verticals.length > 0) {
+          vertNameMap = new Map(verticals.map(v => [v.id, v.name]));
+        } else {
+          // Fallback to departments
+          const { data: departments } = await supabase
+            .from("departments")
+            .select("id, name")
+            .in("id", allVertIds);
+          vertNameMap = new Map(departments?.map(d => [d.id, d.name]) || []);
+        }
+      }
 
-      // Build member data with all department names
+      // Build member data with all vertical names
       const memberData = profiles
         ?.filter(p => filteredFacultyIds.includes(p.id))
         .map(p => {
-          const deptIds = userDeptMap.get(p.id) || [];
-          const deptNames = deptIds.map(id => deptNameMap.get(id) || "Unknown").filter(Boolean);
+          const vertIds = userVertMap.get(p.id) || [];
+          const vertNames = vertIds.map(id => vertNameMap.get(id) || "Unknown").filter(Boolean);
           
           return {
             id: p.id,
             full_name: p.full_name,
             email: p.id,
-            department_names: deptNames.length > 0 ? deptNames : ["N/A"],
+            department_names: vertNames.length > 0 ? vertNames : ["N/A"],
           };
         }) || [];
 

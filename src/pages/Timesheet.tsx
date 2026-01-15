@@ -32,7 +32,7 @@ export default function Timesheet() {
   const navigate = useNavigate();
   const { fireConfetti } = useConfetti();
   const { resetTour, hasSeen } = useOnboardingTour();
-  const { categories, loading: categoriesLoading } = useActivityCategories(userWithRole?.departmentId);
+  const { categories, loading: categoriesLoading } = useActivityCategories(userWithRole?.verticalId || userWithRole?.departmentId);
   const [entries, setEntries] = useState<any[]>([]);
   const [leaveEntries, setLeaveEntries] = useState<any[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -47,8 +47,8 @@ export default function Timesheet() {
   const [activityType, setActivityType] = useState("");
   const [activitySubtype, setActivitySubtype] = useState("");
   const [notes, setNotes] = useState("");
-  const [departmentCode, setDepartmentCode] = useState("");
-  const [userDepartments, setUserDepartments] = useState<{ id: string; name: string; code: string }[]>([]);
+  const [verticalCode, setVerticalCode] = useState("");
+  const [userVerticals, setUserVerticals] = useState<{ id: string; name: string; code: string }[]>([]);
 
   // Leave management state
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
@@ -73,33 +73,54 @@ export default function Timesheet() {
     } else if (userWithRole) {
       loadEntries();
       loadLeaveDays();
-      loadUserDepartments();
+      loadUserVerticals();
     }
   }, [userWithRole, navigate]);
 
-  const loadUserDepartments = async () => {
+  const loadUserVerticals = async () => {
     if (!userWithRole) return;
     
-    // Get user's departments from user_departments table
-    const { data: userDepts } = await supabase
-      .from("user_departments")
-      .select("department_id")
+    // Get user's verticals from user_verticals table
+    const { data: userVerts } = await supabase
+      .from("user_verticals")
+      .select("vertical_id")
       .eq("user_id", userWithRole.user.id);
     
-    const deptIds = userDepts?.map(ud => ud.department_id) || [];
+    let vertIds = userVerts?.map(uv => uv.vertical_id) || [];
     
-    // Also include department from user_roles as fallback
-    if (userWithRole.departmentId && !deptIds.includes(userWithRole.departmentId)) {
-      deptIds.push(userWithRole.departmentId);
+    // Fallback: check user_departments if no user_verticals entries
+    if (vertIds.length === 0) {
+      const { data: userDepts } = await supabase
+        .from("user_departments")
+        .select("department_id")
+        .eq("user_id", userWithRole.user.id);
+      vertIds = userDepts?.map(ud => ud.department_id) || [];
     }
     
-    if (deptIds.length > 0) {
-      const { data: depts } = await supabase
-        .from("departments")
+    // Also include vertical from user_roles as fallback
+    const primaryVertId = userWithRole.verticalId || userWithRole.departmentId;
+    if (primaryVertId && !vertIds.includes(primaryVertId)) {
+      vertIds.push(primaryVertId);
+    }
+    
+    if (vertIds.length > 0) {
+      // First try verticals table
+      const { data: verts } = await supabase
+        .from("verticals")
         .select("id, name, code")
-        .in("id", deptIds);
+        .in("id", vertIds);
       
-      setUserDepartments(depts || []);
+      if (verts && verts.length > 0) {
+        setUserVerticals(verts);
+      } else {
+        // Fallback to departments table for backward compatibility
+        const { data: depts } = await supabase
+          .from("departments")
+          .select("id, name, code")
+          .in("id", vertIds);
+        
+        setUserVerticals(depts || []);
+      }
     }
   };
 
@@ -196,11 +217,11 @@ export default function Timesheet() {
       return;
     }
 
-    // Validate department code is selected
-    if (!departmentCode || departmentCode.trim() === "") {
+    // Validate vertical code is selected
+    if (!verticalCode || verticalCode.trim() === "") {
       toast({
-        title: "Department Required",
-        description: "Please select a department for this entry",
+        title: "Vertical Required",
+        description: "Please select a vertical for this entry",
         variant: "destructive",
       });
       return;
@@ -267,8 +288,8 @@ export default function Timesheet() {
 
       const duration = calculateDuration(normalizedStartTime, normalizedEndTime);
 
-      // Use department code directly (already validated by dropdown selection)
-      const trimmedDeptCode = departmentCode.trim().toUpperCase();
+      // Use vertical code directly (already validated by dropdown selection)
+      const trimmedVertCode = verticalCode.trim().toUpperCase();
 
       setLoading(true);
 
@@ -281,7 +302,8 @@ export default function Timesheet() {
         activity_type: validatedData.activity_type,
         activity_subtype: validatedData.activity_subtype || null,
         notes: validatedData.notes || null,
-        department_code: trimmedDeptCode || null,
+        vertical_code: trimmedVertCode || null,
+        department_code: trimmedVertCode || null, // backward compatibility
         status,
       });
 
@@ -352,7 +374,7 @@ export default function Timesheet() {
     setActivityType(categories[0]?.code || "");
     setActivitySubtype("");
     setNotes("");
-    setDepartmentCode("");
+    setVerticalCode("");
   };
 
 
@@ -612,18 +634,18 @@ export default function Timesheet() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="departmentCode">Department <span className="text-destructive">*</span></Label>
+                  <Label htmlFor="verticalCode">Vertical <span className="text-destructive">*</span></Label>
                   <Select 
-                    value={departmentCode} 
-                    onValueChange={setDepartmentCode}
+                    value={verticalCode} 
+                    onValueChange={setVerticalCode}
                   >
-                    <SelectTrigger id="departmentCode">
-                      <SelectValue placeholder="Select department" />
+                    <SelectTrigger id="verticalCode">
+                      <SelectValue placeholder="Select vertical" />
                     </SelectTrigger>
                     <SelectContent>
-                      {userDepartments.map((dept) => (
-                        <SelectItem key={dept.id} value={dept.code.toUpperCase()}>
-                          {dept.name} ({dept.code})
+                      {userVerticals.map((vert) => (
+                        <SelectItem key={vert.id} value={vert.code.toUpperCase()}>
+                          {vert.name} ({vert.code})
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -711,9 +733,9 @@ export default function Timesheet() {
                           <p className="text-sm text-muted-foreground">
                             {item.activity_type.charAt(0).toUpperCase() + item.activity_type.slice(1)}
                             {item.activity_subtype && ` • ${item.activity_subtype}`}
-                            {item.department_code && (
+                            {(item.vertical_code || item.department_code) && (
                               <Badge variant="outline" className="ml-2 text-xs">
-                                {item.department_code}
+                                {item.vertical_code || item.department_code}
                               </Badge>
                             )}
                           </p>

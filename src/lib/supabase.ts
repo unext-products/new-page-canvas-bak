@@ -7,6 +7,8 @@ export type UserRole = DisplayRole;
 export interface UserWithRole {
   user: User;
   role: UserRole | null;
+  verticalId: string | null;
+  /** @deprecated Use verticalId instead */
   departmentId: string | null;
   profile: {
     full_name: string;
@@ -21,7 +23,7 @@ export async function getUserWithRole(userId: string): Promise<UserWithRole | nu
     const [roleData, profileData] = await Promise.all([
       supabase
         .from("user_roles")
-        .select("role, department_id")
+        .select("role, vertical_id, department_id")
         .eq("user_id", userId)
         .maybeSingle(),
       supabase
@@ -35,10 +37,13 @@ export async function getUserWithRole(userId: string): Promise<UserWithRole | nu
     
     if (!user) return null;
 
+    const verticalId = roleData.data?.vertical_id || roleData.data?.department_id || null;
+
     return {
       user,
       role: toDisplayRole(roleData.data?.role as DbRole | null),
-      departmentId: roleData.data?.department_id || null,
+      verticalId,
+      departmentId: verticalId, // backward compatibility
       profile: profileData.data,
     };
   } catch (error) {
