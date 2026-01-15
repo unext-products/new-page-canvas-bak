@@ -49,6 +49,38 @@ export type Database = {
           },
         ]
       }
+      batches: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          program_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          program_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          program_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "batches_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       departments: {
         Row: {
           code: string
@@ -114,10 +146,18 @@ export type Database = {
       organization_labels: {
         Row: {
           created_at: string
+          entity_batch: string
+          entity_batch_plural: string
           entity_department: string
           entity_department_plural: string
           entity_program: string
           entity_program_plural: string
+          entity_subject: string
+          entity_subject_plural: string
+          entity_term: string
+          entity_term_plural: string
+          entity_vertical: string
+          entity_vertical_plural: string
           id: string
           organization_id: string | null
           role_manager: string
@@ -128,10 +168,18 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          entity_batch?: string
+          entity_batch_plural?: string
           entity_department?: string
           entity_department_plural?: string
           entity_program?: string
           entity_program_plural?: string
+          entity_subject?: string
+          entity_subject_plural?: string
+          entity_term?: string
+          entity_term_plural?: string
+          entity_vertical?: string
+          entity_vertical_plural?: string
           id?: string
           organization_id?: string | null
           role_manager?: string
@@ -142,10 +190,18 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          entity_batch?: string
+          entity_batch_plural?: string
           entity_department?: string
           entity_department_plural?: string
           entity_program?: string
           entity_program_plural?: string
+          entity_subject?: string
+          entity_subject_plural?: string
+          entity_term?: string
+          entity_term_plural?: string
+          entity_vertical?: string
+          entity_vertical_plural?: string
           id?: string
           organization_id?: string | null
           role_manager?: string
@@ -226,6 +282,7 @@ export type Database = {
           id: string
           name: string
           updated_at: string
+          vertical_id: string | null
         }
         Insert: {
           code: string
@@ -234,6 +291,7 @@ export type Database = {
           id?: string
           name: string
           updated_at?: string
+          vertical_id?: string | null
         }
         Update: {
           code?: string
@@ -242,6 +300,7 @@ export type Database = {
           id?: string
           name?: string
           updated_at?: string
+          vertical_id?: string | null
         }
         Relationships: [
           {
@@ -249,6 +308,13 @@ export type Database = {
             columns: ["department_id"]
             isOneToOne: false
             referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "programs_vertical_id_fkey"
+            columns: ["vertical_id"]
+            isOneToOne: false
+            referencedRelation: "verticals"
             referencedColumns: ["id"]
           },
         ]
@@ -261,6 +327,7 @@ export type Database = {
           key: string
           updated_at: string
           value: string | null
+          vertical_id: string | null
         }
         Insert: {
           created_at?: string
@@ -269,6 +336,7 @@ export type Database = {
           key: string
           updated_at?: string
           value?: string | null
+          vertical_id?: string | null
         }
         Update: {
           created_at?: string
@@ -277,6 +345,7 @@ export type Database = {
           key?: string
           updated_at?: string
           value?: string | null
+          vertical_id?: string | null
         }
         Relationships: [
           {
@@ -284,6 +353,80 @@ export type Database = {
             columns: ["department_id"]
             isOneToOne: false
             referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "settings_vertical_id_fkey"
+            columns: ["vertical_id"]
+            isOneToOne: false
+            referencedRelation: "verticals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subjects: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          name: string
+          term_id: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          name: string
+          term_id: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          name?: string
+          term_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subjects_term_id_fkey"
+            columns: ["term_id"]
+            isOneToOne: false
+            referencedRelation: "terms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      terms: {
+        Row: {
+          batch_id: string
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "terms_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
             referencedColumns: ["id"]
           },
         ]
@@ -295,17 +438,26 @@ export type Database = {
           approved_at: string | null
           approved_by: string | null
           approver_notes: string | null
+          batch_id: string | null
+          batch_name: string | null
           created_at: string
           department_code: string | null
           end_time: string
           entry_date: string
           id: string
           notes: string | null
+          program_id: string | null
           source: string | null
           start_time: string
           status: Database["public"]["Enums"]["entry_status"]
+          subject_code: string | null
+          subject_id: string | null
+          term_id: string | null
+          term_name: string | null
           updated_at: string
           user_id: string
+          vertical_code: string | null
+          vertical_id: string | null
         }
         Insert: {
           activity_subtype?: string | null
@@ -313,17 +465,26 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           approver_notes?: string | null
+          batch_id?: string | null
+          batch_name?: string | null
           created_at?: string
           department_code?: string | null
           end_time: string
           entry_date: string
           id?: string
           notes?: string | null
+          program_id?: string | null
           source?: string | null
           start_time: string
           status?: Database["public"]["Enums"]["entry_status"]
+          subject_code?: string | null
+          subject_id?: string | null
+          term_id?: string | null
+          term_name?: string | null
           updated_at?: string
           user_id: string
+          vertical_code?: string | null
+          vertical_id?: string | null
         }
         Update: {
           activity_subtype?: string | null
@@ -331,19 +492,93 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           approver_notes?: string | null
+          batch_id?: string | null
+          batch_name?: string | null
           created_at?: string
           department_code?: string | null
           end_time?: string
           entry_date?: string
           id?: string
           notes?: string | null
+          program_id?: string | null
           source?: string | null
           start_time?: string
           status?: Database["public"]["Enums"]["entry_status"]
+          subject_code?: string | null
+          subject_id?: string | null
+          term_id?: string | null
+          term_name?: string | null
           updated_at?: string
           user_id?: string
+          vertical_code?: string | null
+          vertical_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "timesheet_entries_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "timesheet_entries_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "timesheet_entries_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "timesheet_entries_term_id_fkey"
+            columns: ["term_id"]
+            isOneToOne: false
+            referencedRelation: "terms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "timesheet_entries_vertical_id_fkey"
+            columns: ["vertical_id"]
+            isOneToOne: false
+            referencedRelation: "verticals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_batches: {
+        Row: {
+          batch_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_batches_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_departments: {
         Row: {
@@ -412,6 +647,7 @@ export type Database = {
           program_id: string | null
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
+          vertical_id: string | null
         }
         Insert: {
           created_at?: string
@@ -421,6 +657,7 @@ export type Database = {
           program_id?: string | null
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
+          vertical_id?: string | null
         }
         Update: {
           created_at?: string
@@ -430,6 +667,7 @@ export type Database = {
           program_id?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+          vertical_id?: string | null
         }
         Relationships: [
           {
@@ -453,6 +691,13 @@ export type Database = {
             referencedRelation: "programs"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "user_roles_vertical_id_fkey"
+            columns: ["vertical_id"]
+            isOneToOne: false
+            referencedRelation: "verticals"
+            referencedColumns: ["id"]
+          },
         ]
       }
       user_settings: {
@@ -464,6 +709,7 @@ export type Database = {
           updated_at: string | null
           user_id: string
           value: string | null
+          vertical_id: string | null
         }
         Insert: {
           created_at?: string | null
@@ -473,6 +719,7 @@ export type Database = {
           updated_at?: string | null
           user_id: string
           value?: string | null
+          vertical_id?: string | null
         }
         Update: {
           created_at?: string | null
@@ -482,6 +729,7 @@ export type Database = {
           updated_at?: string | null
           user_id?: string
           value?: string | null
+          vertical_id?: string | null
         }
         Relationships: [
           {
@@ -491,6 +739,106 @@ export type Database = {
             referencedRelation: "departments"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "user_settings_vertical_id_fkey"
+            columns: ["vertical_id"]
+            isOneToOne: false
+            referencedRelation: "verticals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_subjects: {
+        Row: {
+          created_at: string
+          id: string
+          subject_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          subject_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          subject_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_subjects_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_verticals: {
+        Row: {
+          created_at: string
+          id: string
+          user_id: string
+          vertical_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          user_id: string
+          vertical_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          user_id?: string
+          vertical_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_verticals_vertical_id_fkey"
+            columns: ["vertical_id"]
+            isOneToOne: false
+            referencedRelation: "verticals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      verticals: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          name: string
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          name: string
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          name?: string
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "verticals_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
         ]
       }
     }
@@ -498,6 +846,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_user_batches: { Args: { p_user_id: string }; Returns: string[] }
       get_user_department: { Args: { user_id: string }; Returns: string }
       get_user_departments: { Args: { p_user_id: string }; Returns: string[] }
       get_user_organization: { Args: { user_id: string }; Returns: string }
@@ -507,12 +856,27 @@ export type Database = {
         Args: { user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      get_user_subjects: { Args: { p_user_id: string }; Returns: string[] }
+      get_user_vertical: { Args: { user_id: string }; Returns: string }
+      get_user_verticals: { Args: { p_user_id: string }; Returns: string[] }
+      user_in_batch: {
+        Args: { p_batch_id: string; p_user_id: string }
+        Returns: boolean
+      }
       user_in_department: {
         Args: { p_department_id: string; p_user_id: string }
         Returns: boolean
       }
       user_in_program: {
         Args: { p_program_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      user_in_subject: {
+        Args: { p_subject_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      user_in_vertical: {
+        Args: { p_user_id: string; p_vertical_id: string }
         Returns: boolean
       }
     }
