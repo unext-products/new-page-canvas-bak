@@ -87,7 +87,7 @@ export const timesheetEntrySchema = z.object({
   entry_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format"),
   start_time: z.string().regex(/^\d{2}:\d{2}$/, "Invalid time format"),
   end_time: z.string().regex(/^\d{2}:\d{2}$/, "Invalid time format"),
-  activity_type: z.enum(["class", "quiz", "invigilation", "admin", "other"]),
+  activity_type: z.string().min(1, "Activity type is required"),
   activity_subtype: z.string()
     .trim()
     .max(100, "Activity subtype must be less than 100 characters")

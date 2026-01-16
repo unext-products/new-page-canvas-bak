@@ -525,7 +525,7 @@ export type Database = {
       timesheet_entries: {
         Row: {
           activity_subtype: string | null
-          activity_type: Database["public"]["Enums"]["activity_type"]
+          activity_type: string
           approved_at: string | null
           approved_by: string | null
           approver_notes: string | null
@@ -552,7 +552,7 @@ export type Database = {
         }
         Insert: {
           activity_subtype?: string | null
-          activity_type: Database["public"]["Enums"]["activity_type"]
+          activity_type: string
           approved_at?: string | null
           approved_by?: string | null
           approver_notes?: string | null
@@ -579,7 +579,7 @@ export type Database = {
         }
         Update: {
           activity_subtype?: string | null
-          activity_type?: Database["public"]["Enums"]["activity_type"]
+          activity_type?: string
           approved_at?: string | null
           approved_by?: string | null
           approver_notes?: string | null
