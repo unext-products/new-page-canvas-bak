@@ -59,6 +59,43 @@ export default function Subjects() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
   const [formData, setFormData] = useState({ name: "", code: "", term_id: "", batch_id: "", program_id: "", vertical_id: "" });
+  const [filterVerticalId, setFilterVerticalId] = useState<string>("");
+  const [filterProgramId, setFilterProgramId] = useState<string>("");
+  const [filterBatchId, setFilterBatchId] = useState<string>("");
+  const [filterTermId, setFilterTermId] = useState<string>("");
+
+  // Store lookups for filtering
+  const [termBatchLookup, setTermBatchLookup] = useState<Map<string, string>>(new Map());
+  const [batchProgramLookup, setBatchProgramLookup] = useState<Map<string, string>>(new Map());
+  const [programVerticalLookup, setProgramVerticalLookup] = useState<Map<string, string>>(new Map());
+
+  // Filter subjects based on selected filters
+  const filteredSubjects = subjects.filter(subject => {
+    // Filter by term
+    if (filterTermId && subject.term_id !== filterTermId) return false;
+    // Filter by batch (through term)
+    if (filterBatchId && !filterTermId) {
+      const termBatchId = termBatchLookup.get(subject.term_id);
+      if (termBatchId !== filterBatchId) return false;
+    }
+    // Filter by program (through term -> batch)
+    if (filterProgramId && !filterBatchId && !filterTermId) {
+      const termBatchId = termBatchLookup.get(subject.term_id);
+      if (!termBatchId) return false;
+      const batchProgramId = batchProgramLookup.get(termBatchId);
+      if (batchProgramId !== filterProgramId) return false;
+    }
+    // Filter by vertical (through term -> batch -> program)
+    if (filterVerticalId && !filterProgramId && !filterBatchId && !filterTermId) {
+      const termBatchId = termBatchLookup.get(subject.term_id);
+      if (!termBatchId) return false;
+      const batchProgramId = batchProgramLookup.get(termBatchId);
+      if (!batchProgramId) return false;
+      const programVerticalId = programVerticalLookup.get(batchProgramId);
+      if (programVerticalId !== filterVerticalId) return false;
+    }
+    return true;
+  });
 
   useEffect(() => {
     if (!userWithRole) return;
@@ -72,6 +109,39 @@ export default function Subjects() {
   const fetchData = async () => {
     try {
       setLoading(true);
+      
+      // Fetch programs for vertical lookup
+      const { data: programsData } = await supabase
+        .from("programs")
+        .select("id, vertical_id");
+      
+      const pvLookup = new Map<string, string>();
+      programsData?.forEach(p => {
+        if (p.vertical_id) pvLookup.set(p.id, p.vertical_id);
+      });
+      setProgramVerticalLookup(pvLookup);
+      
+      // Fetch batches for program lookup
+      const { data: batchesForLookup } = await supabase
+        .from("batches")
+        .select("id, program_id");
+      
+      const bpLookup = new Map<string, string>();
+      batchesForLookup?.forEach(b => {
+        bpLookup.set(b.id, b.program_id);
+      });
+      setBatchProgramLookup(bpLookup);
+      
+      // Fetch terms for batch lookup
+      const { data: termsForLookup } = await supabase
+        .from("terms")
+        .select("id, batch_id");
+      
+      const tbLookup = new Map<string, string>();
+      termsForLookup?.forEach(t => {
+        tbLookup.set(t.id, t.batch_id);
+      });
+      setTermBatchLookup(tbLookup);
       
       const { data: subjectsData, error: subjectsError } = await supabase
         .from("subjects")
@@ -259,23 +329,76 @@ export default function Subjects() {
           }
         />
 
-        {subjects.length === 0 ? (
+        {/* Filter Section */}
+        <Card className="p-4">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Label className="whitespace-nowrap">{entityLabel("vertical")}:</Label>
+              <VerticalSelect
+                value={filterVerticalId}
+                onValueChange={(value) => {
+                  setFilterVerticalId(value);
+                  setFilterProgramId("");
+                  setFilterBatchId("");
+                  setFilterTermId("");
+                }}
+                includeAll
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Label className="whitespace-nowrap">{entityLabel("program")}:</Label>
+              <ProgramSelect
+                value={filterProgramId}
+                onValueChange={(value) => {
+                  setFilterProgramId(value);
+                  setFilterBatchId("");
+                  setFilterTermId("");
+                }}
+                verticalId={filterVerticalId}
+                includeAll
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Label className="whitespace-nowrap">{entityLabel("batch")}:</Label>
+              <BatchSelect
+                value={filterBatchId}
+                onValueChange={(value) => {
+                  setFilterBatchId(value);
+                  setFilterTermId("");
+                }}
+                programId={filterProgramId}
+                includeAll
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Label className="whitespace-nowrap">{entityLabel("term")}:</Label>
+              <TermSelect
+                value={filterTermId}
+                onValueChange={setFilterTermId}
+                batchId={filterBatchId}
+                includeAll
+              />
+            </div>
+          </div>
+        </Card>
+
+        {filteredSubjects.length === 0 ? (
           <Card>
             <CardContent className="py-0">
               <EmptyState
                 icon={BookOpen}
-                title={`No ${entityLabel("subject", true).toLowerCase()} yet`}
-                description={`Create your first ${entityLabel("subject").toLowerCase()} to get started`}
-                action={{
+                title={`No ${entityLabel("subject", true).toLowerCase()} ${filterVerticalId || filterProgramId || filterBatchId || filterTermId ? "matching filters" : "yet"}`}
+                description={filterVerticalId || filterProgramId || filterBatchId || filterTermId ? `No ${entityLabel("subject", true).toLowerCase()} found for the selected filters` : `Create your first ${entityLabel("subject").toLowerCase()} to get started`}
+                action={!filterVerticalId && !filterProgramId && !filterBatchId && !filterTermId ? {
                   label: `Add ${entityLabel("subject")}`,
                   onClick: () => setDialogOpen(true)
-                }}
+                } : undefined}
               />
             </CardContent>
           </Card>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {subjects.map((subject) => (
+            {filteredSubjects.map((subject) => (
               <Card key={subject.id} variant="interactive">
                 <CardHeader>
                   <div className="flex items-start justify-between">

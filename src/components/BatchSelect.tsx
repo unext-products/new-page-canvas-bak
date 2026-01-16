@@ -66,10 +66,10 @@ export function BatchSelect({
           placeholder={
             isLoading 
               ? "Loading..." 
-              : !programId 
+              : (!programId && !includeAll)
                 ? `Select a ${entityLabel("program").toLowerCase()} first`
                 : placeholder || `Select ${entityLabel("batch").toLowerCase()}`
-          } 
+          }
         />
       </SelectTrigger>
       <SelectContent>

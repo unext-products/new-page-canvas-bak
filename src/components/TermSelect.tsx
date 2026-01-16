@@ -66,10 +66,10 @@ export function TermSelect({
           placeholder={
             isLoading 
               ? "Loading..." 
-              : !batchId 
+              : (!batchId && !includeAll)
                 ? `Select a ${entityLabel("batch").toLowerCase()} first`
                 : placeholder || `Select ${entityLabel("term").toLowerCase()}`
-          } 
+          }
         />
       </SelectTrigger>
       <SelectContent>

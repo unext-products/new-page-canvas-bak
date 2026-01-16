@@ -50,6 +50,23 @@ export default function Batches() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedBatch, setSelectedBatch] = useState<Batch | null>(null);
   const [formData, setFormData] = useState({ name: "", program_id: "", vertical_id: "" });
+  const [filterVerticalId, setFilterVerticalId] = useState<string>("");
+  const [filterProgramId, setFilterProgramId] = useState<string>("");
+
+  // Store programs lookup for vertical filtering
+  const [programsLookup, setProgramsLookup] = useState<Map<string, string>>(new Map());
+
+  // Filter batches based on selected filters
+  const filteredBatches = batches.filter(batch => {
+    // Filter by program
+    if (filterProgramId && batch.program_id !== filterProgramId) return false;
+    // Filter by vertical (through program)
+    if (filterVerticalId && !filterProgramId) {
+      const programVerticalId = programsLookup.get(batch.program_id);
+      if (programVerticalId !== filterVerticalId) return false;
+    }
+    return true;
+  });
 
   useEffect(() => {
     if (!userWithRole) return;
@@ -63,6 +80,17 @@ export default function Batches() {
   const fetchData = async () => {
     try {
       setLoading(true);
+      
+      // Fetch programs for vertical lookup
+      const { data: programsData } = await supabase
+        .from("programs")
+        .select("id, vertical_id");
+      
+      const lookup = new Map<string, string>();
+      programsData?.forEach(p => {
+        if (p.vertical_id) lookup.set(p.id, p.vertical_id);
+      });
+      setProgramsLookup(lookup);
       
       const { data: batchesData, error: batchesError } = await supabase
         .from("batches")
@@ -262,23 +290,49 @@ export default function Batches() {
           }
         />
 
-        {batches.length === 0 ? (
+        {/* Filter Section */}
+        <Card className="p-4">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Label className="whitespace-nowrap">{entityLabel("vertical")}:</Label>
+              <VerticalSelect
+                value={filterVerticalId}
+                onValueChange={(value) => {
+                  setFilterVerticalId(value);
+                  setFilterProgramId("");
+                }}
+                includeAll
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Label className="whitespace-nowrap">{entityLabel("program")}:</Label>
+              <ProgramSelect
+                value={filterProgramId}
+                onValueChange={setFilterProgramId}
+                verticalId={filterVerticalId}
+                includeAll
+              />
+            </div>
+          </div>
+        </Card>
+
+        {filteredBatches.length === 0 ? (
           <Card>
             <CardContent className="py-0">
               <EmptyState
                 icon={Layers3}
-                title={`No ${entityLabel("batch", true).toLowerCase()} yet`}
-                description={`Create your first ${entityLabel("batch").toLowerCase()} to get started`}
-                action={{
+                title={`No ${entityLabel("batch", true).toLowerCase()} ${filterVerticalId || filterProgramId ? "matching filters" : "yet"}`}
+                description={filterVerticalId || filterProgramId ? `No ${entityLabel("batch", true).toLowerCase()} found for the selected filters` : `Create your first ${entityLabel("batch").toLowerCase()} to get started`}
+                action={!filterVerticalId && !filterProgramId ? {
                   label: `Add ${entityLabel("batch")}`,
                   onClick: () => setDialogOpen(true)
-                }}
+                } : undefined}
               />
             </CardContent>
           </Card>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {batches.map((batch) => (
+            {filteredBatches.map((batch) => (
               <Card key={batch.id} variant="interactive">
                 <CardHeader>
                   <div className="flex items-start justify-between">

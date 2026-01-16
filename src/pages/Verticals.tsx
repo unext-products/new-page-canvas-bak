@@ -141,12 +141,13 @@ export default function Verticals() {
       const profileMap = new Map(profiles?.map(p => [p.id, p.full_name]) || []);
       const roleMap = new Map(userRoles?.map(r => [r.user_id, r.role]) || []);
 
-      // Group users by vertical
+      // Group users by vertical - include all role types
       const usersByVertical = userVerticals?.reduce((acc, uv) => {
         if (uv.vertical_id && uv.user_id) {
           if (!acc[uv.vertical_id]) acc[uv.vertical_id] = [];
           const role = roleMap.get(uv.user_id);
-          if (role === 'hod' || role === 'faculty') {
+          // Include all users assigned to the vertical, not just faculty/hod
+          if (role && ['l1', 'l2', 'l3', 'hod', 'faculty', 'admin', 'org_admin', 'program_manager'].includes(role)) {
             acc[uv.vertical_id].push({
               id: uv.user_id,
               full_name: profileMap.get(uv.user_id) || 'Unknown',
