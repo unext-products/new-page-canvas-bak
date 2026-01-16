@@ -290,6 +290,10 @@ export default function Timesheet() {
 
       // Use vertical code directly (already validated by dropdown selection)
       const trimmedVertCode = verticalCode.trim().toUpperCase();
+      
+      // Find vertical_id from verticalCode
+      const selectedVertical = userVerticals.find(v => v.code.toUpperCase() === trimmedVertCode);
+      const verticalId = selectedVertical?.id || null;
 
       setLoading(true);
 
@@ -302,6 +306,7 @@ export default function Timesheet() {
         activity_type: validatedData.activity_type,
         activity_subtype: validatedData.activity_subtype || null,
         notes: validatedData.notes || null,
+        vertical_id: verticalId,
         vertical_code: trimmedVertCode || null,
         department_code: trimmedVertCode || null, // backward compatibility
         status,

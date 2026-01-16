@@ -51,7 +51,7 @@ export default function CalendarPage() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { fireConfetti } = useConfetti();
-  const { categories } = useActivityCategories(userWithRole?.departmentId);
+  const { categories } = useActivityCategories(userWithRole?.verticalId || userWithRole?.departmentId);
   
   // View mode state
   const [viewMode, setViewMode] = useState<"month" | "day">("month");
@@ -71,14 +71,73 @@ export default function CalendarPage() {
   const [activityType, setActivityType] = useState("");
   const [activitySubtype, setActivitySubtype] = useState("");
   const [notes, setNotes] = useState("");
+  const [verticalCode, setVerticalCode] = useState("");
+  const [userVerticals, setUserVerticals] = useState<{ id: string; name: string; code: string }[]>([]);
 
   useEffect(() => {
     if (userWithRole && !isRole(userWithRole.role, "l1", "l2", "l3", "member", "manager", "program_manager", "faculty")) {
       navigate("/dashboard");
     } else if (userWithRole) {
       loadMonthData();
+      loadUserVerticals();
     }
   }, [userWithRole, navigate, currentMonth]);
+
+  const loadUserVerticals = async () => {
+    if (!userWithRole) return;
+    
+    // Get user's verticals from user_verticals table
+    const { data: userVerts } = await supabase
+      .from("user_verticals")
+      .select("vertical_id")
+      .eq("user_id", userWithRole.user.id);
+    
+    let vertIds = userVerts?.map(uv => uv.vertical_id) || [];
+    
+    // Fallback: check user_departments if no user_verticals entries
+    if (vertIds.length === 0) {
+      const { data: userDepts } = await supabase
+        .from("user_departments")
+        .select("department_id")
+        .eq("user_id", userWithRole.user.id);
+      vertIds = userDepts?.map(ud => ud.department_id) || [];
+    }
+    
+    // Also include vertical from user_roles as fallback
+    const primaryVertId = userWithRole.verticalId || userWithRole.departmentId;
+    if (primaryVertId && !vertIds.includes(primaryVertId)) {
+      vertIds.push(primaryVertId);
+    }
+    
+    if (vertIds.length > 0) {
+      // First try verticals table
+      const { data: verts } = await supabase
+        .from("verticals")
+        .select("id, name, code")
+        .in("id", vertIds);
+      
+      if (verts && verts.length > 0) {
+        setUserVerticals(verts);
+        // Auto-select first vertical
+        if (verts.length === 1) {
+          setVerticalCode(verts[0].code.toUpperCase());
+        }
+      } else {
+        // Fallback to departments table for backward compatibility
+        const { data: depts } = await supabase
+          .from("departments")
+          .select("id, name, code")
+          .in("id", vertIds);
+        
+        if (depts && depts.length > 0) {
+          setUserVerticals(depts);
+          if (depts.length === 1) {
+            setVerticalCode(depts[0].code.toUpperCase());
+          }
+        }
+      }
+    }
+  };
 
   useEffect(() => {
     if (categories.length > 0 && !activityType) {
@@ -195,6 +254,16 @@ export default function CalendarPage() {
   const handleSubmit = async (status: "draft" | "submitted") => {
     if (!userWithRole?.user?.id || !selectedDate) return;
 
+    // Validate vertical code is selected
+    if (!verticalCode || verticalCode.trim() === "") {
+      toast({
+        title: "Vertical Required",
+        description: "Please select a vertical for this entry",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       const entryDate = format(selectedDate, "yyyy-MM-dd");
       
@@ -209,6 +278,11 @@ export default function CalendarPage() {
 
       setSubmitting(true);
 
+      // Find vertical_id from verticalCode
+      const trimmedVertCode = verticalCode.trim().toUpperCase();
+      const selectedVertical = userVerticals.find(v => v.code.toUpperCase() === trimmedVertCode);
+      const verticalId = selectedVertical?.id || null;
+
       const { error } = await supabase.from("timesheet_entries").insert({
         user_id: userWithRole.user.id,
         entry_date: validatedData.entry_date,
@@ -217,6 +291,9 @@ export default function CalendarPage() {
         activity_type: validatedData.activity_type,
         activity_subtype: validatedData.activity_subtype || null,
         notes: validatedData.notes || null,
+        vertical_id: verticalId,
+        vertical_code: trimmedVertCode || null,
+        department_code: trimmedVertCode || null, // backward compatibility
         status,
       });
 
@@ -263,6 +340,12 @@ export default function CalendarPage() {
     setActivitySubtype("");
     setNotes("");
     setSelectedDate(null);
+    // Reset vertical code to auto-selected if only one vertical
+    if (userVerticals.length === 1) {
+      setVerticalCode(userVerticals[0].code.toUpperCase());
+    } else {
+      setVerticalCode("");
+    }
   };
 
   const formatLeaveType = (type: string) => {
@@ -584,6 +667,25 @@ export default function CalendarPage() {
                   value={activitySubtype}
                   onChange={(e) => setActivitySubtype(e.target.value)}
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="verticalCode">Vertical <span className="text-destructive">*</span></Label>
+                <Select 
+                  value={verticalCode} 
+                  onValueChange={setVerticalCode}
+                >
+                  <SelectTrigger id="verticalCode">
+                    <SelectValue placeholder="Select vertical" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {userVerticals.map((vert) => (
+                      <SelectItem key={vert.id} value={vert.code.toUpperCase()}>
+                        {vert.name} ({vert.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">
