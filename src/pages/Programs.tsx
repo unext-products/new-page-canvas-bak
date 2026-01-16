@@ -75,6 +75,12 @@ export default function Programs() {
   const [usersDialogOpen, setUsersDialogOpen] = useState(false);
   const [selectedProgram, setSelectedProgram] = useState<Program | null>(null);
   const [formData, setFormData] = useState({ name: "", code: "", vertical_id: "" });
+  const [filterVerticalId, setFilterVerticalId] = useState<string>("");
+
+  // Filter programs based on selected vertical
+  const filteredPrograms = filterVerticalId
+    ? programs.filter(p => p.vertical_id === filterVerticalId)
+    : programs;
 
   useEffect(() => {
     if (!userWithRole) return;
@@ -118,12 +124,13 @@ export default function Programs() {
       const profileMap = new Map(profilesData.data?.map(p => [p.id, p.full_name]) || []);
       const roleMap = new Map(userRolesData.data?.map(r => [r.user_id, r.role]) || []);
 
-      // Group users by program
+      // Group users by program - include all role types
       const usersByProgram = userProgramsData.data?.reduce((acc, up) => {
         if (up.program_id && up.user_id) {
           if (!acc[up.program_id]) acc[up.program_id] = [];
           const role = roleMap.get(up.user_id);
-          if (role === 'hod' || role === 'faculty') {
+          // Include all users assigned to the program, not just faculty/hod
+          if (role && ['l1', 'l2', 'l3', 'hod', 'faculty', 'admin', 'org_admin', 'program_manager'].includes(role)) {
             acc[up.program_id].push({
               id: up.user_id,
               full_name: profileMap.get(up.user_id) || 'Unknown',
@@ -298,23 +305,37 @@ export default function Programs() {
           }
         />
 
-        {programs.length === 0 ? (
+        {/* Filter Section */}
+        <Card className="p-4">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Label className="whitespace-nowrap">{entityLabel("vertical")}:</Label>
+              <VerticalSelect
+                value={filterVerticalId}
+                onValueChange={setFilterVerticalId}
+                includeAll
+              />
+            </div>
+          </div>
+        </Card>
+
+        {filteredPrograms.length === 0 ? (
           <Card>
             <CardContent className="py-0">
               <EmptyState
                 icon={FolderKanban}
-                title={`No ${entityLabel("program", true).toLowerCase()} yet`}
-                description={`Create your first ${entityLabel("program").toLowerCase()} to get started`}
-                action={{
+                title={`No ${entityLabel("program", true).toLowerCase()} ${filterVerticalId ? "in this " + entityLabel("vertical").toLowerCase() : "yet"}`}
+                description={filterVerticalId ? `No ${entityLabel("program", true).toLowerCase()} found for the selected ${entityLabel("vertical").toLowerCase()}` : `Create your first ${entityLabel("program").toLowerCase()} to get started`}
+                action={!filterVerticalId ? {
                   label: `Add ${entityLabel("program")}`,
                   onClick: () => setDialogOpen(true)
-                }}
+                } : undefined}
               />
             </CardContent>
           </Card>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {programs.map((program) => (
+            {filteredPrograms.map((program) => (
               <Card key={program.id} variant="interactive" className="cursor-pointer" onClick={() => openUsersDialog(program)}>
                 <CardHeader>
                   <div className="flex items-start justify-between">

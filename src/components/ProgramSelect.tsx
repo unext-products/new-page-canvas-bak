@@ -37,25 +37,23 @@ export function ProgramSelect({
   const parentFieldName = verticalId ? "vertical_id" : "department_id";
 
   useEffect(() => {
-    if (effectiveParentId) {
-      fetchPrograms();
-    } else {
-      setPrograms([]);
-      setIsLoading(false);
-    }
-  }, [effectiveParentId, verticalId, departmentId]);
+    fetchPrograms();
+  }, [effectiveParentId, verticalId, departmentId, includeAll]);
 
   const fetchPrograms = async () => {
-    if (!effectiveParentId) return;
-    
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("programs")
         .select("id, name, code")
-        .eq(parentFieldName, effectiveParentId)
         .order("name");
 
+      // Only filter by parent if one is provided
+      if (effectiveParentId) {
+        query = query.eq(parentFieldName, effectiveParentId);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       setPrograms(data || []);
     } catch (error) {
@@ -66,13 +64,14 @@ export function ProgramSelect({
   };
 
   const parentLabel = verticalId ? entityLabel("vertical") : entityLabel("department");
+  const isDisabled = isLoading || disabled || (!effectiveParentId && !includeAll);
 
   return (
-    <Select value={value} onValueChange={onValueChange} disabled={isLoading || disabled || !effectiveParentId}>
+    <Select value={value} onValueChange={onValueChange} disabled={isDisabled}>
       <SelectTrigger>
         <SelectValue placeholder={
-          !effectiveParentId ? `Select a ${parentLabel.toLowerCase()} first` : 
           isLoading ? "Loading..." : 
+          (!effectiveParentId && !includeAll) ? `Select a ${parentLabel.toLowerCase()} first` : 
           placeholder || `Select ${entityLabel("program").toLowerCase()}`
         } />
       </SelectTrigger>
