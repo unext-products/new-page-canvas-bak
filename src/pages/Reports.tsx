@@ -68,42 +68,53 @@ export default function Reports() {
   const isHod = isRole(userWithRole?.role, "l3", "l2", "manager", "program_manager");
   const hasReportsAccess = isRole(userWithRole?.role, "admin", "org_admin", "super_admin", "l3", "l2", "manager", "program_manager");
 
-  // Fetch HOD's department IDs
+  // Fetch HOD's vertical IDs (from user_verticals, fallback to user_departments)
   useEffect(() => {
-    const fetchHodDepartments = async () => {
+    const fetchHodVerticals = async () => {
       if (!userWithRole?.user?.id || !isHod) return;
       
       try {
-        // Get from user_departments for multi-department support
-        const { data: userDepts } = await supabase
-          .from("user_departments")
-          .select("department_id")
+        // Get from user_verticals first (new hierarchy)
+        const { data: userVerts } = await supabase
+          .from("user_verticals")
+          .select("vertical_id")
           .eq("user_id", userWithRole.user.id);
         
-        // Also get from user_roles as fallback
-        const { data: roleData } = await supabase
-          .from("user_roles")
-          .select("department_id")
-          .eq("user_id", userWithRole.user.id)
-          .maybeSingle();
+        const vertIds = new Set<string>();
+        userVerts?.forEach(uv => uv.vertical_id && vertIds.add(uv.vertical_id));
         
-        const deptIds = new Set<string>();
-        userDepts?.forEach(ud => ud.department_id && deptIds.add(ud.department_id));
-        if (roleData?.department_id) deptIds.add(roleData.department_id);
+        // Fallback to user_departments if no user_verticals entries
+        if (vertIds.size === 0) {
+          const { data: userDepts } = await supabase
+            .from("user_departments")
+            .select("department_id")
+            .eq("user_id", userWithRole.user.id);
+          
+          userDepts?.forEach(ud => ud.department_id && vertIds.add(ud.department_id));
+          
+          // Also get from user_roles as fallback
+          const { data: roleData } = await supabase
+            .from("user_roles")
+            .select("department_id")
+            .eq("user_id", userWithRole.user.id)
+            .maybeSingle();
+          
+          if (roleData?.department_id) vertIds.add(roleData.department_id);
+        }
         
-        const deptIdsArray = Array.from(deptIds);
-        setHodDepartmentIds(deptIdsArray);
+        const vertIdsArray = Array.from(vertIds);
+        setHodDepartmentIds(vertIdsArray);
         
-        // Set default department for HOD if only one
-        if (deptIdsArray.length === 1) {
-          setSelectedDepartment(deptIdsArray[0]);
+        // Set default vertical for HOD if only one
+        if (vertIdsArray.length === 1) {
+          setSelectedDepartment(vertIdsArray[0]);
         }
       } catch (error) {
-        console.error("Error fetching HOD departments:", error);
+        console.error("Error fetching HOD verticals:", error);
       }
     };
 
-    fetchHodDepartments();
+    fetchHodVerticals();
   }, [userWithRole?.user?.id, isHod]);
 
   useEffect(() => {

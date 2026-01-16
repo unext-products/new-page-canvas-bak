@@ -28,20 +28,31 @@ export function DepartmentSelect({ value, onValueChange, includeAll = false, dis
 
   const fetchDepartments = async () => {
     try {
+      // Query verticals table (new hierarchy) instead of departments
       let query = supabase
-        .from("departments")
+        .from("verticals")
         .select("id, name, code")
         .order("name");
 
-      // Filter by department IDs if provided
+      // Filter by vertical IDs if provided (departmentIds prop now represents vertical IDs)
       if (departmentIds && departmentIds.length > 0) {
         query = query.in("id", departmentIds);
       }
 
       const { data, error } = await query;
 
-      if (error) throw error;
-      setDepartments(data || []);
+      if (error) {
+        // Fallback to departments table if verticals fails
+        const { data: deptData, error: deptError } = await supabase
+          .from("departments")
+          .select("id, name, code")
+          .order("name");
+        
+        if (deptError) throw deptError;
+        setDepartments(deptData || []);
+      } else {
+        setDepartments(data || []);
+      }
     } catch (error) {
       console.error("Error fetching departments:", error);
     } finally {

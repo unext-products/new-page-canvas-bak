@@ -241,16 +241,25 @@ export default function Dashboard() {
   };
 
   const loadHodDashboardData = async (hodUserId: string) => {
-    // Fetch HOD's departments from user_departments junction table
-    const { data: hodDepartments } = await supabase
-      .from("user_departments")
-      .select("department_id")
+    // Fetch HOD's verticals from user_verticals junction table (primary)
+    const { data: hodVerticals } = await supabase
+      .from("user_verticals")
+      .select("vertical_id")
       .eq("user_id", hodUserId);
 
-    const hodDeptIds = hodDepartments?.map((d) => d.department_id) || [];
+    let hodVerticalIds = hodVerticals?.map((v) => v.vertical_id) || [];
 
-    if (hodDeptIds.length === 0) {
-      // No departments assigned
+    // Fallback to user_departments if no user_verticals entries
+    if (hodVerticalIds.length === 0) {
+      const { data: hodDepartments } = await supabase
+        .from("user_departments")
+        .select("department_id")
+        .eq("user_id", hodUserId);
+      hodVerticalIds = hodDepartments?.map((d) => d.department_id) || [];
+    }
+
+    if (hodVerticalIds.length === 0) {
+      // No verticals assigned
       setUserDepartments([]);
       setHodStats({
         teamMembers: 0,
@@ -267,11 +276,18 @@ export default function Dashboard() {
       return;
     }
 
-    // Fetch department names for display
-    const { data: deptData } = await supabase.from("departments").select("name, code").in("id", hodDeptIds);
+    // Fetch vertical names for display (try verticals first, fallback to departments)
+    let vertData = null;
+    const { data: verticalsData } = await supabase.from("verticals").select("name, code").in("id", hodVerticalIds);
+    if (verticalsData && verticalsData.length > 0) {
+      vertData = verticalsData;
+    } else {
+      const { data: deptsData } = await supabase.from("departments").select("name, code").in("id", hodVerticalIds);
+      vertData = deptsData;
+    }
 
-    if (deptData && deptData.length > 0) {
-      setUserDepartments(deptData.map((d) => `${d.name} (${d.code})`));
+    if (vertData && vertData.length > 0) {
+      setUserDepartments(vertData.map((d) => `${d.name} (${d.code})`));
     }
 
     const today = new Date().toISOString().split("T")[0];
@@ -283,22 +299,32 @@ export default function Dashboard() {
     endOfWeek.setDate(endOfWeek.getDate() + 6);
     const weekEnd = endOfWeek.toISOString().split("T")[0];
 
-    // Fetch all users in HOD's departments from user_departments
-    const { data: deptUsers } = await supabase
-      .from("user_departments")
+    // Fetch all users in HOD's verticals from user_verticals (primary)
+    let allVertUserIds: string[] = [];
+    const { data: vertUsers } = await supabase
+      .from("user_verticals")
       .select("user_id")
-      .in("department_id", hodDeptIds);
+      .in("vertical_id", hodVerticalIds);
 
-    const allDeptUserIds = [...new Set(deptUsers?.map((d) => d.user_id) || [])];
+    if (vertUsers && vertUsers.length > 0) {
+      allVertUserIds = [...new Set(vertUsers.map((v) => v.user_id))];
+    } else {
+      // Fallback to user_departments
+      const { data: deptUsers } = await supabase
+        .from("user_departments")
+        .select("user_id")
+        .in("department_id", hodVerticalIds);
+      allVertUserIds = [...new Set(deptUsers?.map((d) => d.user_id) || [])];
+    }
 
-    // Fetch faculty roles to filter to only faculty
+    // Fetch faculty/L1 roles to filter to only L1/faculty users
     const { data: facultyRoles } = await supabase
       .from("user_roles")
       .select("user_id")
-      .eq("role", "faculty")
-      .in("user_id", allDeptUserIds.length > 0 ? allDeptUserIds : [hodUserId]);
+      .in("role", ["l1", "faculty"])
+      .in("user_id", allVertUserIds.length > 0 ? allVertUserIds : [hodUserId]);
 
-    // Team = faculty in HOD's departments, excluding HOD themselves
+    // Team = L1/faculty in HOD's verticals, excluding HOD themselves
     const teamUserIds = (facultyRoles?.map((r) => r.user_id) || []).filter((id) => id !== hodUserId);
 
     // Fetch team profiles
@@ -445,21 +471,24 @@ export default function Dashboard() {
     endOfWeek.setDate(endOfWeek.getDate() + 6);
     const weekEnd = endOfWeek.toISOString().split("T")[0];
 
-    // Fetch total faculty count and their department mappings
-    const { data: users } = await supabase.from("user_roles").select("user_id, department_id").eq("role", "faculty");
+    // Fetch total user count (L1, L2, L3, and legacy roles)
+    const { data: users } = await supabase
+      .from("user_roles")
+      .select("user_id, vertical_id")
+      .in("role", ["l1", "l2", "l3", "faculty", "hod", "program_manager"]);
 
-    // Create user to department mapping
-    const userDeptMap = new Map<string, string>();
+    // Create user to vertical mapping
+    const userVertMap = new Map<string, string>();
     users?.forEach((u) => {
-      if (u.department_id) userDeptMap.set(u.user_id, u.department_id);
+      if (u.vertical_id) userVertMap.set(u.user_id, u.vertical_id);
     });
 
-    // Fetch total departments
-    const { data: departments } = await supabase.from("departments").select("id, name");
+    // Fetch total verticals (not departments)
+    const { data: verticals } = await supabase.from("verticals").select("id, name");
 
-    // Create department id to name mapping
-    const deptNameMap = new Map<string, string>();
-    departments?.forEach((d) => deptNameMap.set(d.id, d.name));
+    // Create vertical id to name mapping
+    const vertNameMap = new Map<string, string>();
+    verticals?.forEach((v) => vertNameMap.set(v.id, v.name));
 
     // Fetch pending approvals org-wide
     const { data: pendingEntries } = await supabase.from("timesheet_entries").select("id").eq("status", "submitted");
@@ -499,26 +528,26 @@ export default function Dashboard() {
       count: data.count,
     }));
 
-    // Department performance - get department from user_roles mapping
-    const deptMap = new Map();
+    // Vertical performance - get vertical from user_roles mapping
+    const vertMap = new Map();
     weekEntries?.forEach((entry) => {
-      const deptId = userDeptMap.get(entry.user_id);
-      if (!deptId) return; // Skip if user has no department
-      const deptName = deptNameMap.get(deptId) || "Unknown";
-      if (!deptMap.has(deptId)) {
-        deptMap.set(deptId, { name: deptName, minutes: 0, facultyCount: new Set() });
+      const vertId = userVertMap.get(entry.user_id);
+      if (!vertId) return; // Skip if user has no vertical
+      const vertName = vertNameMap.get(vertId) || "Unknown";
+      if (!vertMap.has(vertId)) {
+        vertMap.set(vertId, { name: vertName, minutes: 0, facultyCount: new Set() });
       }
-      const current = deptMap.get(deptId);
+      const current = vertMap.get(vertId);
       const entryMinutes = getEntryDuration(entry);
       current.minutes += entryMinutes;
       current.facultyCount.add(entry.user_id);
     });
 
-    const deptPerformance = Array.from(deptMap.entries())
+    const vertPerformance = Array.from(vertMap.entries())
       .map(([id, data]) => {
         const facultyCount = data.facultyCount.size;
-        const expectedDeptMinutes = facultyCount * 5 * 480;
-        const completionRate = expectedDeptMinutes > 0 ? (data.minutes / expectedDeptMinutes) * 100 : 0;
+        const expectedVertMinutes = facultyCount * 5 * 480;
+        const completionRate = expectedVertMinutes > 0 ? (data.minutes / expectedVertMinutes) * 100 : 0;
         return {
           id,
           name: data.name,
@@ -529,15 +558,15 @@ export default function Dashboard() {
       })
       .sort((a, b) => b.completionRate - a.completionRate);
 
-    const topDepartments = deptPerformance.filter((d) => d.completionRate >= 70).slice(0, 3);
-    const strugglingDepartments = deptPerformance.filter((d) => d.completionRate < 70);
+    const topDepartments = vertPerformance.filter((d) => d.completionRate >= 70).slice(0, 3);
+    const strugglingDepartments = vertPerformance.filter((d) => d.completionRate < 70);
 
     // Recent activity (last 10 entries)
     const { data: recentActivity } = await supabase
       .from("timesheet_entries")
       .select(
         `
-        id, start_time, end_time, user_id, activity_type, entry_date, status, department_code, created_at,
+        id, start_time, end_time, user_id, activity_type, entry_date, status, vertical_code, created_at,
         profiles:user_id(full_name)
       `,
       )
@@ -546,7 +575,7 @@ export default function Dashboard() {
 
     setAdminStats({
       totalUsers: users?.length || 0,
-      totalDepartments: departments?.length || 0,
+      totalDepartments: verticals?.length || 0,
       pendingApprovals: pendingEntries?.length || 0,
       weeklyHours: totalWeeklyMinutes / 60,
       expectedWeeklyHours: expectedMinutes / 60,
