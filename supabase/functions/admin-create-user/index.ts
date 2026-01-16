@@ -130,7 +130,7 @@ serve(async (req) => {
     }
 
     // Validate hierarchy requirements based on role
-    // L1 requires: vertical, program, batch, subject (all mandatory)
+    // L1 requires: vertical, program (batch and subject are optional for initial creation)
     if (role === 'l1') {
       if (verticalIds.length === 0) {
         return new Response(JSON.stringify({ error: 'L1 users require at least one vertical assignment' }), {
@@ -144,18 +144,7 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      if (batchIds.length === 0) {
-        return new Response(JSON.stringify({ error: 'L1 users require at least one batch assignment' }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      if (subjectIds.length === 0) {
-        return new Response(JSON.stringify({ error: 'L1 users require at least one subject assignment' }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
+      // Note: batch_ids and subject_ids are optional - can be assigned later
     }
 
     // L2 and L3 require vertical assignment

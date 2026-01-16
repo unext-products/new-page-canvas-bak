@@ -159,7 +159,7 @@ export default function Programs() {
       const validated = programSchema.parse(formData);
       const { error } = await supabase
         .from("programs")
-        .insert([{ name: validated.name, code: validated.code, vertical_id: validated.vertical_id, department_id: validated.vertical_id }]);
+        .insert([{ name: validated.name, code: validated.code, vertical_id: validated.vertical_id, department_id: null }]);
 
       if (error) throw error;
 
@@ -194,7 +194,7 @@ export default function Programs() {
       const validated = programSchema.parse(formData);
       const { error } = await supabase
         .from("programs")
-        .update({ name: validated.name, code: validated.code, vertical_id: validated.vertical_id, department_id: validated.vertical_id })
+        .update({ name: validated.name, code: validated.code, vertical_id: validated.vertical_id, department_id: null })
         .eq("id", selectedProgram.id);
 
       if (error) throw error;
