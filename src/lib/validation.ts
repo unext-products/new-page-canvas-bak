@@ -16,7 +16,12 @@ export const userCreateSchema = z.object({
     .regex(/^[0-9+\-() ]*$/, "Invalid phone number format")
     .optional()
     .or(z.literal("")),
-  role: z.enum(["org_admin", "program_manager", "manager", "member"], {
+  role: z.enum([
+    // New roles
+    "super_admin", "org_admin", "l3", "l2", "l1",
+    // Legacy roles for backward compatibility
+    "program_manager", "manager", "member"
+  ], {
     required_error: "Role is required",
   }),
   department_id: z.string().uuid().optional().or(z.literal("")),
@@ -42,7 +47,10 @@ export const userUpdateSchema = z.object({
     .regex(/^[0-9+\-() ]*$/, "Invalid phone number format")
     .optional()
     .or(z.literal("")),
-  role: z.enum(["org_admin", "program_manager", "manager", "member"]).optional(),
+  role: z.enum([
+    "super_admin", "org_admin", "l3", "l2", "l1",
+    "program_manager", "manager", "member"
+  ]).optional(),
   department_id: z.string().uuid().optional().or(z.literal("")),
   is_active: z.boolean().optional(),
 });

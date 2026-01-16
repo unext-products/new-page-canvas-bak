@@ -773,7 +773,7 @@ export default function Users() {
                         batch_ids: [],
                         subject_ids: [],
                       })}
-                      departmentIds={formData.vertical_ids}
+                      verticalIds={formData.vertical_ids}
                       disabled={formData.vertical_ids.length === 0}
                     />
                     {formData.role === "l1" && formData.program_ids.length === 0 && (

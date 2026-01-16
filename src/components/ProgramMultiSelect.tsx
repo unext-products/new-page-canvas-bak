@@ -12,40 +12,45 @@ interface Program {
   id: string;
   name: string;
   code: string;
-  department_id: string;
+  vertical_id: string | null;
 }
 
 interface ProgramMultiSelectProps {
   value: string[];
   onValueChange: (value: string[]) => void;
+  verticalIds?: string[];
+  /** @deprecated Use verticalIds instead */
   departmentIds?: string[];
   disabled?: boolean;
 }
 
-export function ProgramMultiSelect({ value, onValueChange, departmentIds = [], disabled = false }: ProgramMultiSelectProps) {
+export function ProgramMultiSelect({ value, onValueChange, verticalIds, departmentIds, disabled = false }: ProgramMultiSelectProps) {
   const [programs, setPrograms] = useState<Program[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const { entityLabel } = useLabels();
 
+  // Use verticalIds if provided, otherwise fall back to departmentIds for backward compatibility
+  const effectiveParentIds = verticalIds || departmentIds || [];
+
   useEffect(() => {
-    if (departmentIds.length > 0) {
+    if (effectiveParentIds.length > 0) {
       fetchPrograms();
     } else {
       setPrograms([]);
       setIsLoading(false);
     }
-  }, [departmentIds]);
+  }, [JSON.stringify(effectiveParentIds)]);
 
   const fetchPrograms = async () => {
-    if (departmentIds.length === 0) return;
+    if (effectiveParentIds.length === 0) return;
     
     setIsLoading(true);
     try {
       const { data, error } = await supabase
         .from("programs")
-        .select("id, name, code, department_id")
-        .in("department_id", departmentIds)
+        .select("id, name, code, vertical_id")
+        .in("vertical_id", effectiveParentIds)
         .order("name");
 
       if (error) throw error;
@@ -77,7 +82,7 @@ export function ProgramMultiSelect({ value, onValueChange, departmentIds = [], d
   };
 
   const selectedPrograms = programs.filter(prog => value.includes(prog.id));
-  const noDepartmentsSelected = departmentIds.length === 0;
+  const noParentSelected = effectiveParentIds.length === 0;
 
   return (
     <div className="space-y-2">
@@ -88,10 +93,10 @@ export function ProgramMultiSelect({ value, onValueChange, departmentIds = [], d
             role="combobox"
             aria-expanded={open}
             className="w-full justify-between"
-            disabled={isLoading || disabled || noDepartmentsSelected}
+            disabled={isLoading || disabled || noParentSelected}
           >
-            {noDepartmentsSelected
-              ? `Select ${entityLabel("department", true).toLowerCase()} first`
+            {noParentSelected
+              ? `Select ${entityLabel("vertical", true).toLowerCase()} first`
               : isLoading 
                 ? "Loading..." 
                 : selectedPrograms.length > 0
