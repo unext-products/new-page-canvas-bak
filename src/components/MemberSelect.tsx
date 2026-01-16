@@ -54,12 +54,12 @@ export function MemberSelect({ value, onValueChange, includeAll = false, departm
 
       const userIds = profiles?.map(p => p.id) || [];
 
-      // Get faculty roles to filter only faculty users
+      // Get faculty/L1/L2 roles to filter users (include both new and legacy roles)
       const { data: roles, error: rolesError } = await supabase
         .from("user_roles")
         .select("user_id")
         .in("user_id", userIds)
-        .eq("role", "faculty");
+        .in("role", ["l1", "l2", "faculty"]);
 
       if (rolesError) throw rolesError;
 
