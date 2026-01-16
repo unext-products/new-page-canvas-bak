@@ -11,24 +11,30 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, UserX, UserCheck, Search, Eye, EyeOff, Trash2, Users as UsersIcon } from "lucide-react";
+import { Plus, Pencil, UserX, UserCheck, Search, Eye, EyeOff, Trash2, Users as UsersIcon, Download, FileSpreadsheet, FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
+import { Progress } from "@/components/ui/progress";
 import { UserRoleSelect } from "@/components/UserRoleSelect";
 import { DepartmentSelect } from "@/components/DepartmentSelect";
 import { DepartmentMultiSelect } from "@/components/DepartmentMultiSelect";
 import { ProgramSelect } from "@/components/ProgramSelect";
 import { ProgramMultiSelect } from "@/components/ProgramMultiSelect";
 import { VerticalMultiSelect } from "@/components/VerticalMultiSelect";
+import { VerticalSelect } from "@/components/VerticalSelect";
 import { userCreateSchema, type UserCreateInput } from "@/lib/validation";
 import { getUserErrorMessage } from "@/lib/errorHandler";
 import type { UserRole } from "@/lib/supabase";
 import { displayToDbRole, toDisplayRole, type DbRole } from "@/lib/roleMapping";
 import { PageHeader } from "@/components/PageHeader";
 import { PageSkeleton } from "@/components/PageSkeleton";
+import { calculateDurationMinutes } from "@/lib/timesheetUtils";
+import { format, startOfWeek, endOfWeek } from "date-fns";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface UserProfile {
   id: string;
@@ -81,6 +87,18 @@ export default function Users() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<UserProfile | null>(null);
+  
+  // User detail dialog state
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [detailUser, setDetailUser] = useState<UserProfile | null>(null);
+  const [weeklyProgress, setWeeklyProgress] = useState({ logged: 0, target: 40 });
+  
+  // Download dialog state
+  const [downloadDialogOpen, setDownloadDialogOpen] = useState(false);
+  const [downloadFilters, setDownloadFilters] = useState({
+    vertical_id: "all",
+    role: "all"
+  });
 
   useEffect(() => {
     // Allow org_admin and super_admin to access
@@ -120,12 +138,19 @@ export default function Users() {
 
       if (rolesError) throw rolesError;
 
-      // Fetch departments
+      // Fetch departments (legacy)
       const { data: deptData, error: deptError } = await supabase
         .from("departments")
         .select("id, name");
 
       if (deptError) throw deptError;
+
+      // Fetch verticals (new)
+      const { data: verticalsData, error: verticalsError } = await supabase
+        .from("verticals")
+        .select("id, name");
+
+      if (verticalsError) throw verticalsError;
 
       // Fetch programs
       const { data: programData, error: programError } = await supabase
@@ -134,12 +159,19 @@ export default function Users() {
 
       if (programError) throw programError;
 
-      // Fetch user_departments junction table
+      // Fetch user_departments junction table (legacy)
       const { data: userDeptData, error: userDeptError } = await supabase
         .from("user_departments")
         .select("user_id, department_id");
 
       if (userDeptError) throw userDeptError;
+
+      // Fetch user_verticals junction table (new - preferred)
+      const { data: userVertData, error: userVertError } = await supabase
+        .from("user_verticals")
+        .select("user_id, vertical_id");
+
+      if (userVertError) throw userVertError;
 
       // Fetch user_programs junction table
       const { data: userProgramData, error: userProgramError } = await supabase
@@ -162,13 +194,27 @@ export default function Users() {
       const deptMap = new Map<string, string>();
       deptData?.forEach(d => deptMap.set(d.id, d.name));
 
+      const verticalMap = new Map<string, string>();
+      verticalsData?.forEach(v => verticalMap.set(v.id, v.name));
+
       const programMap = new Map<string, string>();
       programData?.forEach(p => programMap.set(p.id, p.name));
       
       const emailMap = new Map<string, string>();
       authUsers.forEach((u: any) => u.email && emailMap.set(u.id, u.email));
 
-      // Build user -> departments mapping
+      // Build user -> verticals mapping (preferred over departments for display)
+      const userVerticalsMap = new Map<string, { id: string; name: string }[]>();
+      userVertData?.forEach(uv => {
+        const verts = userVerticalsMap.get(uv.user_id) || [];
+        const vertName = verticalMap.get(uv.vertical_id);
+        if (vertName) {
+          verts.push({ id: uv.vertical_id, name: vertName });
+        }
+        userVerticalsMap.set(uv.user_id, verts);
+      });
+
+      // Build user -> departments mapping (legacy fallback)
       const userDeptsMap = new Map<string, { id: string; name: string }[]>();
       userDeptData?.forEach(ud => {
         const depts = userDeptsMap.get(ud.user_id) || [];
@@ -192,10 +238,18 @@ export default function Users() {
 
       const enrichedUsers: UserProfile[] = profilesData?.map(profile => {
         const roleData = rolesMap.get(profile.id);
-        const userDepts = userDeptsMap.get(profile.id) || [];
+        
+        // Prefer user_verticals over user_departments for display
+        let userDepts = userVerticalsMap.get(profile.id) || [];
+        
+        // Fallback to legacy user_departments if no verticals assigned
+        if (userDepts.length === 0) {
+          userDepts = userDeptsMap.get(profile.id) || [];
+        }
+        
         const userProgs = userProgramsMap.get(profile.id) || [];
         
-        // If no entries in junction tables, fall back to user_roles data
+        // If still no entries, fall back to user_roles data
         if (userDepts.length === 0 && roleData?.department_id) {
           const deptName = deptMap.get(roleData.department_id);
           if (deptName) {
@@ -248,6 +302,137 @@ export default function Users() {
     }
 
     setFilteredUsers(filtered);
+  };
+
+  // Open user detail dialog
+  const openDetailDialog = async (user: UserProfile) => {
+    setDetailUser(user);
+    setDetailDialogOpen(true);
+    
+    // Fetch weekly timesheet data for this user
+    const now = new Date();
+    const weekStart = startOfWeek(now, { weekStartsOn: 1 }); // Monday
+    const weekEnd = endOfWeek(now, { weekStartsOn: 1 }); // Sunday
+    
+    try {
+      const { data: entries } = await supabase
+        .from("timesheet_entries")
+        .select("start_time, end_time")
+        .eq("user_id", user.id)
+        .gte("entry_date", format(weekStart, "yyyy-MM-dd"))
+        .lte("entry_date", format(weekEnd, "yyyy-MM-dd"));
+      
+      // Calculate total minutes and convert to hours
+      const totalMinutes = entries?.reduce((sum, e) => 
+        sum + calculateDurationMinutes(e.start_time, e.end_time), 0) || 0;
+      
+      setWeeklyProgress({ logged: totalMinutes / 60, target: 40 });
+    } catch (error) {
+      console.error("Error fetching weekly progress:", error);
+      setWeeklyProgress({ logged: 0, target: 40 });
+    }
+  };
+
+  // Get filtered users for download
+  const getFilteredUsersForDownload = () => {
+    let filtered = users;
+    
+    if (downloadFilters.vertical_id !== "all") {
+      filtered = filtered.filter(user => 
+        user.departments.some(d => d.id === downloadFilters.vertical_id)
+      );
+    }
+    
+    if (downloadFilters.role !== "all") {
+      filtered = filtered.filter(user => user.role === downloadFilters.role);
+    }
+    
+    return filtered;
+  };
+
+  // Export to CSV
+  const exportUsersToCSV = () => {
+    const usersToExport = getFilteredUsersForDownload();
+    const headers = ["Name", "Email", "Role", entityLabel("vertical", true), "Status"];
+    const rows = usersToExport.map(user => [
+      user.full_name,
+      user.email || "",
+      roleLabel(user.role || ""),
+      user.departments.map(d => d.name).join(", ") || "-",
+      user.is_active ? "Active" : "Inactive"
+    ]);
+    
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(cell => `"${cell}"`).join(","))
+      .join("\n");
+    
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `users_${format(new Date(), "yyyy-MM-dd")}.csv`;
+    link.click();
+    
+    setDownloadDialogOpen(false);
+    toast({
+      title: "Success",
+      description: `Exported ${usersToExport.length} users to CSV`,
+    });
+  };
+
+  // Export to PDF
+  const exportUsersToPDF = () => {
+    const usersToExport = getFilteredUsersForDownload();
+    const doc = new jsPDF();
+    
+    doc.setFontSize(20);
+    doc.setTextColor(41, 128, 185);
+    doc.text("User List", 14, 22);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Generated: ${format(new Date(), "PPP")}`, 14, 32);
+    doc.text(`Total Users: ${usersToExport.length}`, 14, 38);
+    
+    autoTable(doc, {
+      startY: 48,
+      head: [["Name", "Email", "Role", entityLabel("vertical", true), "Status"]],
+      body: usersToExport.map(user => [
+        user.full_name,
+        user.email || "",
+        roleLabel(user.role || ""),
+        user.departments.map(d => d.name).join(", ") || "-",
+        user.is_active ? "Active" : "Inactive"
+      ]),
+      theme: "striped",
+      styles: { fontSize: 8, cellPadding: 3 },
+      headStyles: {
+        fillColor: [41, 128, 185],
+        textColor: [255, 255, 255],
+        fontStyle: "bold",
+      },
+    });
+    
+    // Add footer with page numbers
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(128, 128, 128);
+      doc.text(
+        `Page ${i} of ${pageCount}`,
+        doc.internal.pageSize.width / 2,
+        doc.internal.pageSize.height - 10,
+        { align: "center" }
+      );
+    }
+    
+    doc.save(`users_${format(new Date(), "yyyy-MM-dd")}.pdf`);
+    
+    setDownloadDialogOpen(false);
+    toast({
+      title: "Success",
+      description: `Exported ${usersToExport.length} users to PDF`,
+    });
   };
 
   const handleCreate = async () => {
@@ -618,219 +803,228 @@ export default function Users() {
               <p className="text-sm text-muted-foreground">Manage users, roles, and permissions</p>
             </div>
           </div>
-          <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Add User
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>Create User</DialogTitle>
-                <DialogDescription>Add a new user to the system</DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="full_name">Full Name</Label>
-                  <Input
-                    id="full_name"
-                    value={formData.full_name}
-                    onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="phone">Phone (Optional)</Label>
-                  <Input
-                    id="phone"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="password">Password *</Label>
-                  <div className="relative">
-                    <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      placeholder="Minimum 8 characters"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                      onClick={() => setShowPassword(!showPassword)}
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <Eye className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </Button>
-                  </div>
-                  {formData.password && formData.password.length > 0 && formData.password.length < 8 && (
-                    <p className="text-sm text-destructive mt-1">Password must be at least 8 characters</p>
-                  )}
-                  {formData.password && formData.password.length >= 8 && 
-                   !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password) && (
-                    <p className="text-sm text-destructive mt-1">
-                      Must contain uppercase, lowercase, and number
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <Label htmlFor="confirmPassword">Confirm Password *</Label>
-                  <div className="relative">
-                    <Input
-                      id="confirmPassword"
-                      type={showConfirmPassword ? "text" : "password"}
-                      value={formData.confirmPassword}
-                      onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                      placeholder="Re-enter password"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    >
-                      {showConfirmPassword ? (
-                        <EyeOff className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <Eye className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </Button>
-                  </div>
-                  {formData.confirmPassword && formData.password !== formData.confirmPassword && (
-                    <p className="text-sm text-destructive mt-1">Passwords do not match</p>
-                  )}
-                </div>
-                <div>
-                  <Label>Role</Label>
-                  <UserRoleSelect
-                    value={formData.role}
-                    onValueChange={(value) => {
-                      setFormData({ 
-                        ...formData, 
-                        role: value as UserRole, 
-                        vertical_ids: [],
-                        program_ids: [],
-                        batch_ids: [],
-                        subject_ids: [],
-                      });
-                    }}
-                  />
-                </div>
-                
-                {/* Vertical assignment for L3, L2, and L1 */}
-                {(formData.role === "l3" || formData.role === "l2" || formData.role === "l1") && (
+          <div className="flex gap-2">
+            {/* Download Button */}
+            <Button variant="outline" onClick={() => setDownloadDialogOpen(true)}>
+              <Download className="mr-2 h-4 w-4" />
+              Download
+            </Button>
+            
+            {/* Add User Dialog */}
+            <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add User
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Create User</DialogTitle>
+                  <DialogDescription>Add a new user to the system</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
                   <div>
-                    <Label htmlFor="vertical">
-                      {entityLabel("vertical", true)} *
-                    </Label>
-                    <VerticalMultiSelect
-                      value={formData.vertical_ids}
-                      onValueChange={(value) => setFormData({ 
-                        ...formData, 
-                        vertical_ids: value, 
-                        program_ids: [], 
-                        batch_ids: [],
-                        subject_ids: [],
-                      })}
+                    <Label htmlFor="full_name">Full Name</Label>
+                    <Input
+                      id="full_name"
+                      value={formData.full_name}
+                      onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                     />
-                    {formData.vertical_ids.length === 0 && (
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Required for {roleLabel(formData.role)} role
+                  </div>
+                  <div>
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="phone">Phone (Optional)</Label>
+                    <Input
+                      id="phone"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="password">Password *</Label>
+                    <div className="relative">
+                      <Input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        value={formData.password}
+                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                        placeholder="Minimum 8 characters"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <Eye className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </Button>
+                    </div>
+                    {formData.password && formData.password.length > 0 && formData.password.length < 8 && (
+                      <p className="text-sm text-destructive mt-1">Password must be at least 8 characters</p>
+                    )}
+                    {formData.password && formData.password.length >= 8 && 
+                     !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password) && (
+                      <p className="text-sm text-destructive mt-1">
+                        Must contain uppercase, lowercase, and number
                       </p>
                     )}
                   </div>
-                )}
-
-                {/* Program assignment for L2 and L1 */}
-                {(formData.role === "l2" || formData.role === "l1") && formData.vertical_ids.length > 0 && (
                   <div>
-                    <Label htmlFor="program">
-                      {entityLabel("program", true)} {formData.role === "l1" ? "*" : "(optional)"}
-                    </Label>
-                    <ProgramMultiSelect
-                      value={formData.program_ids}
-                      onValueChange={(value) => setFormData({ 
-                        ...formData, 
-                        program_ids: value,
-                        batch_ids: [],
-                        subject_ids: [],
-                      })}
-                      verticalIds={formData.vertical_ids}
-                      disabled={formData.vertical_ids.length === 0}
-                    />
-                    {formData.role === "l1" && formData.program_ids.length === 0 && (
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Required for {roleLabel("l1")} role
-                      </p>
+                    <Label htmlFor="confirmPassword">Confirm Password *</Label>
+                    <div className="relative">
+                      <Input
+                        id="confirmPassword"
+                        type={showConfirmPassword ? "text" : "password"}
+                        value={formData.confirmPassword}
+                        onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                        placeholder="Re-enter password"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      >
+                        {showConfirmPassword ? (
+                          <EyeOff className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <Eye className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </Button>
+                    </div>
+                    {formData.confirmPassword && formData.password !== formData.confirmPassword && (
+                      <p className="text-sm text-destructive mt-1">Passwords do not match</p>
                     )}
                   </div>
-                )}
-
-                {/* Note about L1 full hierarchy - simplified for now */}
-                {formData.role === "l1" && (
-                  <div className="text-sm text-muted-foreground p-3 bg-muted rounded-md">
-                    <p><strong>Note:</strong> {roleLabel("l1")} users require assignment to verticals, programs, batches, and subjects. Additional hierarchy levels can be configured after user creation.</p>
+                  <div>
+                    <Label>Role</Label>
+                    <UserRoleSelect
+                      value={formData.role}
+                      onValueChange={(value) => {
+                        setFormData({ 
+                          ...formData, 
+                          role: value as UserRole, 
+                          vertical_ids: [],
+                          program_ids: [],
+                          batch_ids: [],
+                          subject_ids: [],
+                        });
+                      }}
+                    />
                   </div>
-                )}
+                  
+                  {/* Vertical assignment for L3, L2, and L1 */}
+                  {(formData.role === "l3" || formData.role === "l2" || formData.role === "l1") && (
+                    <div>
+                      <Label htmlFor="vertical">
+                        {entityLabel("vertical", true)} *
+                      </Label>
+                      <VerticalMultiSelect
+                        value={formData.vertical_ids}
+                        onValueChange={(value) => setFormData({ 
+                          ...formData, 
+                          vertical_ids: value, 
+                          program_ids: [], 
+                          batch_ids: [],
+                          subject_ids: [],
+                        })}
+                      />
+                      {formData.vertical_ids.length === 0 && (
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Required for {roleLabel(formData.role)} role
+                        </p>
+                      )}
+                    </div>
+                  )}
 
-                {formData.role === "org_admin" && (
-                  <div className="text-sm text-muted-foreground p-3 bg-muted rounded-md">
-                    <p>{roleLabel("org_admin")} has full access to the organization. No vertical assignment required.</p>
+                  {/* Program assignment for L2 and L1 */}
+                  {(formData.role === "l2" || formData.role === "l1") && formData.vertical_ids.length > 0 && (
+                    <div>
+                      <Label htmlFor="program">
+                        {entityLabel("program", true)} {formData.role === "l1" ? "*" : "(optional)"}
+                      </Label>
+                      <ProgramMultiSelect
+                        value={formData.program_ids}
+                        onValueChange={(value) => setFormData({ 
+                          ...formData, 
+                          program_ids: value,
+                          batch_ids: [],
+                          subject_ids: [],
+                        })}
+                        verticalIds={formData.vertical_ids}
+                        disabled={formData.vertical_ids.length === 0}
+                      />
+                      {formData.role === "l1" && formData.program_ids.length === 0 && (
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Required for {roleLabel("l1")} role
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Note about L1 full hierarchy - simplified for now */}
+                  {formData.role === "l1" && (
+                    <div className="text-sm text-muted-foreground p-3 bg-muted rounded-md">
+                      <p><strong>Note:</strong> {roleLabel("l1")} users require assignment to verticals, programs, batches, and subjects. Additional hierarchy levels can be configured after user creation.</p>
+                    </div>
+                  )}
+
+                  {formData.role === "org_admin" && (
+                    <div className="text-sm text-muted-foreground p-3 bg-muted rounded-md">
+                      <p>{roleLabel("org_admin")} has full access to the organization. No vertical assignment required.</p>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="is_active">Active</Label>
+                    <Switch
+                      id="is_active"
+                      checked={formData.is_active}
+                      onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+                    />
                   </div>
-                )}
-
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="is_active">Active</Label>
-                  <Switch
-                    id="is_active"
-                    checked={formData.is_active}
-                    onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
-                  />
                 </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleCreate}
-                  disabled={
-                    !formData.full_name || 
-                    !formData.email || 
-                    !formData.role ||
-                    !formData.password ||
-                    formData.password.length < 8 ||
-                    formData.password !== formData.confirmPassword ||
-                    !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password) ||
-                    // L3, L2, L1 require vertical assignment
-                    ((formData.role === "l3" || formData.role === "l2" || formData.role === "l1") && formData.vertical_ids.length === 0) ||
-                    // L1 requires program assignment
-                    (formData.role === "l1" && formData.program_ids.length === 0)
-                  }
-                >
-                  Create User
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleCreate}
+                    disabled={
+                      !formData.full_name || 
+                      !formData.email || 
+                      !formData.role ||
+                      !formData.password ||
+                      formData.password.length < 8 ||
+                      formData.password !== formData.confirmPassword ||
+                      !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password) ||
+                      // L3, L2, L1 require vertical assignment
+                      ((formData.role === "l3" || formData.role === "l2" || formData.role === "l1") && formData.vertical_ids.length === 0) ||
+                      // L1 requires program assignment
+                      (formData.role === "l1" && formData.program_ids.length === 0)
+                    }
+                  >
+                    Create User
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         <div className="flex gap-4 mb-6">
@@ -864,7 +1058,7 @@ export default function Users() {
                 <TableHead>User</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Role</TableHead>
-                <TableHead>Department</TableHead>
+                <TableHead>{entityLabel("vertical")}</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
@@ -878,7 +1072,12 @@ export default function Users() {
                         <AvatarImage src={user.avatar_url || undefined} />
                         <AvatarFallback>{user.full_name.substring(0, 2).toUpperCase()}</AvatarFallback>
                       </Avatar>
-                      <span className="font-medium">{user.full_name}</span>
+                      <span 
+                        className="font-medium cursor-pointer hover:underline text-primary"
+                        onClick={() => openDetailDialog(user)}
+                      >
+                        {user.full_name}
+                      </span>
                     </div>
                   </TableCell>
                   <TableCell>{user.email}</TableCell>
@@ -942,6 +1141,144 @@ export default function Users() {
             </TableBody>
           </Table>
         </div>
+
+        {/* User Detail Dialog */}
+        <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>User Details</DialogTitle>
+            </DialogHeader>
+            {detailUser && (
+              <div className="space-y-6">
+                {/* User Info Section */}
+                <div className="flex items-center gap-4">
+                  <Avatar className="h-16 w-16">
+                    <AvatarImage src={detailUser.avatar_url || undefined} />
+                    <AvatarFallback className="text-xl">
+                      {detailUser.full_name.substring(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <h3 className="text-lg font-semibold">{detailUser.full_name}</h3>
+                    <p className="text-sm text-muted-foreground">{detailUser.email}</p>
+                    {detailUser.phone && <p className="text-sm">{detailUser.phone}</p>}
+                  </div>
+                </div>
+                
+                {/* Role & Status */}
+                <div className="flex gap-2">
+                  {detailUser.role && (
+                    <Badge variant={getRoleBadgeVariant(detailUser.role)}>
+                      {roleLabel(detailUser.role)}
+                    </Badge>
+                  )}
+                  <Badge variant={detailUser.is_active ? "default" : "secondary"}>
+                    {detailUser.is_active ? "Active" : "Inactive"}
+                  </Badge>
+                </div>
+                
+                {/* Departments/Verticals */}
+                <div>
+                  <Label className="text-muted-foreground">Assigned {entityLabel("vertical", true)}</Label>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {detailUser.departments.map(d => (
+                      <Badge key={d.id} variant="outline">{d.name}</Badge>
+                    ))}
+                    {detailUser.departments.length === 0 && (
+                      <span className="text-muted-foreground text-sm">None assigned</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Programs */}
+                {detailUser.programs.length > 0 && (
+                  <div>
+                    <Label className="text-muted-foreground">Assigned {entityLabel("program", true)}</Label>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {detailUser.programs.map(p => (
+                        <Badge key={p.id} variant="outline">{p.name}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Weekly Progress */}
+                <div className="bg-muted p-4 rounded-lg">
+                  <Label className="text-muted-foreground">Weekly Progress</Label>
+                  <div className="flex items-baseline gap-2 mt-1">
+                    <span className="text-2xl font-bold">
+                      {((weeklyProgress.logged / weeklyProgress.target) * 100).toFixed(1)}%
+                    </span>
+                    <span className="text-muted-foreground">
+                      {weeklyProgress.logged.toFixed(1)} of {weeklyProgress.target.toFixed(1)} hours
+                    </span>
+                  </div>
+                  <Progress 
+                    value={Math.min((weeklyProgress.logged / weeklyProgress.target) * 100, 100)} 
+                    className="mt-2" 
+                  />
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Download Dialog */}
+        <Dialog open={downloadDialogOpen} onOpenChange={setDownloadDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Download User List</DialogTitle>
+              <DialogDescription>Optional: Apply filters before download</DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              {/* Vertical Filter */}
+              <div>
+                <Label>{entityLabel("vertical")}</Label>
+                <VerticalSelect
+                  value={downloadFilters.vertical_id}
+                  onValueChange={(v) => setDownloadFilters({...downloadFilters, vertical_id: v})}
+                  includeAll={true}
+                />
+              </div>
+              
+              {/* Role Filter */}
+              <div>
+                <Label>Role</Label>
+                <Select 
+                  value={downloadFilters.role} 
+                  onValueChange={(v) => setDownloadFilters({...downloadFilters, role: v})}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Roles" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Roles</SelectItem>
+                    <SelectItem value="org_admin">{roleLabel("org_admin")}</SelectItem>
+                    <SelectItem value="l3">{roleLabel("l3")}</SelectItem>
+                    <SelectItem value="l2">{roleLabel("l2")}</SelectItem>
+                    <SelectItem value="l1">{roleLabel("l1")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <p className="text-sm text-muted-foreground">
+                {getFilteredUsersForDownload().length} users will be exported
+              </p>
+            </div>
+            
+            <DialogFooter className="flex gap-2">
+              <Button variant="outline" onClick={exportUsersToCSV}>
+                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                Download CSV
+              </Button>
+              <Button onClick={exportUsersToPDF}>
+                <FileText className="mr-2 h-4 w-4" />
+                Download PDF
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Edit Dialog */}
         <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
