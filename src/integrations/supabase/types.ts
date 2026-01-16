@@ -143,6 +143,53 @@ export type Database = {
         }
         Relationships: []
       }
+      organization_approval_settings: {
+        Row: {
+          created_at: string
+          id: string
+          l1_approved_by: string[]
+          l1_requires_approval: boolean
+          l2_approved_by: string[]
+          l2_requires_approval: boolean
+          l3_approved_by: string[]
+          l3_requires_approval: boolean
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          l1_approved_by?: string[]
+          l1_requires_approval?: boolean
+          l2_approved_by?: string[]
+          l2_requires_approval?: boolean
+          l3_approved_by?: string[]
+          l3_requires_approval?: boolean
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          l1_approved_by?: string[]
+          l1_requires_approval?: boolean
+          l2_approved_by?: string[]
+          l2_requires_approval?: boolean
+          l3_approved_by?: string[]
+          l3_requires_approval?: boolean
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_approval_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organization_labels: {
         Row: {
           created_at: string

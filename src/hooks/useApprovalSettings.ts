@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
-export type ApproverType = "l3" | "l2" | "org_admin" | null;
+// Approver types that can be selected (now an array for multi-select)
+export type ApproverRole = "l2" | "l3" | "org_admin";
 
 export interface ApprovalSettings {
   id: string;
@@ -9,9 +11,9 @@ export interface ApprovalSettings {
   l1_requires_approval: boolean;
   l2_requires_approval: boolean;
   l3_requires_approval: boolean;
-  l1_approved_by: ApproverType;
-  l2_approved_by: ApproverType;
-  l3_approved_by: ApproverType;
+  l1_approved_by: ApproverRole[];
+  l2_approved_by: ApproverRole[];
+  l3_approved_by: ApproverRole[];
 }
 
 const DEFAULT_SETTINGS: ApprovalSettings = {
@@ -20,117 +22,233 @@ const DEFAULT_SETTINGS: ApprovalSettings = {
   l1_requires_approval: true,
   l2_requires_approval: true,
   l3_requires_approval: true,
-  // L1 entries approved by L2
-  l1_approved_by: "l2",
-  // L2 entries approved by L3
-  l2_approved_by: "l3",
-  // L3 entries approved by Admin
-  l3_approved_by: "org_admin",
+  l1_approved_by: ["l2"],
+  l2_approved_by: ["l3"],
+  l3_approved_by: ["org_admin"],
 };
 
 export function useApprovalSettings() {
-  const { user } = useAuth();
-  const [settings, setSettings] = useState<ApprovalSettings | null>(DEFAULT_SETTINGS);
+  const { userWithRole } = useAuth();
+  const [settings, setSettings] = useState<ApprovalSettings | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchSettings = useCallback(async () => {
-    if (!user) {
+    if (!userWithRole?.user?.id) {
       setLoading(false);
       return;
     }
 
-    // Use default settings since organization_approval_settings table doesn't exist
-    setSettings(DEFAULT_SETTINGS);
-    setLoading(false);
-  }, [user]);
+    try {
+      // First get the user's organization_id
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("organization_id")
+        .eq("user_id", userWithRole.user.id)
+        .maybeSingle();
+
+      const orgId = roleData?.organization_id;
+      
+      if (!orgId) {
+        setSettings(DEFAULT_SETTINGS);
+        setLoading(false);
+        return;
+      }
+
+      // Try to fetch existing settings
+      const { data, error } = await supabase
+        .from("organization_approval_settings")
+        .select("*")
+        .eq("organization_id", orgId)
+        .maybeSingle();
+
+      if (error && error.code !== "PGRST116") {
+        console.error("Error fetching approval settings:", error);
+        setSettings({ ...DEFAULT_SETTINGS, organization_id: orgId });
+        setLoading(false);
+        return;
+      }
+
+      if (data) {
+        setSettings({
+          id: data.id,
+          organization_id: data.organization_id,
+          l1_requires_approval: data.l1_requires_approval,
+          l2_requires_approval: data.l2_requires_approval,
+          l3_requires_approval: data.l3_requires_approval,
+          l1_approved_by: (data.l1_approved_by as ApproverRole[]) || ["l2"],
+          l2_approved_by: (data.l2_approved_by as ApproverRole[]) || ["l3"],
+          l3_approved_by: (data.l3_approved_by as ApproverRole[]) || ["org_admin"],
+        });
+      } else {
+        // Create default settings for this org
+        const { data: newData, error: insertError } = await supabase
+          .from("organization_approval_settings")
+          .insert({
+            organization_id: orgId,
+            l1_requires_approval: true,
+            l2_requires_approval: true,
+            l3_requires_approval: true,
+            l1_approved_by: ["l2"],
+            l2_approved_by: ["l3"],
+            l3_approved_by: ["org_admin"],
+          })
+          .select()
+          .single();
+
+        if (insertError) {
+          console.error("Error creating approval settings:", insertError);
+          setSettings({ ...DEFAULT_SETTINGS, organization_id: orgId });
+        } else if (newData) {
+          setSettings({
+            id: newData.id,
+            organization_id: newData.organization_id,
+            l1_requires_approval: newData.l1_requires_approval,
+            l2_requires_approval: newData.l2_requires_approval,
+            l3_requires_approval: newData.l3_requires_approval,
+            l1_approved_by: (newData.l1_approved_by as ApproverRole[]) || ["l2"],
+            l2_approved_by: (newData.l2_approved_by as ApproverRole[]) || ["l3"],
+            l3_approved_by: (newData.l3_approved_by as ApproverRole[]) || ["org_admin"],
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error in fetchSettings:", error);
+      setSettings(DEFAULT_SETTINGS);
+    } finally {
+      setLoading(false);
+    }
+  }, [userWithRole?.user?.id]);
 
   useEffect(() => {
     fetchSettings();
   }, [fetchSettings]);
 
-  const updateSettings = async (_updates: Partial<Omit<ApprovalSettings, "id" | "organization_id">>) => {
-    // No-op since table doesn't exist
-    console.warn("updateSettings called but organization_approval_settings table doesn't exist");
+  const updateSettings = async (updates: Partial<Omit<ApprovalSettings, "id" | "organization_id">>) => {
+    if (!settings?.organization_id || settings.id === "default") {
+      console.warn("Cannot update settings - no organization_id or using defaults");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("organization_approval_settings")
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("organization_id", settings.organization_id);
+
+      if (error) {
+        console.error("Error updating approval settings:", error);
+        return;
+      }
+
+      // Update local state
+      setSettings({ ...settings, ...updates });
+    } catch (error) {
+      console.error("Error in updateSettings:", error);
+    }
   };
 
   const resetToDefaults = async () => {
-    setSettings(DEFAULT_SETTINGS);
+    await updateSettings({
+      l1_requires_approval: true,
+      l2_requires_approval: true,
+      l3_requires_approval: true,
+      l1_approved_by: ["l2"],
+      l2_approved_by: ["l3"],
+      l3_approved_by: ["org_admin"],
+    });
   };
 
   // Helper: Check if a role requires approval
   const requiresApproval = (role: string): boolean => {
-    if (!settings) {
-      return true;
-    }
+    if (!settings) return true;
 
-    switch (role) {
+    const normalizedRole = normalizeRole(role);
+    switch (normalizedRole) {
       case "l1":
-      case "faculty":
-      case "member":
         return settings.l1_requires_approval;
       case "l2":
-      case "program_manager":
         return settings.l2_requires_approval;
       case "l3":
-      case "hod":
-      case "manager":
         return settings.l3_requires_approval;
       default:
         return false;
     }
   };
 
-  // Helper: Get who approves a specific role
-  const getApproverForRole = (role: string): ApproverType => {
+  // Helper: Get who approves a specific role (returns array)
+  const getApproversForRole = (role: string): ApproverRole[] => {
     if (!settings) {
-      if (role === "l1" || role === "faculty" || role === "member") {
-        return "l2";
-      }
-      if (role === "l2" || role === "program_manager") {
-        return "l3";
-      }
-      if (role === "l3" || role === "hod" || role === "manager") {
-        return "org_admin";
-      }
-      return null;
+      const normalizedRole = normalizeRole(role);
+      if (normalizedRole === "l1") return ["l2"];
+      if (normalizedRole === "l2") return ["l3"];
+      if (normalizedRole === "l3") return ["org_admin"];
+      return [];
     }
 
-    switch (role) {
+    const normalizedRole = normalizeRole(role);
+    switch (normalizedRole) {
       case "l1":
-      case "faculty":
-      case "member":
         return settings.l1_approved_by;
       case "l2":
-      case "program_manager":
         return settings.l2_approved_by;
       case "l3":
-      case "hod":
-      case "manager":
         return settings.l3_approved_by;
       default:
-        return null;
+        return [];
     }
   };
 
-  // Helper: Get which roles a given approver role can approve
-  const getApprovableRoles = (approverRole: string | null): string[] => {
-    if (!approverRole) return [];
+  // Helper: Check if a given approver role can approve a target role
+  const canApproveRole = (approverRole: string, targetRole: string): boolean => {
+    if (!settings) return false;
 
+    const normalizedApprover = normalizeRole(approverRole);
+    const normalizedTarget = normalizeRole(targetRole);
+
+    let approvers: ApproverRole[] = [];
+    switch (normalizedTarget) {
+      case "l1":
+        if (!settings.l1_requires_approval) return false;
+        approvers = settings.l1_approved_by;
+        break;
+      case "l2":
+        if (!settings.l2_requires_approval) return false;
+        approvers = settings.l2_approved_by;
+        break;
+      case "l3":
+        if (!settings.l3_requires_approval) return false;
+        approvers = settings.l3_approved_by;
+        break;
+      default:
+        return false;
+    }
+
+    return approvers.includes(normalizedApprover as ApproverRole);
+  };
+
+  // Helper: Get which roles a given approver role can approve (based on settings)
+  const getApprovableRoles = (approverRole: string | null): string[] => {
+    if (!approverRole || !settings) return [];
+
+    const normalizedApprover = normalizeRole(approverRole);
     const roles: string[] = [];
 
-    // Admin approves L3
-    if (approverRole === "org_admin" || approverRole === "admin") {
-      roles.push("l3");
-    }
-
-    // L3 approves L2 and L1 (in their verticals)
-    if (approverRole === "l3" || approverRole === "hod" || approverRole === "manager") {
-      roles.push("l2", "l1");
-    }
-
-    // L2 approves L1 (in their programs)
-    if (approverRole === "l2" || approverRole === "program_manager") {
+    // Check L1 approvers
+    if (settings.l1_requires_approval && settings.l1_approved_by.includes(normalizedApprover as ApproverRole)) {
       roles.push("l1");
+    }
+
+    // Check L2 approvers
+    if (settings.l2_requires_approval && settings.l2_approved_by.includes(normalizedApprover as ApproverRole)) {
+      roles.push("l2");
+    }
+
+    // Check L3 approvers
+    if (settings.l3_requires_approval && settings.l3_approved_by.includes(normalizedApprover as ApproverRole)) {
+      roles.push("l3");
     }
 
     return roles;
@@ -142,32 +260,31 @@ export function useApprovalSettings() {
 
     const chain = [];
 
-    if (settings.l1_requires_approval && settings.l1_approved_by) {
+    if (settings.l1_requires_approval && settings.l1_approved_by.length > 0) {
       chain.push({
         role: "L1",
-        approver: settings.l1_approved_by === "l2" ? "L2" : 
-                  settings.l1_approved_by === "l3" ? "L3" : "Admin",
+        approvers: settings.l1_approved_by,
       });
     } else {
-      chain.push({ role: "L1", approver: "Auto-approved" });
+      chain.push({ role: "L1", approvers: [] as ApproverRole[] });
     }
 
-    if (settings.l2_requires_approval && settings.l2_approved_by) {
+    if (settings.l2_requires_approval && settings.l2_approved_by.length > 0) {
       chain.push({
         role: "L2",
-        approver: settings.l2_approved_by === "l3" ? "L3" : "Admin",
+        approvers: settings.l2_approved_by,
       });
     } else {
-      chain.push({ role: "L2", approver: "Auto-approved" });
+      chain.push({ role: "L2", approvers: [] as ApproverRole[] });
     }
 
-    if (settings.l3_requires_approval && settings.l3_approved_by) {
+    if (settings.l3_requires_approval && settings.l3_approved_by.length > 0) {
       chain.push({
         role: "L3",
-        approver: settings.l3_approved_by === "org_admin" ? "Admin" : "Auto-approved",
+        approvers: settings.l3_approved_by,
       });
     } else {
-      chain.push({ role: "L3", approver: "Auto-approved" });
+      chain.push({ role: "L3", approvers: [] as ApproverRole[] });
     }
 
     return chain;
@@ -180,8 +297,27 @@ export function useApprovalSettings() {
     resetToDefaults,
     refetch: fetchSettings,
     requiresApproval,
-    getApproverForRole,
+    getApproversForRole,
     getApprovableRoles,
     getApprovalChain,
+    canApproveRole,
   };
+}
+
+// Normalize role names to standard format
+function normalizeRole(role: string): string {
+  switch (role) {
+    case "faculty":
+    case "member":
+      return "l1";
+    case "program_manager":
+      return "l2";
+    case "hod":
+    case "manager":
+      return "l3";
+    case "admin":
+      return "org_admin";
+    default:
+      return role;
+  }
 }

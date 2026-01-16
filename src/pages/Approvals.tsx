@@ -113,20 +113,17 @@ export default function Approvals() {
   }, [userWithRole]);
 
   const fetchEntries = useCallback(async () => {
-    if (!userWithRole?.role || settingsLoading) return;
+    if (!userWithRole?.role || settingsLoading || !settings) return;
     
     try {
       setLoading(true);
       
       let entriesData: any[] = [];
+      
+      // Use dynamic approvable roles from settings
       const rolesToApprove = approvableRoles;
       
-      // Map roles to db roles for querying (include both old and new role names)
-      const dbRolesToApprove = rolesToApprove.filter(role => 
-        ["l1", "l2", "l3", "faculty", "hod", "program_manager"].includes(role)
-      );
-      
-      if (dbRolesToApprove.length === 0) {
+      if (rolesToApprove.length === 0) {
         setEntries([]);
         setLoading(false);
         return;
@@ -137,107 +134,148 @@ export default function Approvals() {
       const isL3 = currentRole === "l3" || currentRole === "manager";
       const isAdmin = currentRole === "org_admin" || currentRole === "admin";
       
-      // L2 approves L1 entries in their programs (by entry's program)
-      if (isL2) {
-        // Get L2's programs from user_programs junction table
-        const { data: l2Programs } = await supabase
-          .from("user_programs")
-          .select("program_id")
-          .eq("user_id", userWithRole.user.id);
-        
-        const l2ProgramIds = l2Programs?.map(p => p.program_id) || [];
-        
-        if (l2ProgramIds.length > 0) {
-          // Get L1 users - filter by role
+      const orgId = await getOrgId();
+      
+      // Collect all user IDs that this approver can approve based on settings
+      const userIdsToApprove: Set<string> = new Set();
+      
+      // Check if current user can approve L1 entries
+      if (rolesToApprove.includes("l1")) {
+        if (isL2) {
+          // L2 can only approve L1 in their programs
+          const { data: l2Programs } = await supabase
+            .from("user_programs")
+            .select("program_id")
+            .eq("user_id", userWithRole.user.id);
+          
+          const l2ProgramIds = l2Programs?.map(p => p.program_id) || [];
+          
+          if (l2ProgramIds.length > 0) {
+            const { data: l1UsersInPrograms } = await supabase
+              .from("user_programs")
+              .select("user_id")
+              .in("program_id", l2ProgramIds);
+            
+            const candidateIds = l1UsersInPrograms?.map(u => u.user_id) || [];
+            
+            // Filter to L1 role only
+            if (candidateIds.length > 0) {
+              const { data: l1RoleUsers } = await supabase
+                .from("user_roles")
+                .select("user_id")
+                .in("user_id", candidateIds)
+                .in("role", ["l1", "faculty"]);
+              
+              l1RoleUsers?.forEach(u => userIdsToApprove.add(u.user_id));
+            }
+          }
+        } else if (isL3) {
+          // L3 can approve L1 in their verticals
+          const { data: l3Verticals } = await supabase
+            .from("user_verticals")
+            .select("vertical_id")
+            .eq("user_id", userWithRole.user.id);
+          
+          const l3VerticalIds = l3Verticals?.map(v => v.vertical_id) || [];
+          
+          if (l3VerticalIds.length > 0) {
+            const { data: verticalUsers } = await supabase
+              .from("user_verticals")
+              .select("user_id")
+              .in("vertical_id", l3VerticalIds);
+            
+            const candidateIds = [...new Set(verticalUsers?.map(u => u.user_id) || [])];
+            
+            if (candidateIds.length > 0) {
+              const { data: l1RoleUsers } = await supabase
+                .from("user_roles")
+                .select("user_id")
+                .in("user_id", candidateIds)
+                .in("role", ["l1", "faculty"]);
+              
+              l1RoleUsers?.forEach(u => userIdsToApprove.add(u.user_id));
+            }
+          }
+        } else if (isAdmin && orgId) {
+          // Admin can approve all L1 in org
           const { data: l1Users } = await supabase
             .from("user_roles")
             .select("user_id")
+            .eq("organization_id", orgId)
             .in("role", ["l1", "faculty"]);
           
-          const l1UserIds = l1Users?.map(u => u.user_id) || [];
-          
-          if (l1UserIds.length > 0) {
-            // Fetch entries where program_id matches L2's programs
-            const { data, error } = await supabase
-              .from("timesheet_entries")
-              .select("id, entry_date, start_time, end_time, activity_type, activity_subtype, notes, user_id, department_code, program_id, vertical_id")
-              .in("user_id", l1UserIds)
-              .in("program_id", l2ProgramIds)
-              .eq("status", "submitted")
-              .order("entry_date", { ascending: false });
-            
-            if (error) throw error;
-            entriesData = data || [];
-          }
+          l1Users?.forEach(u => userIdsToApprove.add(u.user_id));
         }
       }
-      // L3 approves L2 and L1 entries in their verticals
-      else if (isL3) {
-        // Get L3's verticals from user_verticals junction table
-        const { data: l3Verticals } = await supabase
-          .from("user_verticals")
-          .select("vertical_id")
-          .eq("user_id", userWithRole.user.id);
-        
-        const l3VerticalIds = l3Verticals?.map(v => v.vertical_id) || [];
-        
-        if (l3VerticalIds.length > 0) {
-          // Get users in those verticals
-          const { data: verticalUsers } = await supabase
+      
+      // Check if current user can approve L2 entries
+      if (rolesToApprove.includes("l2")) {
+        if (isL3) {
+          // L3 can approve L2 in their verticals
+          const { data: l3Verticals } = await supabase
             .from("user_verticals")
-            .select("user_id")
-            .in("vertical_id", l3VerticalIds);
+            .select("vertical_id")
+            .eq("user_id", userWithRole.user.id);
           
-          const candidateUserIds = [...new Set(verticalUsers?.map(u => u.user_id) || [])];
+          const l3VerticalIds = l3Verticals?.map(v => v.vertical_id) || [];
           
-          // Filter to only L1 and L2 users
-          const { data: usersWithRoles } = await supabase
+          if (l3VerticalIds.length > 0) {
+            const { data: verticalUsers } = await supabase
+              .from("user_verticals")
+              .select("user_id")
+              .in("vertical_id", l3VerticalIds);
+            
+            const candidateIds = [...new Set(verticalUsers?.map(u => u.user_id) || [])];
+            
+            if (candidateIds.length > 0) {
+              const { data: l2RoleUsers } = await supabase
+                .from("user_roles")
+                .select("user_id")
+                .in("user_id", candidateIds)
+                .in("role", ["l2", "program_manager"]);
+              
+              l2RoleUsers?.forEach(u => userIdsToApprove.add(u.user_id));
+            }
+          }
+        } else if (isAdmin && orgId) {
+          // Admin can approve all L2 in org
+          const { data: l2Users } = await supabase
             .from("user_roles")
             .select("user_id")
-            .in("user_id", candidateUserIds)
-            .in("role", ["l1", "l2", "faculty", "program_manager"]);
+            .eq("organization_id", orgId)
+            .in("role", ["l2", "program_manager"]);
           
-          const userIds = usersWithRoles?.map(u => u.user_id) || [];
-          
-          if (userIds.length > 0) {
-            const { data, error } = await supabase
-              .from("timesheet_entries")
-              .select("id, entry_date, start_time, end_time, activity_type, activity_subtype, notes, user_id, department_code, program_id, vertical_id")
-              .in("user_id", userIds)
-              .eq("status", "submitted")
-              .order("entry_date", { ascending: false });
-            
-            if (error) throw error;
-            entriesData = data || [];
-          }
+          l2Users?.forEach(u => userIdsToApprove.add(u.user_id));
         }
       }
-      // Admin approves L3 entries in their org
-      else if (isAdmin) {
-        const orgId = await getOrgId();
-        
-        if (orgId) {
-          // Get L3 users in the organization
+      
+      // Check if current user can approve L3 entries
+      if (rolesToApprove.includes("l3")) {
+        if (isAdmin && orgId) {
+          // Admin can approve L3 in their org
           const { data: l3Users } = await supabase
             .from("user_roles")
             .select("user_id")
             .eq("organization_id", orgId)
             .in("role", ["l3", "hod"]);
           
-          const l3UserIds = l3Users?.map(u => u.user_id) || [];
-          
-          if (l3UserIds.length > 0) {
-            const { data, error } = await supabase
-              .from("timesheet_entries")
-              .select("id, entry_date, start_time, end_time, activity_type, activity_subtype, notes, user_id, department_code, program_id, vertical_id")
-              .in("user_id", l3UserIds)
-              .eq("status", "submitted")
-              .order("entry_date", { ascending: false });
-            
-            if (error) throw error;
-            entriesData = data || [];
-          }
+          l3Users?.forEach(u => userIdsToApprove.add(u.user_id));
         }
+      }
+      
+      // Fetch entries for all collected user IDs
+      const allUserIds = Array.from(userIdsToApprove);
+      
+      if (allUserIds.length > 0) {
+        const { data, error } = await supabase
+          .from("timesheet_entries")
+          .select("id, entry_date, start_time, end_time, activity_type, activity_subtype, notes, user_id, department_code, program_id, vertical_id")
+          .in("user_id", allUserIds)
+          .eq("status", "submitted")
+          .order("entry_date", { ascending: false });
+        
+        if (error) throw error;
+        entriesData = data || [];
       }
 
       // Fetch profiles for all users from timesheet entries
@@ -254,14 +292,14 @@ export default function Approvals() {
         leaveData = leaves || [];
       }
       
-      // Combine user IDs from both sources
-      const allUserIds = [...new Set([...userIds, ...leaveData.map((l: any) => l.user_id)])];
+      // Combine user IDs from both sources for profile fetching
+      const profileUserIds = [...new Set([...userIds, ...leaveData.map((l: any) => l.user_id)])];
       
-      if (allUserIds.length > 0) {
+      if (profileUserIds.length > 0) {
         const { data: profilesData, error: profilesError } = await supabase
           .from("profiles")
           .select("id, full_name, avatar_url")
-          .in("id", allUserIds);
+          .in("id", profileUserIds);
 
         if (profilesError) throw profilesError;
 
