@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLabels } from "@/contexts/LabelContext";
+import { isRole } from "@/lib/roleMapping";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { Layout } from "@/components/Layout";
@@ -61,7 +62,7 @@ export default function Subjects() {
 
   useEffect(() => {
     if (!userWithRole) return;
-    if (!["org_admin", "program_manager"].includes(userWithRole.role || "")) {
+    if (!isRole(userWithRole.role, "admin", "org_admin", "super_admin", "l3", "l2")) {
       navigate("/dashboard");
       return;
     }

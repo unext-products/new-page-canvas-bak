@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Plus, Trash2, Calendar, FileText, HelpCircle, Upload } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { isRole } from "@/lib/roleMapping";
 import { timesheetEntrySchema } from "@/lib/validation";
 import { getUserErrorMessage } from "@/lib/errorHandler";
 import { PageHeader } from "@/components/PageHeader";
@@ -67,8 +68,7 @@ export default function Timesheet() {
   });
 
   useEffect(() => {
-    const allowedRoles = ["member", "manager", "program_manager"];
-    if (userWithRole && !allowedRoles.includes(userWithRole.role || "")) {
+    if (userWithRole && !isRole(userWithRole.role, "l1", "l2", "l3", "member", "manager", "program_manager", "faculty")) {
       navigate("/dashboard");
     } else if (userWithRole) {
       loadEntries();

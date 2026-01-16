@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { isRole } from "@/lib/roleMapping";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { Layout } from "@/components/Layout";
@@ -42,7 +43,7 @@ export default function Organizations() {
 
   useEffect(() => {
     if (!userWithRole) return;
-    if (userWithRole.role !== "org_admin") {
+    if (!isRole(userWithRole.role, "admin", "org_admin", "super_admin")) {
       navigate("/dashboard");
       return;
     }
