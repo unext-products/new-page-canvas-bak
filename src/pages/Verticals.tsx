@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLabels } from "@/contexts/LabelContext";
+import { isRole } from "@/lib/roleMapping";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Layout } from "@/components/Layout";
@@ -67,13 +68,13 @@ export default function Verticals() {
   const [userOrgId, setUserOrgId] = useState<string>("");
 
   useEffect(() => {
-    if (!loading && (!userWithRole || !["org_admin", "program_manager"].includes(userWithRole.role || ""))) {
+    if (!loading && (!userWithRole || !isRole(userWithRole.role, "admin", "org_admin", "super_admin", "l3"))) {
       navigate("/dashboard");
     }
   }, [userWithRole, loading, navigate]);
 
   useEffect(() => {
-    if (userWithRole && ["org_admin", "program_manager"].includes(userWithRole.role || "")) {
+    if (userWithRole && isRole(userWithRole.role, "admin", "org_admin", "super_admin", "l3")) {
       fetchUserOrganization();
       fetchVerticals();
     }

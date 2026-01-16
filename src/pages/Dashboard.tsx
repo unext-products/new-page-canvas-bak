@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { isRole } from "@/lib/roleMapping";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
@@ -84,14 +85,21 @@ export default function Dashboard() {
     const today = new Date().toISOString().split("T")[0];
 
     // Load org admin dashboard data
-    if (userWithRole.role === "org_admin") {
+    if (isRole(userWithRole.role, "admin", "org_admin", "super_admin")) {
       await loadAdminDashboardData();
       setLoading(false);
       return;
     }
 
-    // Load today's total minutes for members
-    if (userWithRole.role === "member") {
+    // Load HOD/Manager dashboard data (L3, L2)
+    if (isRole(userWithRole.role, "l3", "l2", "manager", "program_manager")) {
+      await loadHodDashboardData(userWithRole.user.id);
+      setLoading(false);
+      return;
+    }
+
+    // Load today's total minutes for members (L1)
+    if (isRole(userWithRole.role, "l1", "member", "faculty")) {
       // Fetch user's resolved daily target (sum across all departments)
       const targetBreakdown = await calculateUserTotalDailyTargetMinutes(userWithRole.user.id);
       const resolvedDailyTargetMinutes = targetBreakdown.totalDailyTargetMinutes;
@@ -227,13 +235,6 @@ export default function Dashboard() {
         .limit(5);
 
       setRecentEntries(recent || []);
-    }
-
-    // Load HOD/Manager dashboard data
-    if (userWithRole.role === "manager") {
-      await loadHodDashboardData(userWithRole.user.id);
-      setLoading(false);
-      return;
     }
 
     setLoading(false);
@@ -585,18 +586,22 @@ export default function Dashboard() {
   }
 
   const getRoleDescription = () => {
-    switch (userWithRole.role) {
-      case "member":
-        return "Track your working hours and submit timesheets";
-      case "manager":
-        return "Review and approve team timesheets";
-      case "org_admin":
-        return "Manage users, departments, and reports";
-      case "program_manager":
-        return "Manage programs and departments";
-      default:
-        return "";
+    if (isRole(userWithRole.role, "l1", "member", "faculty")) {
+      return "Track your working hours and submit timesheets";
     }
+    if (isRole(userWithRole.role, "l2", "program_manager")) {
+      return "Review L1 entries and manage programs";
+    }
+    if (isRole(userWithRole.role, "l3", "manager", "hod")) {
+      return "Review and approve team timesheets";
+    }
+    if (isRole(userWithRole.role, "admin", "org_admin")) {
+      return "Manage users, departments, and reports";
+    }
+    if (isRole(userWithRole.role, "super_admin")) {
+      return "System administration across organizations";
+    }
+    return "";
   };
 
   return (
@@ -609,7 +614,7 @@ export default function Dashboard() {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">{getWelcomeMessage()}</h1>
             <p className="text-sm text-muted-foreground">{getRoleDescription()}</p>
-            {(userWithRole.role === "member" || userWithRole.role === "manager") && userDepartments.length > 0 && (
+            {(isRole(userWithRole.role, "l1", "l2", "l3", "member", "manager")) && userDepartments.length > 0 && (
               <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
                 <Building2 className="h-3.5 w-3.5" />
                 <span>Department: {userDepartments.join(", ")}</span>
@@ -618,7 +623,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {userWithRole.role === "member" && (
+        {isRole(userWithRole.role, "l1", "member", "faculty") && (
           <>
             <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
               <Card>
@@ -713,7 +718,7 @@ export default function Dashboard() {
           </>
         )}
 
-        {userWithRole.role === "manager" && (
+        {isRole(userWithRole.role, "l2", "l3", "manager", "program_manager") && (
           <>
             {loading ? (
               <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
@@ -969,7 +974,7 @@ export default function Dashboard() {
           </>
         )}
 
-        {userWithRole.role === "org_admin" && (
+        {isRole(userWithRole.role, "admin", "org_admin", "super_admin") && (
           <>
             {loading ? (
               <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">

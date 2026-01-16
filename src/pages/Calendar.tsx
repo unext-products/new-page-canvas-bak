@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { isRole } from "@/lib/roleMapping";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, addMonths, subMonths, addDays, subDays } from "date-fns";
 import { timesheetEntrySchema } from "@/lib/validation";
 import { getUserErrorMessage } from "@/lib/errorHandler";
@@ -72,8 +73,7 @@ export default function CalendarPage() {
   const [notes, setNotes] = useState("");
 
   useEffect(() => {
-    const allowedRoles = ["member", "manager", "program_manager"];
-    if (userWithRole && !allowedRoles.includes(userWithRole.role || "")) {
+    if (userWithRole && !isRole(userWithRole.role, "l1", "l2", "l3", "member", "manager", "program_manager", "faculty")) {
       navigate("/dashboard");
     } else if (userWithRole) {
       loadMonthData();

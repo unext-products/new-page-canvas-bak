@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { isRole } from "@/lib/roleMapping";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Layout } from "@/components/Layout";
@@ -64,8 +65,8 @@ export default function Reports() {
   // HOD department filter
   const [hodDepartmentIds, setHodDepartmentIds] = useState<string[]>([]);
 
-  const isHod = userWithRole?.role === "manager";
-  const hasReportsAccess = ["org_admin", "program_manager", "manager"].includes(userWithRole?.role || "");
+  const isHod = isRole(userWithRole?.role, "l3", "l2", "manager", "program_manager");
+  const hasReportsAccess = isRole(userWithRole?.role, "admin", "org_admin", "super_admin", "l3", "l2", "manager", "program_manager");
 
   // Fetch HOD's department IDs
   useEffect(() => {
