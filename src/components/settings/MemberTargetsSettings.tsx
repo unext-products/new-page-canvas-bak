@@ -13,6 +13,7 @@ import { useDepartmentSettings } from "@/hooks/useDepartmentSettings";
 import { useUserSettings, useDepartmentUserSettings } from "@/hooks/useUserSettings";
 import { Loader2, Info, RotateCcw, User } from "lucide-react";
 import { fetchOrgDefaultDailyTargetMinutes } from "@/lib/targets";
+import { isRole } from "@/lib/roleMapping";
 
 interface Department {
   id: string;
@@ -38,8 +39,8 @@ export default function MemberTargetsSettings() {
   const [localTargets, setLocalTargets] = useState<Record<string, { hours: number; minutes: number }>>({});
   const [orgDefaultMinutes, setOrgDefaultMinutes] = useState(480);
 
-  const isOrgAdmin = userWithRole?.role === "org_admin";
-  const isHod = userWithRole?.role === "manager";
+  const isOrgAdmin = isRole(userWithRole?.role, "admin", "org_admin", "super_admin");
+  const isHod = isRole(userWithRole?.role, "l3", "manager");
 
   // For HOD, lock to their department
   const effectiveDepartmentId = isHod ? userWithRole?.departmentId : selectedDepartment;

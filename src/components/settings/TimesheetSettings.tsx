@@ -10,9 +10,17 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLabels } from "@/contexts/LabelContext";
 import { useDepartmentSettings } from "@/hooks/useDepartmentSettings";
 import { Loader2, Info, RotateCcw } from "lucide-react";
+import { isRole } from "@/lib/roleMapping";
 import MemberTargetsSettings from "./MemberTargetsSettings";
+import HolidaysSettings from "./HolidaysSettings";
+import ThresholdsSettings from "./ThresholdsSettings";
 
 interface Department {
+  id: string;
+  name: string;
+}
+
+interface Vertical {
   id: string;
   name: string;
 }
@@ -22,15 +30,19 @@ export default function TimesheetSettings() {
   const { entityLabel } = useLabels();
   const { toast } = useToast();
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [verticals, setVerticals] = useState<Vertical[]>([]);
   const [selectedScope, setSelectedScope] = useState<"organization" | string>("organization");
   const [saving, setSaving] = useState(false);
 
-  const isOrgAdmin = userWithRole?.role === "org_admin";
-  const isHod = userWithRole?.role === "manager";
+  const isOrgAdmin = isRole(userWithRole?.role, "admin", "org_admin", "super_admin");
+  const isHod = isRole(userWithRole?.role, "l3", "manager");
   const canEdit = isOrgAdmin || isHod;
 
   // For HOD, lock to their department
   const effectiveDepartmentId = isHod ? userWithRole?.departmentId : (selectedScope !== "organization" ? selectedScope : null);
+  
+  // Get vertical ID for the new settings components
+  const effectiveVerticalId = selectedScope !== "organization" ? selectedScope : null;
   
   const { settings, loading, updateDepartmentSetting, resetDepartmentSetting, refetch } = useDepartmentSettings(effectiveDepartmentId);
 
@@ -44,6 +56,7 @@ export default function TimesheetSettings() {
   useEffect(() => {
     if (isOrgAdmin) {
       fetchDepartments();
+      fetchVerticals();
     }
   }, [isOrgAdmin]);
 
@@ -73,6 +86,27 @@ export default function TimesheetSettings() {
 
     if (!error && data) {
       setDepartments(data);
+    }
+  };
+
+  const fetchVerticals = async () => {
+    // Get user's organization first
+    const { data: userRole } = await supabase
+      .from("user_roles")
+      .select("organization_id")
+      .eq("user_id", userWithRole?.user?.id)
+      .single();
+    
+    if (!userRole?.organization_id) return;
+    
+    const { data, error } = await supabase
+      .from("verticals")
+      .select("id, name")
+      .eq("organization_id", userRole.organization_id)
+      .order("name");
+
+    if (!error && data) {
+      setVerticals(data);
     }
   };
 
@@ -192,7 +226,7 @@ export default function TimesheetSettings() {
           <CardHeader>
             <CardTitle>Scope</CardTitle>
             <CardDescription>
-              Choose whether to edit organization-wide settings or department-specific ones
+              Choose whether to edit organization-wide settings or {entityLabel("vertical").toLowerCase()}-specific ones
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -202,15 +236,31 @@ export default function TimesheetSettings() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="organization">Organization-wide (Default)</SelectItem>
-                {departments.map((dept) => (
-                  <SelectItem key={dept.id} value={dept.id}>
-                    {entityLabel("department")}: {dept.name}
+                {verticals.map((vertical) => (
+                  <SelectItem key={vertical.id} value={vertical.id}>
+                    {entityLabel("vertical")}: {vertical.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </CardContent>
         </Card>
+      )}
+
+      {/* Section 1: Holidays & Working Days */}
+      {isOrgAdmin && (
+        <HolidaysSettings
+          selectedScope={selectedScope}
+          verticalId={effectiveVerticalId}
+        />
+      )}
+
+      {/* Section 2: Thresholds */}
+      {isOrgAdmin && (
+        <ThresholdsSettings
+          selectedScope={selectedScope}
+          verticalId={effectiveVerticalId}
+        />
       )}
 
       {/* Daily Target */}
