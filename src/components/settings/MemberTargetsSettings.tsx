@@ -15,25 +15,26 @@ import { Loader2, Info, RotateCcw, User } from "lucide-react";
 import { fetchOrgDefaultDailyTargetMinutes } from "@/lib/targets";
 import { isRole } from "@/lib/roleMapping";
 
-interface Department {
+interface Vertical {
   id: string;
   name: string;
+  code: string;
 }
 
 interface Member {
   id: string;
   full_name: string;
   email?: string;
-  primaryDepartmentId: string | null;
+  primaryVerticalId: string | null;
 }
 
 export default function MemberTargetsSettings() {
   const { userWithRole } = useAuth();
   const { entityLabel, roleLabel } = useLabels();
   const { toast } = useToast();
-  const [departments, setDepartments] = useState<Department[]>([]);
+  const [verticals, setVerticals] = useState<Vertical[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
-  const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null);
+  const [selectedVertical, setSelectedVertical] = useState<string | null>(null);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [savingUser, setSavingUser] = useState<string | null>(null);
   const [localTargets, setLocalTargets] = useState<Record<string, { hours: number; minutes: number }>>({});
@@ -42,32 +43,35 @@ export default function MemberTargetsSettings() {
   const isOrgAdmin = isRole(userWithRole?.role, "admin", "org_admin", "super_admin");
   const isHod = isRole(userWithRole?.role, "l3", "manager");
 
-  // For HOD, lock to their department
-  const effectiveDepartmentId = isHod ? userWithRole?.departmentId : selectedDepartment;
+  // For HOD, lock to their vertical
+  const effectiveVerticalId = isHod ? userWithRole?.verticalId : selectedVertical;
 
-  // Get department default settings for comparison
-  const { settings: deptSettings } = useDepartmentSettings(effectiveDepartmentId);
-  const { userSettingsMap, refetch: refetchUserSettings } = useDepartmentUserSettings(effectiveDepartmentId);
-  const { updateUserSetting, resetUserSetting } = useUserSettings(null, effectiveDepartmentId);
+  // Get vertical default settings for comparison
+  const { settings: vertSettings } = useDepartmentSettings(effectiveVerticalId);
+  const { userSettingsMap, refetch: refetchUserSettings } = useDepartmentUserSettings(effectiveVerticalId);
+  const { updateUserSetting, resetUserSetting } = useUserSettings(null, effectiveVerticalId);
 
   useEffect(() => {
     if (isOrgAdmin) {
-      fetchDepartments();
+      fetchVerticals();
+    } else if (isHod && userWithRole?.verticalId) {
+      // HOD: auto-select their vertical
+      setSelectedVertical(userWithRole.verticalId);
     }
     // Fetch org default
     fetchOrgDefaultDailyTargetMinutes().then(setOrgDefaultMinutes);
-  }, [isOrgAdmin]);
+  }, [isOrgAdmin, isHod, userWithRole?.verticalId]);
 
   useEffect(() => {
-    if (effectiveDepartmentId) {
+    if (effectiveVerticalId) {
       fetchMembers();
     } else {
       setMembers([]);
     }
-  }, [effectiveDepartmentId]);
+  }, [effectiveVerticalId]);
 
   // Initialize local targets when members or settings change
-  // Use correct defaults: primary dept = org default, non-primary = 0
+  // Use correct defaults: primary vertical = org default, non-primary = 0
   useEffect(() => {
     const newTargets: Record<string, { hours: number; minutes: number }> = {};
     members.forEach(member => {
@@ -75,13 +79,13 @@ export default function MemberTargetsSettings() {
       let targetMinutes: number;
       
       if (userSetting?.daily_target_minutes !== null && userSetting?.daily_target_minutes !== undefined) {
-        // Has custom setting for this department
+        // Has custom setting for this vertical
         targetMinutes = userSetting.daily_target_minutes;
-      } else if (member.primaryDepartmentId === effectiveDepartmentId) {
-        // This is primary department - use org default
+      } else if (member.primaryVerticalId === effectiveVerticalId) {
+        // This is primary vertical - use org default
         targetMinutes = orgDefaultMinutes;
       } else {
-        // Non-primary department without custom setting - default to 0
+        // Non-primary vertical without custom setting - default to 0
         targetMinutes = 0;
       }
       
@@ -91,67 +95,67 @@ export default function MemberTargetsSettings() {
       };
     });
     setLocalTargets(newTargets);
-  }, [members, userSettingsMap, effectiveDepartmentId, orgDefaultMinutes]);
+  }, [members, userSettingsMap, effectiveVerticalId, orgDefaultMinutes]);
 
-  const fetchDepartments = async () => {
+  const fetchVerticals = async () => {
     const { data, error } = await supabase
-      .from("departments")
-      .select("id, name")
+      .from("verticals")
+      .select("id, name, code")
       .order("name");
 
     if (!error && data) {
-      setDepartments(data);
+      setVerticals(data);
     }
   };
 
   const fetchMembers = async () => {
-    if (!effectiveDepartmentId) return;
+    if (!effectiveVerticalId) return;
     
     setLoadingMembers(true);
     try {
-      // Get users in the department via junction table
-      const { data: departmentUsers, error: deptUsersError } = await supabase
-        .from("user_departments")
+      // Get users in the vertical via user_verticals junction table
+      const { data: verticalUsers, error: vertUsersError } = await supabase
+        .from("user_verticals")
         .select("user_id")
-        .eq("department_id", effectiveDepartmentId);
+        .eq("vertical_id", effectiveVerticalId);
 
-      if (deptUsersError) throw deptUsersError;
+      if (vertUsersError) throw vertUsersError;
 
-      if (departmentUsers && departmentUsers.length > 0) {
-        const userIds = departmentUsers.map(du => du.user_id);
+      if (verticalUsers && verticalUsers.length > 0) {
+        const userIds = verticalUsers.map(vu => vu.user_id);
         
-        // Filter to only faculty users and get their primary department
-        const { data: facultyRoles, error: rolesError } = await supabase
+        // Filter to only L1 (faculty) users and get their primary vertical
+        const { data: l1Roles, error: rolesError } = await supabase
           .from("user_roles")
-          .select("user_id, department_id")
+          .select("user_id, vertical_id")
           .in("user_id", userIds)
-          .eq("role", "faculty");
+          .eq("role", "l1");
 
         if (rolesError) throw rolesError;
 
-        const facultyUserIds = facultyRoles?.map(r => r.user_id) || [];
+        const l1UserIds = l1Roles?.map(r => r.user_id) || [];
         
-        // Build a map of userId -> primaryDepartmentId
-        const primaryDeptMap = new Map<string, string | null>();
-        facultyRoles?.forEach(r => {
-          primaryDeptMap.set(r.user_id, r.department_id);
+        // Build a map of userId -> primaryVerticalId
+        const primaryVertMap = new Map<string, string | null>();
+        l1Roles?.forEach(r => {
+          primaryVertMap.set(r.user_id, r.vertical_id);
         });
         
-        if (facultyUserIds.length > 0) {
+        if (l1UserIds.length > 0) {
           const { data: profiles, error: profilesError } = await supabase
             .from("profiles")
             .select("id, full_name")
-            .in("id", facultyUserIds)
+            .in("id", l1UserIds)
             .eq("is_active", true)
             .order("full_name");
 
           if (profilesError) throw profilesError;
 
-          // Add primaryDepartmentId to each member
+          // Add primaryVerticalId to each member
           const membersWithPrimary: Member[] = (profiles || []).map(p => ({
             id: p.id,
             full_name: p.full_name,
-            primaryDepartmentId: primaryDeptMap.get(p.id) || null,
+            primaryVerticalId: primaryVertMap.get(p.id) || null,
           }));
 
           setMembers(membersWithPrimary);
@@ -178,12 +182,12 @@ export default function MemberTargetsSettings() {
 
   const handleSaveTarget = async (userId: string) => {
     const target = localTargets[userId];
-    if (!target || !effectiveDepartmentId) return;
+    if (!target || !effectiveVerticalId) return;
 
     const totalMinutes = target.hours * 60 + target.minutes;
     
     setSavingUser(userId);
-    const { error } = await updateUserSetting(userId, "daily_target_minutes", totalMinutes, effectiveDepartmentId);
+    const { error } = await updateUserSetting(userId, "daily_target_minutes", totalMinutes, effectiveVerticalId);
     setSavingUser(null);
 
     if (error) {
@@ -202,10 +206,10 @@ export default function MemberTargetsSettings() {
   };
 
   const handleResetTarget = async (userId: string) => {
-    if (!effectiveDepartmentId) return;
+    if (!effectiveVerticalId) return;
     
     setSavingUser(userId);
-    const { error } = await resetUserSetting(userId, "daily_target_minutes", effectiveDepartmentId);
+    const { error } = await resetUserSetting(userId, "daily_target_minutes", effectiveVerticalId);
     setSavingUser(null);
 
     if (error) {
@@ -229,7 +233,7 @@ export default function MemberTargetsSettings() {
   };
 
   const formatDefaultInfo = () => {
-    return `${Math.floor(deptSettings.daily_target_minutes / 60)}h ${deptSettings.daily_target_minutes % 60}m`;
+    return `${Math.floor(vertSettings.daily_target_minutes / 60)}h ${vertSettings.daily_target_minutes % 60}m`;
   };
 
   if (!isOrgAdmin && !isHod) {
@@ -245,25 +249,25 @@ export default function MemberTargetsSettings() {
         </CardTitle>
         <CardDescription>
           Set custom daily working hours for individual members. 
-          Members without custom targets will use the {effectiveDepartmentId ? entityLabel("department").toLowerCase() : "organization"} default ({formatDefaultInfo()}).
+          Members without custom targets will use the {effectiveVerticalId ? entityLabel("vertical").toLowerCase() : "organization"} default ({formatDefaultInfo()}).
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Department Selector - Only for Org Admin */}
+        {/* Vertical Selector - Only for Org Admin */}
         {isOrgAdmin && (
           <div className="space-y-2">
-            <Label>Select {entityLabel("department")}</Label>
+            <Label>Select {entityLabel("vertical")}</Label>
             <Select 
-              value={selectedDepartment || ""} 
-              onValueChange={(v) => setSelectedDepartment(v || null)}
+              value={selectedVertical || ""} 
+              onValueChange={(v) => setSelectedVertical(v || null)}
             >
               <SelectTrigger className="w-full max-w-xs">
-                <SelectValue placeholder={`Choose a ${entityLabel("department").toLowerCase()}...`} />
+                <SelectValue placeholder={`Choose a ${entityLabel("vertical").toLowerCase()}...`} />
               </SelectTrigger>
               <SelectContent>
-                {departments.map((dept) => (
-                  <SelectItem key={dept.id} value={dept.id}>
-                    {dept.name}
+                {verticals.map((vert) => (
+                  <SelectItem key={vert.id} value={vert.id}>
+                    {vert.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -272,14 +276,14 @@ export default function MemberTargetsSettings() {
         )}
 
         {/* Members List */}
-        {effectiveDepartmentId ? (
+        {effectiveVerticalId ? (
           loadingMembers ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : members.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              <p>No members found in this {entityLabel("department").toLowerCase()}.</p>
+              <p>No L1 members found in this {entityLabel("vertical").toLowerCase()}.</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -287,7 +291,7 @@ export default function MemberTargetsSettings() {
                 const target = localTargets[member.id] || { hours: 0, minutes: 0 };
                 const isCustom = hasCustomTarget(member.id);
                 const isSaving = savingUser === member.id;
-                const isPrimaryDept = member.primaryDepartmentId === effectiveDepartmentId;
+                const isPrimaryVert = member.primaryVerticalId === effectiveVerticalId;
 
                 return (
                   <div 
@@ -299,8 +303,8 @@ export default function MemberTargetsSettings() {
                       <div className="flex items-center gap-2 mt-1">
                         {isCustom ? (
                           <Badge variant="secondary" className="text-xs">Custom</Badge>
-                        ) : isPrimaryDept ? (
-                          <Badge variant="outline" className="text-xs">Primary Dept</Badge>
+                        ) : isPrimaryVert ? (
+                          <Badge variant="outline" className="text-xs">Primary Vertical</Badge>
                         ) : (
                           <Badge variant="outline" className="text-xs text-muted-foreground">Non-Primary (0h default)</Badge>
                         )}
@@ -359,7 +363,7 @@ export default function MemberTargetsSettings() {
         ) : (
           <div className="text-center py-8 text-muted-foreground">
             <Info className="h-8 w-8 mx-auto mb-2 opacity-50" />
-            <p>Select a {entityLabel("department").toLowerCase()} to manage member targets.</p>
+            <p>Select a {entityLabel("vertical").toLowerCase()} to manage member targets.</p>
           </div>
         )}
       </CardContent>
