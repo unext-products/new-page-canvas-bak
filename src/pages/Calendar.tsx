@@ -26,6 +26,7 @@ import { ViewToggle } from "@/components/calendar/ViewToggle";
 import { DayHourlyView } from "@/components/calendar/DayHourlyView";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useThresholds } from "@/hooks/useThresholds";
 
 interface TimesheetEntry {
   id: string;
@@ -72,7 +73,11 @@ export default function CalendarPage() {
   const [activitySubtype, setActivitySubtype] = useState("");
   const [notes, setNotes] = useState("");
   const [verticalCode, setVerticalCode] = useState("");
+  const [selectedVerticalId, setSelectedVerticalId] = useState<string | null>(null);
   const [userVerticals, setUserVerticals] = useState<{ id: string; name: string; code: string }[]>([]);
+  
+  // Threshold validation
+  const { validateEntry, thresholds } = useThresholds(selectedVerticalId);
   
   // Hierarchy form state
   const [programId, setProgramId] = useState("");
@@ -287,6 +292,27 @@ export default function CalendarPage() {
     try {
       const entryDate = format(selectedDate, "yyyy-MM-dd");
       
+      // Validate against thresholds (max hours, work hour window)
+      const existingEntriesForDate = entries
+        .filter(e => e.entry_date === entryDate && e.status !== "rejected")
+        .map(e => ({ start_time: e.start_time, end_time: e.end_time }));
+      
+      const thresholdValidation = await validateEntry(
+        entryDate,
+        startTime,
+        endTime,
+        existingEntriesForDate
+      );
+      
+      if (!thresholdValidation.valid) {
+        toast({
+          title: "Threshold Exceeded",
+          description: thresholdValidation.error,
+          variant: "destructive",
+        });
+        return;
+      }
+      
       const validatedData = timesheetEntrySchema.parse({
         entry_date: entryDate,
         start_time: startTime,
@@ -476,8 +502,10 @@ export default function CalendarPage() {
     
     const selectedVertical = userVerticals.find(v => v.code.toUpperCase() === code.toUpperCase());
     if (selectedVertical) {
+      setSelectedVerticalId(selectedVertical.id);
       fetchUserPrograms(selectedVertical.id);
     } else {
+      setSelectedVerticalId(null);
       setPrograms([]);
     }
   };

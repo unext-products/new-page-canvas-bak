@@ -26,6 +26,7 @@ import { formatDisplayDate } from "@/lib/dateUtils";
 import { DateRangeFilter, DateFilterType, DateRange } from "@/components/DateRangeFilter";
 import { startOfDay, endOfDay, isWithinInterval } from "date-fns";
 import { getEntryDuration } from "@/lib/timesheetUtils";
+import { useThresholds } from "@/hooks/useThresholds";
 
 export default function Timesheet() {
   const { userWithRole } = useAuth();
@@ -49,7 +50,11 @@ export default function Timesheet() {
   const [activitySubtype, setActivitySubtype] = useState("");
   const [notes, setNotes] = useState("");
   const [verticalCode, setVerticalCode] = useState("");
+  const [selectedVerticalId, setSelectedVerticalId] = useState<string | null>(null);
   const [userVerticals, setUserVerticals] = useState<{ id: string; name: string; code: string }[]>([]);
+  
+  // Threshold validation
+  const { validateEntry, thresholds } = useThresholds(selectedVerticalId);
   
   // Hierarchy form state
   const [programId, setProgramId] = useState("");
@@ -279,6 +284,27 @@ export default function Timesheet() {
         variant: "destructive",
       });
       return; // Dialog remains open
+    }
+
+    // Validate against thresholds (max hours, work hour window)
+    const existingEntriesForDate = entries
+      .filter(e => e.entry_date === entryDate && e.status !== "rejected")
+      .map(e => ({ start_time: e.start_time, end_time: e.end_time }));
+    
+    const thresholdValidation = await validateEntry(
+      entryDate,
+      normalizedStart,
+      normalizedEnd,
+      existingEntriesForDate
+    );
+    
+    if (!thresholdValidation.valid) {
+      toast({
+        title: "Threshold Exceeded",
+        description: thresholdValidation.error,
+        variant: "destructive",
+      });
+      return;
     }
 
     try {
@@ -512,8 +538,10 @@ export default function Timesheet() {
     
     const selectedVertical = userVerticals.find(v => v.code.toUpperCase() === code.toUpperCase());
     if (selectedVertical) {
+      setSelectedVerticalId(selectedVertical.id);
       fetchUserPrograms(selectedVertical.id);
     } else {
+      setSelectedVerticalId(null);
       setPrograms([]);
     }
   };
