@@ -21,6 +21,9 @@ export interface MatrixTimesheetEntry {
   activity_subtype: string | null;
   notes: string | null;
   status: string;
+  vertical_code?: string | null;
+  program_code?: string | null;
+  batch_name?: string | null;
 }
 
 export interface FacultyData {
@@ -180,7 +183,7 @@ export function DayMatrixView({
                               <div
                                 key={entry.id}
                                 className={cn(
-                                  "relative rounded text-xs flex items-center transition-all group min-h-[52px]",
+                                  "relative rounded text-xs flex items-center transition-all group min-h-[52px] overflow-hidden",
                                   getStatusBgColor(entry.status),
                                   "border-l-[3px]",
                                   entry.status === "approved" && "border-l-green-500",
@@ -203,12 +206,12 @@ export function DayMatrixView({
                                   </div>
                                 )}
                                 
-                                {/* Entry content */}
+                                {/* Entry content - truncated with vertical/program */}
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <div 
                                       className={cn(
-                                        "flex-1 flex flex-col justify-center cursor-pointer px-2 py-1",
+                                        "flex-1 min-w-0 flex flex-col justify-center cursor-pointer px-2 py-1",
                                         showSelection && "pl-7"
                                       )}
                                       onClick={() => onEntryClick?.(entry, faculty)}
@@ -216,8 +219,8 @@ export function DayMatrixView({
                                       <span className="font-medium capitalize text-xs leading-tight truncate">
                                         {entry.activity_type.replace(/_/g, " ")}
                                       </span>
-                                      <span className="text-[10px] text-muted-foreground leading-tight">
-                                        {entry.start_time.slice(0, 5)} - {entry.end_time.slice(0, 5)}
+                                      <span className="text-[10px] text-muted-foreground leading-tight truncate">
+                                        {entry.vertical_code || "-"} • {entry.batch_name || "-"}
                                       </span>
                                     </div>
                                   </TooltipTrigger>
@@ -229,6 +232,9 @@ export function DayMatrixView({
                                       )}
                                       <p className="text-xs text-muted-foreground">
                                         {entry.start_time} - {entry.end_time}
+                                      </p>
+                                      <p className="text-xs mt-1">
+                                        Vertical: {entry.vertical_code || "-"} • Batch: {entry.batch_name || "-"}
                                       </p>
                                       <p className="text-xs capitalize mt-1">
                                         Status: <span className={cn(
@@ -246,22 +252,22 @@ export function DayMatrixView({
                                   </TooltipContent>
                                 </Tooltip>
 
-                                {/* Inline action buttons */}
+                                {/* Inline action buttons - fixed to not overflow */}
                                 {(onApprove || onReject) && entry.status === "submitted" && (
-                                  <div className="flex flex-col gap-0.5 pr-1 shrink-0">
+                                  <div className="flex flex-col gap-0.5 pr-1 shrink-0 flex-none">
                                     {onApprove && (
                                       <Tooltip>
                                         <TooltipTrigger asChild>
                                           <Button
                                             size="icon"
                                             variant="ghost"
-                                            className="h-6 w-6 bg-green-500/20 hover:bg-green-500/40 text-green-700 dark:text-green-400"
+                                            className="h-5 w-5 bg-green-500/20 hover:bg-green-500/40 text-green-700 dark:text-green-400"
                                             onClick={(e) => {
                                               e.stopPropagation();
                                               onApprove(entry);
                                             }}
                                           >
-                                            <CheckCircle className="h-3.5 w-3.5" />
+                                            <CheckCircle className="h-3 w-3" />
                                           </Button>
                                         </TooltipTrigger>
                                         <TooltipContent side="top">
@@ -275,13 +281,13 @@ export function DayMatrixView({
                                           <Button
                                             size="icon"
                                             variant="ghost"
-                                            className="h-6 w-6 bg-red-500/20 hover:bg-red-500/40 text-red-700 dark:text-red-400"
+                                            className="h-5 w-5 bg-red-500/20 hover:bg-red-500/40 text-red-700 dark:text-red-400"
                                             onClick={(e) => {
                                               e.stopPropagation();
                                               onReject(entry);
                                             }}
                                           >
-                                            <XCircle className="h-3.5 w-3.5" />
+                                            <XCircle className="h-3 w-3" />
                                           </Button>
                                         </TooltipTrigger>
                                         <TooltipContent side="top">

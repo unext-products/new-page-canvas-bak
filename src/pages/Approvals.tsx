@@ -36,6 +36,16 @@ interface TimesheetEntry {
   activity_subtype: string | null;
   notes: string | null;
   department_code?: string | null;
+  vertical_id?: string | null;
+  vertical_code?: string | null;
+  program_id?: string | null;
+  program_code?: string | null;
+  batch_id?: string | null;
+  batch_name?: string | null;
+  term_id?: string | null;
+  term_name?: string | null;
+  subject_id?: string | null;
+  subject_code?: string | null;
   profiles: {
     full_name: string;
     avatar_url: string | null;
@@ -269,7 +279,7 @@ export default function Approvals() {
       if (allUserIds.length > 0) {
         const { data, error } = await supabase
           .from("timesheet_entries")
-          .select("id, entry_date, start_time, end_time, activity_type, activity_subtype, notes, user_id, department_code, program_id, vertical_id")
+          .select("id, entry_date, start_time, end_time, activity_type, activity_subtype, notes, user_id, department_code, vertical_id, vertical_code, program_id, batch_id, batch_name, term_id, term_name, subject_id, subject_code")
           .in("user_id", allUserIds)
           .eq("status", "submitted")
           .order("entry_date", { ascending: false });
@@ -534,6 +544,8 @@ export default function Approvals() {
           activity_subtype: entry.activity_subtype,
           notes: entry.notes,
           status: "submitted",
+          vertical_code: (entry as any).vertical_code || (entry as any).department_code || null,
+          batch_name: (entry as any).batch_name || null,
         };
         const existing = facultyMap.get(entry.user_id);
         if (existing) {
@@ -1043,13 +1055,13 @@ export default function Approvals() {
                           </div>
                         </CardHeader>
                         <CardContent className="space-y-4 pl-12">
-                          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                             <div>
                               <div className="text-sm text-muted-foreground mb-1">Activity</div>
                               <div className="font-medium capitalize">
                                 {item.activity_type.replace(/_/g, " ")}
                                 {item.activity_subtype && (
-                                  <span className="text-muted-foreground"> • {item.activity_subtype}</span>
+                                  <span className="text-muted-foreground text-sm"> • {item.activity_subtype}</span>
                                 )}
                               </div>
                             </div>
@@ -1066,14 +1078,26 @@ export default function Approvals() {
                                 {(() => { const mins = calculateDurationMinutes(item.start_time, item.end_time); return `${Math.floor(mins / 60)}h ${mins % 60}m`; })()}
                               </div>
                             </div>
-                            {(item as any).department_code && (
-                              <div>
-                                <div className="text-sm text-muted-foreground mb-1">Department</div>
-                                <div className="font-medium">
-                                  <Badge variant="outline">{(item as any).department_code}</Badge>
-                                </div>
+                            <div>
+                              <div className="text-sm text-muted-foreground mb-1">Vertical</div>
+                              <div className="font-medium">
+                                {(item as any).vertical_code || (item as any).department_code || "-"}
                               </div>
-                            )}
+                            </div>
+                            <div>
+                              <div className="text-sm text-muted-foreground mb-1">Program</div>
+                              <div className="font-medium">
+                                {(item as any).program_id ? (
+                                  <Badge variant="outline" className="text-xs">{(item as any).batch_name ? "..." : "View"}</Badge>
+                                ) : "-"}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-sm text-muted-foreground mb-1">Batch / Term / Subject</div>
+                              <div className="font-medium text-sm">
+                                {(item as any).batch_name || "-"} / {(item as any).term_name || "-"} / {(item as any).subject_code || "-"}
+                              </div>
+                            </div>
                           </div>
 
                           {item.notes && (
@@ -1163,7 +1187,7 @@ export default function Approvals() {
             </DialogTitle>
             <DialogDescription>
               {selectedEntry && (
-                <div className="space-y-2 pt-2">
+                <div className="space-y-3 pt-2">
                   <div className="flex items-center gap-2">
                     <User className="h-4 w-4" />
                     <span className="font-medium">{selectedEntry.profiles.full_name}</span>
@@ -1176,8 +1200,33 @@ export default function Approvals() {
                     <span className="text-muted-foreground">Activity:</span> {selectedEntry.activity_type.replace(/_/g, " ")}
                     {selectedEntry.activity_subtype && ` • ${selectedEntry.activity_subtype}`}
                   </div>
+                  
+                  {/* Hierarchy Details */}
+                  <div className="grid grid-cols-2 gap-2 text-sm border-t pt-2 mt-2">
+                    <div>
+                      <span className="text-muted-foreground">Vertical:</span>{" "}
+                      {(selectedEntry as any).vertical_code || (selectedEntry as any).department_code || "-"}
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Program:</span>{" "}
+                      {(selectedEntry as any).program_id ? "Assigned" : "-"}
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Batch:</span>{" "}
+                      {(selectedEntry as any).batch_name || "-"}
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Term:</span>{" "}
+                      {(selectedEntry as any).term_name || "-"}
+                    </div>
+                    <div className="col-span-2">
+                      <span className="text-muted-foreground">Subject:</span>{" "}
+                      {(selectedEntry as any).subject_code || "-"}
+                    </div>
+                  </div>
+                  
                   {selectedEntry.notes && (
-                    <div className="text-sm">
+                    <div className="text-sm border-t pt-2">
                       <span className="text-muted-foreground">Notes:</span> {selectedEntry.notes}
                     </div>
                   )}

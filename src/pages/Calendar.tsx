@@ -73,6 +73,16 @@ export default function CalendarPage() {
   const [notes, setNotes] = useState("");
   const [verticalCode, setVerticalCode] = useState("");
   const [userVerticals, setUserVerticals] = useState<{ id: string; name: string; code: string }[]>([]);
+  
+  // Hierarchy form state
+  const [programId, setProgramId] = useState("");
+  const [batchId, setBatchId] = useState("");
+  const [termId, setTermId] = useState("");
+  const [subjectId, setSubjectId] = useState("");
+  const [programs, setPrograms] = useState<{ id: string; name: string; code: string }[]>([]);
+  const [batches, setBatches] = useState<{ id: string; name: string }[]>([]);
+  const [terms, setTerms] = useState<{ id: string; name: string }[]>([]);
+  const [subjects, setSubjects] = useState<{ id: string; name: string; code: string }[]>([]);
 
   useEffect(() => {
     if (userWithRole && !isRole(userWithRole.role, "l1", "l2", "l3", "member", "manager", "program_manager", "faculty")) {
@@ -263,6 +273,16 @@ export default function CalendarPage() {
       });
       return;
     }
+    
+    // Validate program is selected
+    if (!programId) {
+      toast({
+        title: "Program Required",
+        description: "Please select a program for this entry",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
       const entryDate = format(selectedDate, "yyyy-MM-dd");
@@ -276,12 +296,16 @@ export default function CalendarPage() {
         notes: notes,
       });
 
-      setSubmitting(true);
-
       // Find vertical_id from verticalCode
       const trimmedVertCode = verticalCode.trim().toUpperCase();
       const selectedVertical = userVerticals.find(v => v.code.toUpperCase() === trimmedVertCode);
       const verticalId = selectedVertical?.id || null;
+      
+      // Get selected hierarchy data
+      const selectedProgram = programs.find(p => p.id === programId);
+      const selectedBatch = batches.find(b => b.id === batchId);
+      const selectedTerm = terms.find(t => t.id === termId);
+      const selectedSubject = subjects.find(s => s.id === subjectId);
 
       const { error } = await supabase.from("timesheet_entries").insert({
         user_id: userWithRole.user.id,
@@ -294,6 +318,13 @@ export default function CalendarPage() {
         vertical_id: verticalId,
         vertical_code: trimmedVertCode || null,
         department_code: trimmedVertCode || null, // backward compatibility
+        program_id: programId || null,
+        batch_id: batchId || null,
+        batch_name: selectedBatch?.name || null,
+        term_id: termId || null,
+        term_name: selectedTerm?.name || null,
+        subject_id: subjectId || null,
+        subject_code: selectedSubject?.code || null,
         status,
       });
 
@@ -340,12 +371,142 @@ export default function CalendarPage() {
     setActivitySubtype("");
     setNotes("");
     setSelectedDate(null);
+    setProgramId("");
+    setBatchId("");
+    setTermId("");
+    setSubjectId("");
+    setPrograms([]);
+    setBatches([]);
+    setTerms([]);
+    setSubjects([]);
     // Reset vertical code to auto-selected if only one vertical
     if (userVerticals.length === 1) {
       setVerticalCode(userVerticals[0].code.toUpperCase());
     } else {
       setVerticalCode("");
     }
+  };
+  
+  // Fetch programs when vertical changes
+  const fetchUserPrograms = async (verticalId: string) => {
+    if (!userWithRole || !verticalId) {
+      setPrograms([]);
+      return;
+    }
+    
+    // Get user's programs
+    const { data: userProgs } = await supabase
+      .from("user_programs")
+      .select("program_id")
+      .eq("user_id", userWithRole.user.id);
+    
+    const userProgIds = userProgs?.map(p => p.program_id) || [];
+    
+    if (userProgIds.length === 0) {
+      // Fallback: get all programs for this vertical
+      const { data } = await supabase
+        .from("programs")
+        .select("id, name, code")
+        .eq("vertical_id", verticalId)
+        .order("name");
+      setPrograms(data || []);
+    } else {
+      const { data } = await supabase
+        .from("programs")
+        .select("id, name, code")
+        .eq("vertical_id", verticalId)
+        .in("id", userProgIds)
+        .order("name");
+      setPrograms(data || []);
+    }
+  };
+  
+  // Fetch batches when program changes
+  const fetchBatches = async (progId: string) => {
+    if (!progId) {
+      setBatches([]);
+      return;
+    }
+    const { data } = await supabase
+      .from("batches")
+      .select("id, name")
+      .eq("program_id", progId)
+      .order("name");
+    setBatches(data || []);
+  };
+  
+  // Fetch terms when batch changes
+  const fetchTerms = async (batchIdVal: string) => {
+    if (!batchIdVal) {
+      setTerms([]);
+      return;
+    }
+    const { data } = await supabase
+      .from("terms")
+      .select("id, name")
+      .eq("batch_id", batchIdVal)
+      .order("name");
+    setTerms(data || []);
+  };
+  
+  // Fetch subjects when term changes
+  const fetchSubjects = async (termIdVal: string) => {
+    if (!termIdVal) {
+      setSubjects([]);
+      return;
+    }
+    const { data } = await supabase
+      .from("subjects")
+      .select("id, name, code")
+      .eq("term_id", termIdVal)
+      .order("name");
+    setSubjects(data || []);
+  };
+  
+  // Handle vertical change - reset downstream selections
+  const handleVerticalChange = (code: string) => {
+    setVerticalCode(code);
+    setProgramId("");
+    setBatchId("");
+    setTermId("");
+    setSubjectId("");
+    setBatches([]);
+    setTerms([]);
+    setSubjects([]);
+    
+    const selectedVertical = userVerticals.find(v => v.code.toUpperCase() === code.toUpperCase());
+    if (selectedVertical) {
+      fetchUserPrograms(selectedVertical.id);
+    } else {
+      setPrograms([]);
+    }
+  };
+  
+  // Handle program change
+  const handleProgramChange = (progId: string) => {
+    setProgramId(progId);
+    setBatchId("");
+    setTermId("");
+    setSubjectId("");
+    setTerms([]);
+    setSubjects([]);
+    fetchBatches(progId);
+  };
+  
+  // Handle batch change
+  const handleBatchChange = (batchIdVal: string) => {
+    setBatchId(batchIdVal);
+    setTermId("");
+    setSubjectId("");
+    setSubjects([]);
+    fetchTerms(batchIdVal);
+  };
+  
+  // Handle term change
+  const handleTermChange = (termIdVal: string) => {
+    setTermId(termIdVal);
+    setSubjectId("");
+    fetchSubjects(termIdVal);
   };
 
   const formatLeaveType = (type: string) => {
@@ -673,7 +834,7 @@ export default function CalendarPage() {
                 <Label htmlFor="verticalCode">Vertical <span className="text-destructive">*</span></Label>
                 <Select 
                   value={verticalCode} 
-                  onValueChange={setVerticalCode}
+                  onValueChange={handleVerticalChange}
                 >
                   <SelectTrigger id="verticalCode">
                     <SelectValue placeholder="Select vertical" />
@@ -686,6 +847,86 @@ export default function CalendarPage() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="programId">Program <span className="text-destructive">*</span></Label>
+                <Select 
+                  value={programId} 
+                  onValueChange={handleProgramChange}
+                  disabled={!verticalCode}
+                >
+                  <SelectTrigger id="programId">
+                    <SelectValue placeholder={verticalCode ? "Select program" : "Select vertical first"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {programs.map((prog) => (
+                      <SelectItem key={prog.id} value={prog.id}>
+                        {prog.name} ({prog.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div className="space-y-2">
+                  <Label htmlFor="batchId">Batch</Label>
+                  <Select 
+                    value={batchId} 
+                    onValueChange={handleBatchChange}
+                    disabled={!programId}
+                  >
+                    <SelectTrigger id="batchId">
+                      <SelectValue placeholder="Optional" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {batches.map((batch) => (
+                        <SelectItem key={batch.id} value={batch.id}>
+                          {batch.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="termId">Term</Label>
+                  <Select 
+                    value={termId} 
+                    onValueChange={handleTermChange}
+                    disabled={!batchId}
+                  >
+                    <SelectTrigger id="termId">
+                      <SelectValue placeholder="Optional" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {terms.map((term) => (
+                        <SelectItem key={term.id} value={term.id}>
+                          {term.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="subjectId">Subject</Label>
+                  <Select 
+                    value={subjectId} 
+                    onValueChange={setSubjectId}
+                    disabled={!termId}
+                  >
+                    <SelectTrigger id="subjectId">
+                      <SelectValue placeholder="Optional" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {subjects.map((subj) => (
+                        <SelectItem key={subj.id} value={subj.id}>
+                          {subj.name} ({subj.code})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div className="space-y-2">
