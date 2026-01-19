@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2, Building2 } from "lucide-react";
+import { isRole } from "@/lib/roleMapping";
 
 interface Organization {
   id: string;
@@ -22,7 +23,7 @@ export default function OrganizationSettings() {
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [formData, setFormData] = useState({ name: "", code: "" });
 
-  const isOrgAdmin = userWithRole?.role === "org_admin";
+  const isOrgAdmin = isRole(userWithRole?.role, "admin", "org_admin", "super_admin");
 
   useEffect(() => {
     fetchOrganization();

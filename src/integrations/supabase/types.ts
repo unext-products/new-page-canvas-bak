@@ -116,6 +116,41 @@ export type Database = {
           },
         ]
       }
+      holidays: {
+        Row: {
+          created_at: string
+          holiday_date: string
+          id: string
+          name: string
+          organization_id: string
+          vertical_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          holiday_date: string
+          id?: string
+          name: string
+          organization_id: string
+          vertical_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          holiday_date?: string
+          id?: string
+          name?: string
+          organization_id?: string
+          vertical_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "holidays_vertical_id_fkey"
+            columns: ["vertical_id"]
+            isOneToOne: false
+            referencedRelation: "verticals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leave_days: {
         Row: {
           created_at: string
@@ -642,6 +677,53 @@ export type Database = {
           },
         ]
       }
+      timesheet_thresholds: {
+        Row: {
+          created_at: string
+          id: string
+          max_hours_enabled: boolean
+          max_hours_minutes: number | null
+          organization_id: string
+          updated_at: string
+          vertical_id: string | null
+          work_end_time: string | null
+          work_hours_enabled: boolean
+          work_start_time: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          max_hours_enabled?: boolean
+          max_hours_minutes?: number | null
+          organization_id: string
+          updated_at?: string
+          vertical_id?: string | null
+          work_end_time?: string | null
+          work_hours_enabled?: boolean
+          work_start_time?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          max_hours_enabled?: boolean
+          max_hours_minutes?: number | null
+          organization_id?: string
+          updated_at?: string
+          vertical_id?: string | null
+          work_end_time?: string | null
+          work_hours_enabled?: boolean
+          work_start_time?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "timesheet_thresholds_vertical_id_fkey"
+            columns: ["vertical_id"]
+            isOneToOne: false
+            referencedRelation: "verticals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_batches: {
         Row: {
           batch_id: string
@@ -928,6 +1010,59 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      working_days: {
+        Row: {
+          created_at: string
+          friday: boolean
+          id: string
+          monday: boolean
+          organization_id: string
+          saturday: boolean
+          sunday: boolean
+          thursday: boolean
+          tuesday: boolean
+          updated_at: string
+          vertical_id: string | null
+          wednesday: boolean
+        }
+        Insert: {
+          created_at?: string
+          friday?: boolean
+          id?: string
+          monday?: boolean
+          organization_id: string
+          saturday?: boolean
+          sunday?: boolean
+          thursday?: boolean
+          tuesday?: boolean
+          updated_at?: string
+          vertical_id?: string | null
+          wednesday?: boolean
+        }
+        Update: {
+          created_at?: string
+          friday?: boolean
+          id?: string
+          monday?: boolean
+          organization_id?: string
+          saturday?: boolean
+          sunday?: boolean
+          thursday?: boolean
+          tuesday?: boolean
+          updated_at?: string
+          vertical_id?: string | null
+          wednesday?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "working_days_vertical_id_fkey"
+            columns: ["vertical_id"]
+            isOneToOne: false
+            referencedRelation: "verticals"
             referencedColumns: ["id"]
           },
         ]
