@@ -23,11 +23,40 @@ export default function Settings() {
     return <Navigate to="/auth" replace />;
   }
 
-  const isOrgAdmin = isRole(userWithRole?.role, "admin", "org_admin");
+  const isOrgAdmin = isRole(userWithRole?.role, "admin", "org_admin", "super_admin");
   const isHod = isRole(userWithRole?.role, "l3", "manager");
-  const canAccessSettings = isOrgAdmin || isHod;
+  const isL2 = isRole(userWithRole?.role, "l2", "program_manager");
+  const isL1 = isRole(userWithRole?.role, "l1", "member", "faculty");
 
-  // HODs only see limited tabs
+  // L1 users only see Account tab
+  if (isL1 && !isHod && !isL2 && !isOrgAdmin) {
+    return (
+      <Layout>
+        <div className="max-w-4xl mx-auto p-6 space-y-6">
+          <PageHeader
+            title="Settings"
+            description="Manage your account settings"
+          />
+
+          <Tabs defaultValue="account" className="space-y-6">
+            <TabsList className="grid w-full h-auto p-1 grid-cols-1" style={{ gridTemplateColumns: "repeat(1, minmax(0, 1fr))" }}>
+              <TabsTrigger value="account" className="flex items-center gap-2 py-2.5">
+                <User className="h-4 w-4" />
+                <span className="hidden sm:inline">Account</span>
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="account">
+              <AccountSettings />
+            </TabsContent>
+          </Tabs>
+        </div>
+      </Layout>
+    );
+  }
+
+  // HODs and L2 only see limited tabs, redirect if not allowed
+  const canAccessSettings = isOrgAdmin || isHod || isL2;
   if (!canAccessSettings) {
     return <Navigate to="/dashboard" replace />;
   }
@@ -35,7 +64,7 @@ export default function Settings() {
   // Determine number of tabs based on role
   const getTabCount = () => {
     if (isOrgAdmin) return 6; // Timesheet, Categories, Workflow, Organization, Labels, Account
-    if (isHod) return 3; // Timesheet, Categories, Account
+    if (isHod || isL2) return 3; // Timesheet, Categories, Account
     return 3;
   };
 
@@ -44,7 +73,7 @@ export default function Settings() {
       <div className="max-w-4xl mx-auto p-6 space-y-6">
         <PageHeader
           title="Settings"
-          description={isHod 
+          description={isHod || isL2
             ? "Manage your department's timesheet settings and preferences" 
             : "Manage your preferences and organization settings"
           }

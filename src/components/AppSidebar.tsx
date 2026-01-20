@@ -94,7 +94,8 @@ export function AppSidebar() {
       items.push(
         { to: "/timesheet", icon: FileText, label: "Timesheet", group: "Work" },
         { to: "/calendar", icon: CalendarDays, label: "Calendar", group: "Work" },
-        { to: "/bulk-import", icon: Upload, label: "Bulk Upload", group: "Work" }
+        { to: "/bulk-import", icon: Upload, label: "Bulk Upload", group: "Work" },
+        { to: "/settings", icon: Settings, label: "Settings", group: "Tools" }
       );
     }
 

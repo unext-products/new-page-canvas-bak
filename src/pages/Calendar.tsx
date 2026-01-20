@@ -76,8 +76,8 @@ export default function CalendarPage() {
   const [selectedVerticalId, setSelectedVerticalId] = useState<string | null>(null);
   const [userVerticals, setUserVerticals] = useState<{ id: string; name: string; code: string }[]>([]);
   
-  // Threshold validation
-  const { validateEntry, thresholds } = useThresholds(selectedVerticalId);
+  // Threshold validation (includes holidays and working days)
+  const { validateEntry, thresholds, isHoliday, isWorkingDay, holidays } = useThresholds(selectedVerticalId);
   
   // Hierarchy form state
   const [programId, setProgramId] = useState("");
@@ -233,6 +233,28 @@ export default function CalendarPage() {
     if (day > new Date()) return;
     
     const dateKey = format(day, "yyyy-MM-dd");
+    
+    // Check if it's a holiday
+    const holiday = isHoliday(dateKey);
+    if (holiday) {
+      toast({
+        title: "Holiday",
+        description: `${holiday.name} - Cannot add timesheet entries on holidays`,
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Check if it's a working day
+    if (!isWorkingDay(day)) {
+      toast({
+        title: "Non-Working Day",
+        description: "Cannot add timesheet entries on non-working days",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     // Check if it's a leave day
     if (leavesByDate.has(dateKey)) {
       toast({
@@ -251,6 +273,28 @@ export default function CalendarPage() {
     if (selectedDay > new Date()) return;
     
     const dateKey = format(selectedDay, "yyyy-MM-dd");
+    
+    // Check if it's a holiday
+    const holiday = isHoliday(dateKey);
+    if (holiday) {
+      toast({
+        title: "Holiday",
+        description: `${holiday.name} - Cannot add timesheet entries on holidays`,
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Check if it's a working day
+    if (!isWorkingDay(selectedDay)) {
+      toast({
+        title: "Non-Working Day",
+        description: "Cannot add timesheet entries on non-working days",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     if (leavesByDate.has(dateKey)) {
       toast({
         title: "Leave Day",
@@ -553,11 +597,13 @@ export default function CalendarPage() {
     const dateKey = format(day, "yyyy-MM-dd");
     const dayEntries = entriesByDate.get(dateKey) || [];
     const leave = leavesByDate.get(dateKey);
+    const holiday = isHoliday(dateKey);
+    const isWorkingDayFlag = isWorkingDay(day);
     const totalMinutes = dayEntries.reduce((sum, e) => sum + calculateDurationMinutes(e.start_time, e.end_time), 0);
     const hours = Math.floor(totalMinutes / 60);
     const mins = totalMinutes % 60;
 
-    return { dayEntries, leave, totalMinutes, hours, mins };
+    return { dayEntries, leave, holiday, isWorkingDayFlag, totalMinutes, hours, mins };
   };
 
   const handleTodayClick = () => {
@@ -694,12 +740,13 @@ export default function CalendarPage() {
                   
                   {/* Day cells */}
                   {daysInMonth.map(day => {
-                    const { dayEntries, leave, hours, mins } = getDayContent(day);
+                    const { dayEntries, leave, holiday, isWorkingDayFlag, hours, mins } = getDayContent(day);
                     const isCurrentMonth = isSameMonth(day, currentMonth);
                     const isTodayDate = isToday(day);
                     const isFuture = day > new Date();
-                    const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+                    const isNonWorking = !isWorkingDayFlag;
                     const hasBulkUpload = dayEntries.some(e => e.source === "bulk_upload");
+                    const isBlocked = !!holiday || isNonWorking || !!leave || isFuture;
 
                     return (
                       <div
@@ -708,17 +755,20 @@ export default function CalendarPage() {
                           "min-h-24 p-2 rounded-lg border cursor-pointer transition-colors",
                           !isCurrentMonth && "opacity-50",
                           isTodayDate && "border-primary bg-primary/5",
-                          leave && "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800",
-                          isWeekend && !leave && "bg-muted/50",
+                          holiday && "bg-destructive/10 border-destructive/30",
+                          leave && !holiday && "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800",
+                          isNonWorking && !leave && !holiday && "bg-muted/50",
                           isFuture && "opacity-50 cursor-not-allowed",
-                          !isFuture && !leave && "hover:bg-muted/50"
+                          !isBlocked && "hover:bg-muted/50",
+                          isBlocked && "cursor-not-allowed"
                         )}
                         onClick={() => !isFuture && handleDayClick(day)}
                       >
                         <div className="flex items-center justify-between mb-1">
                           <span className={cn(
                             "text-sm font-medium",
-                            isTodayDate && "text-primary"
+                            isTodayDate && "text-primary",
+                            holiday && "text-destructive"
                           )}>
                             {format(day, "d")}
                           </span>
@@ -729,7 +779,11 @@ export default function CalendarPage() {
                           )}
                         </div>
                         
-                        {leave ? (
+                        {holiday ? (
+                          <Badge variant="destructive" className="text-[10px]">
+                            {holiday.name.length > 10 ? holiday.name.slice(0, 10) + "..." : holiday.name}
+                          </Badge>
+                        ) : leave ? (
                           <Badge variant="secondary" className="text-[10px] bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
                             {formatLeaveType(leave.leave_type)}
                           </Badge>
@@ -783,6 +837,10 @@ export default function CalendarPage() {
                   <div className="flex items-center gap-1.5">
                     <div className="h-3 w-3 rounded bg-blue-100 dark:bg-blue-900/50 border border-blue-200 dark:border-blue-800" />
                     <span className="text-muted-foreground">Leave</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="h-3 w-3 rounded bg-destructive/10 border border-destructive/30" />
+                    <span className="text-muted-foreground">Holiday</span>
                   </div>
                 </div>
               </>
