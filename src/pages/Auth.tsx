@@ -1,23 +1,18 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Link, useSearchParams } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { signIn, signUp } from "@/lib/supabase";
+import { signIn } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, BarChart3, Shield, ArrowLeft, Clock } from "lucide-react";
+import { CheckCircle2, BarChart3, ArrowLeft, Clock } from "lucide-react";
 import { getUserErrorMessage } from "@/lib/errorHandler";
 import { Logo } from "@/components/Logo";
 
 export default function Auth() {
-  const [searchParams] = useSearchParams();
-  const [isLogin, setIsLogin] = useState(!searchParams.get("signup"));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
-  const [organizationName, setOrganizationName] = useState("");
-  const [organizationCode, setOrganizationCode] = useState("");
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -34,48 +29,23 @@ export default function Auth() {
     setLoading(true);
 
     try {
-      if (isLogin) {
-        const { error } = await signIn(email, password);
-        if (error) {
-          if (error.message.includes("Invalid login credentials")) {
-            toast({
-              title: "Login failed",
-              description: "Invalid email or password",
-              variant: "destructive",
-            });
-          } else {
-            toast({
-              title: "Error",
-              description: getUserErrorMessage(error, "sign in"),
-              variant: "destructive",
-            });
-          }
-        } else {
-          navigate("/dashboard");
-        }
-      } else {
-        const { error } = await signUp(email, password, fullName, organizationName, organizationCode);
-        if (error) {
-          if (error.message.includes("already registered")) {
-            toast({
-              title: "Account exists",
-              description: "This email is already registered. Please sign in.",
-              variant: "destructive",
-            });
-          } else {
-            toast({
-              title: "Error",
-              description: getUserErrorMessage(error, "sign up"),
-              variant: "destructive",
-            });
-          }
+      const { error } = await signIn(email, password);
+      if (error) {
+        if (error.message.includes("Invalid login credentials")) {
+          toast({
+            title: "Login failed",
+            description: "Invalid email or password",
+            variant: "destructive",
+          });
         } else {
           toast({
-            title: "Success",
-            description: "Account created! Your organization has been set up and you are now the admin.",
+            title: "Error",
+            description: getUserErrorMessage(error, "sign in"),
+            variant: "destructive",
           });
-          setIsLogin(true);
         }
+      } else {
+        navigate("/dashboard");
       }
     } finally {
       setLoading(false);
@@ -144,62 +114,13 @@ export default function Auth() {
             {/* Form Card */}
             <div className="rounded-2xl bg-landing-card border border-landing-border p-8">
               <div className="text-center mb-8">
-                <h2 className="text-2xl font-semibold text-white mb-2">{isLogin ? "Welcome" : "Get started"}</h2>
+                <h2 className="text-2xl font-semibold text-white mb-2">Welcome</h2>
                 <p className="text-landing-secondary text-sm">
-                  {isLogin ? "Sign in to access your dashboard" : "Create your account to begin"}
+                  Sign in to access your dashboard
                 </p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
-                {!isLogin && (
-                  <>
-                    <div className="space-y-2">
-                      <Label htmlFor="fullName" className="text-landing-secondary text-sm">
-                        Full Name
-                      </Label>
-                      <Input
-                        id="fullName"
-                        type="text"
-                        placeholder="John Doe"
-                        value={fullName}
-                        onChange={(e) => setFullName(e.target.value)}
-                        required
-                        className="h-11 bg-landing-dark border-landing-border text-white placeholder:text-landing-muted focus:border-primary"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="organizationName" className="text-landing-secondary text-sm">
-                        Organization Name
-                      </Label>
-                      <Input
-                        id="organizationName"
-                        type="text"
-                        placeholder="Acme University"
-                        value={organizationName}
-                        onChange={(e) => setOrganizationName(e.target.value)}
-                        required
-                        className="h-11 bg-landing-dark border-landing-border text-white placeholder:text-landing-muted focus:border-primary"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="organizationCode" className="text-landing-secondary text-sm">
-                        Organization Code
-                      </Label>
-                      <Input
-                        id="organizationCode"
-                        type="text"
-                        placeholder="ACME"
-                        value={organizationCode}
-                        onChange={(e) => setOrganizationCode(e.target.value)}
-                        required
-                        className="h-11 bg-landing-dark border-landing-border text-white placeholder:text-landing-muted focus:border-primary"
-                      />
-                    </div>
-                  </>
-                )}
-
                 <div className="space-y-2">
                   <Label htmlFor="email" className="text-landing-secondary text-sm">
                     Email
@@ -234,25 +155,9 @@ export default function Auth() {
                   className="w-full h-11 bg-white text-landing-dark hover:bg-white/90 font-medium"
                   disabled={loading}
                 >
-                  {loading ? "Loading..." : isLogin ? "Sign In" : "Create Account"}
+                  {loading ? "Loading..." : "Sign In"}
                 </Button>
               </form>
-
-              <div className="mt-6 space-y-4">
-                <div className="text-center">
-                  <span className="text-sm text-landing-muted">
-                    {isLogin ? "Don't have an account?" : "Already have an account?"}
-                  </span>{" "}
-                  <button
-                    type="button"
-                    className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
-                    onClick={() => setIsLogin(!isLogin)}
-                  >
-                    {isLogin ? "Sign up" : "Sign in"}
-                  </button>
-                </div>
-
-              </div>
             </div>
           </div>
         </div>
