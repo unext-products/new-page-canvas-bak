@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-import { CheckCircle, XCircle, Clock, Calendar, User, Filter, X, ClipboardCheck, CalendarDays, List } from "lucide-react";
+import { CheckCircle, XCircle, Clock, Calendar, User, Filter, X, ClipboardCheck, CalendarDays, List, ZoomIn } from "lucide-react";
 import { format } from "date-fns";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -35,6 +35,7 @@ interface TimesheetEntry {
   activity_type: string;
   activity_subtype: string | null;
   notes: string | null;
+  status: string;
   department_code?: string | null;
   vertical_id?: string | null;
   vertical_code?: string | null;
@@ -88,6 +89,12 @@ export default function Approvals() {
   
   // View mode state
   const [viewMode, setViewMode] = useState<"list" | "day">("list");
+  
+  // New: Show all statuses toggle (default: show all)
+  const [showPendingOnly, setShowPendingOnly] = useState(false);
+  
+  // New: Slot interval for zoom view
+  const [slotInterval, setSlotInterval] = useState<"1hour" | "15min">("1hour");
   
   // Bulk action state
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
@@ -277,11 +284,12 @@ export default function Approvals() {
       const allUserIds = Array.from(userIdsToApprove);
       
       if (allUserIds.length > 0) {
+        // Fetch all statuses to support showing approved/rejected entries
         const { data, error } = await supabase
           .from("timesheet_entries")
-          .select("id, entry_date, start_time, end_time, activity_type, activity_subtype, notes, user_id, department_code, vertical_id, vertical_code, program_id, batch_id, batch_name, term_id, term_name, subject_id, subject_code")
+          .select("id, entry_date, start_time, end_time, activity_type, activity_subtype, notes, user_id, department_code, vertical_id, vertical_code, program_id, batch_id, batch_name, term_id, term_name, subject_id, subject_code, status")
           .in("user_id", allUserIds)
-          .eq("status", "submitted")
+          .in("status", ["submitted", "approved", "rejected"])
           .order("entry_date", { ascending: false });
         
         if (error) throw error;
@@ -478,14 +486,22 @@ export default function Approvals() {
   }, [entries, leaveEntries]);
 
   // Filter entries based on selections (only applies to timesheet entries)
+  // For actions, we only operate on "submitted" entries
   const filteredEntries = useMemo(() => {
     return entries.filter(entry => {
       if (filterFaculty && entry.user_id !== filterFaculty) return false;
       if (filterActivity && entry.activity_type !== filterActivity) return false;
       if (filterDate && entry.entry_date !== format(filterDate, "yyyy-MM-dd")) return false;
+      // Apply showPendingOnly toggle
+      if (showPendingOnly && entry.status !== "submitted") return false;
       return true;
     });
-  }, [entries, filterFaculty, filterActivity, filterDate]);
+  }, [entries, filterFaculty, filterActivity, filterDate, showPendingOnly]);
+  
+  // Pending entries for actions (always only submitted)
+  const pendingEntries = useMemo(() => {
+    return entries.filter(entry => entry.status === "submitted");
+  }, [entries]);
 
   // Filter leave entries based on faculty selection
   const filteredLeaveEntries = useMemo(() => {
@@ -530,36 +546,51 @@ export default function Approvals() {
       leaveType?: string;
     }>();
     
+    // Filter out old rejected entries if a replacement exists in same time slot
+    const entriesForDate = filteredEntries.filter(entry => entry.entry_date === dateStr);
+    const filteredMatrixEntries = entriesForDate.filter(entry => {
+      if (entry.status === "rejected") {
+        // Check if there's a newer entry (submitted or approved) in the same time slot for this user
+        const hasReplacement = entriesForDate.some(other => 
+          other.id !== entry.id &&
+          other.user_id === entry.user_id &&
+          other.status !== "rejected" &&
+          other.start_time === entry.start_time &&
+          other.end_time === entry.end_time
+        );
+        if (hasReplacement) return false;
+      }
+      return true;
+    });
+    
     // Add faculty with entries
-    filteredEntries
-      .filter(entry => entry.entry_date === dateStr)
-      .forEach(entry => {
-        const matrixEntry: MatrixTimesheetEntry = {
-          id: entry.id,
-          user_id: entry.user_id,
-          entry_date: entry.entry_date,
-          start_time: entry.start_time,
-          end_time: entry.end_time,
-          activity_type: entry.activity_type,
-          activity_subtype: entry.activity_subtype,
-          notes: entry.notes,
-          status: "submitted",
-          vertical_code: (entry as any).vertical_code || (entry as any).department_code || null,
-          batch_name: (entry as any).batch_name || null,
-        };
-        const existing = facultyMap.get(entry.user_id);
-        if (existing) {
-          existing.entries.push(matrixEntry);
-        } else {
-          facultyMap.set(entry.user_id, {
-            userId: entry.user_id,
-            name: entry.profiles.full_name,
-            avatarUrl: entry.profiles.avatar_url,
-            entries: [matrixEntry],
-            isOnLeave: false,
-          });
-        }
-      });
+    filteredMatrixEntries.forEach(entry => {
+      const matrixEntry: MatrixTimesheetEntry = {
+        id: entry.id,
+        user_id: entry.user_id,
+        entry_date: entry.entry_date,
+        start_time: entry.start_time,
+        end_time: entry.end_time,
+        activity_type: entry.activity_type,
+        activity_subtype: entry.activity_subtype,
+        notes: entry.notes,
+        status: entry.status, // Use actual status
+        vertical_code: entry.vertical_code || entry.department_code || null,
+        batch_name: entry.batch_name || null,
+      };
+      const existing = facultyMap.get(entry.user_id);
+      if (existing) {
+        existing.entries.push(matrixEntry);
+      } else {
+        facultyMap.set(entry.user_id, {
+          userId: entry.user_id,
+          name: entry.profiles.full_name,
+          avatarUrl: entry.profiles.avatar_url,
+          entries: [matrixEntry],
+          isOnLeave: false,
+        });
+      }
+    });
     
     // Add faculty on leave
     filteredLeaveEntries
@@ -901,6 +932,53 @@ export default function Approvals() {
                       Day
                     </Button>
                   </div>
+                  
+                  {/* Day View Options: Zoom and Show Pending Only */}
+                  {viewMode === "day" && (
+                    <div className="flex items-center gap-3">
+                      {/* Zoom View Toggle */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">View:</span>
+                        <div className="flex items-center rounded-lg border bg-muted/50 p-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSlotInterval("1hour")}
+                            className={cn(
+                              "h-7 px-2 text-xs",
+                              slotInterval === "1hour" && "bg-background shadow-sm"
+                            )}
+                          >
+                            1 Hour
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSlotInterval("15min")}
+                            className={cn(
+                              "h-7 px-2 text-xs",
+                              slotInterval === "15min" && "bg-background shadow-sm"
+                            )}
+                          >
+                            <ZoomIn className="h-3 w-3 mr-1" />
+                            15 Min
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      {/* Show Pending Only Toggle */}
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="showPendingOnly"
+                          checked={showPendingOnly}
+                          onCheckedChange={(checked) => setShowPendingOnly(checked === true)}
+                        />
+                        <label htmlFor="showPendingOnly" className="text-sm cursor-pointer">
+                          Show pending only
+                        </label>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Filter Badges */}
@@ -986,8 +1064,8 @@ export default function Approvals() {
                 onEntryClick={handleMatrixEntryClick}
                 onApprove={handleMatrixApprove}
                 onReject={handleMatrixReject}
-                showAllStatuses={false}
-                title="Pending Approvals - Day View"
+                showAllStatuses={!showPendingOnly}
+                title={showPendingOnly ? "Pending Approvals - Day View" : "All Entries - Day View"}
                 selectedEntries={selectedEntries}
                 onSelectionChange={(entryId, selected) => {
                   const newSelected = new Set(selectedEntries);
@@ -999,6 +1077,21 @@ export default function Approvals() {
                   setSelectedEntries(newSelected);
                 }}
                 showSelection={true}
+                onSelectAllForFaculty={(userId, entryIds, selected) => {
+                  const newSelected = new Set(selectedEntries);
+                  // Only select submitted entries (actionable)
+                  const submittedIds = entryIds.filter(id => {
+                    const entry = entries.find(e => e.id === id);
+                    return entry?.status === "submitted";
+                  });
+                  if (selected) {
+                    submittedIds.forEach(id => newSelected.add(id));
+                  } else {
+                    submittedIds.forEach(id => newSelected.delete(id));
+                  }
+                  setSelectedEntries(newSelected);
+                }}
+                slotInterval={slotInterval}
               />
             ) : (
               /* List View */

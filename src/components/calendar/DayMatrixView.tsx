@@ -3,13 +3,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { HOUR_SLOTS, calculateSlotCoverage, getStatusBgColor } from "./HourSlots";
+import { HOUR_SLOTS, QUARTER_HOUR_SLOTS, calculateSlotCoverage, getStatusBgColor } from "./HourSlots";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format } from "date-fns";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CheckCircle, XCircle } from "lucide-react";
+import { calculateDurationMinutes } from "@/lib/timesheetUtils";
 
 export interface MatrixTimesheetEntry {
   id: string;
@@ -47,6 +48,10 @@ interface DayMatrixViewProps {
   selectedEntries?: Set<string>;
   onSelectionChange?: (entryId: string, selected: boolean) => void;
   showSelection?: boolean;
+  // New: Faculty select all
+  onSelectAllForFaculty?: (userId: string, entryIds: string[], selected: boolean) => void;
+  // New: Slot interval for zoom view
+  slotInterval?: "1hour" | "15min";
 }
 
 export function DayMatrixView({ 
@@ -60,6 +65,8 @@ export function DayMatrixView({
   selectedEntries,
   onSelectionChange,
   showSelection = false,
+  onSelectAllForFaculty,
+  slotInterval = "1hour",
 }: DayMatrixViewProps) {
   const formatLeaveType = (type: string) => {
     const labels: Record<string, string> = {
@@ -73,10 +80,13 @@ export function DayMatrixView({
     return labels[type] || type;
   };
 
+  // Choose slots based on interval
+  const SLOTS = slotInterval === "15min" ? QUARTER_HOUR_SLOTS : HOUR_SLOTS;
+
   // Process faculty data with slot coverage
   const processedData = useMemo(() => {
     return facultyData.map(faculty => {
-      const slotData = HOUR_SLOTS.map(slot => {
+      const slotData = SLOTS.map(slot => {
         const coveringEntries = faculty.entries.filter(entry => {
           const { covered } = calculateSlotCoverage(entry.start_time, entry.end_time, slot.start, slot.end);
           return covered;
@@ -91,17 +101,43 @@ export function DayMatrixView({
         };
       });
       
+      // Calculate totals for this faculty
+      const pendingMinutes = faculty.entries
+        .filter(e => e.status === "submitted")
+        .reduce((sum, e) => sum + calculateDurationMinutes(e.start_time, e.end_time), 0);
+      
+      const approvedMinutes = faculty.entries
+        .filter(e => e.status === "approved")
+        .reduce((sum, e) => sum + calculateDurationMinutes(e.start_time, e.end_time), 0);
+      
       return {
         ...faculty,
         slots: slotData,
+        pendingMinutes,
+        approvedMinutes,
       };
     });
-  }, [facultyData]);
+  }, [facultyData, SLOTS]);
 
   // Get total entry count for selection display
   const totalEntries = useMemo(() => {
     return facultyData.reduce((sum, faculty) => sum + faculty.entries.length, 0);
   }, [facultyData]);
+
+  // Check if all entries for a faculty are selected
+  const isFacultyAllSelected = (faculty: FacultyData) => {
+    if (!selectedEntries || faculty.entries.length === 0) return false;
+    return faculty.entries.every(e => selectedEntries.has(e.id));
+  };
+
+  // Format minutes to display
+  const formatMinutesToHours = (minutes: number) => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    if (hours === 0) return `${mins}m`;
+    if (mins === 0) return `${hours}h`;
+    return `${hours}h ${mins}m`;
+  };
 
   if (facultyData.length === 0) {
     return (
@@ -128,7 +164,7 @@ export function DayMatrixView({
         </CardHeader>
         <CardContent className="p-0">
           <ScrollArea className="w-full">
-            <div className="min-w-[900px]">
+            <div className={cn("min-w-[900px]", slotInterval === "15min" && "min-w-[2200px]")}>
               {/* Header row with time slots */}
               <div className="flex border-b bg-muted/50 sticky top-0 z-10">
                 <div className="w-52 min-w-52 p-3 font-medium text-sm border-r flex items-center gap-2">
@@ -137,8 +173,14 @@ export function DayMatrixView({
                   )}
                   <span>Faculty</span>
                 </div>
-                {HOUR_SLOTS.map(slot => (
-                  <div key={slot.start} className="flex-1 min-w-[100px] p-2 text-center text-xs font-medium border-r last:border-r-0">
+                {SLOTS.map(slot => (
+                  <div 
+                    key={slot.start} 
+                    className={cn(
+                      "p-2 text-center text-xs font-medium border-r last:border-r-0",
+                      slotInterval === "15min" ? "flex-1 min-w-[55px]" : "flex-1 min-w-[100px]"
+                    )}
+                  >
                     {slot.label}
                   </div>
                 ))}
@@ -146,23 +188,54 @@ export function DayMatrixView({
 
               {/* Faculty rows */}
               {processedData.map(faculty => (
-                <div key={faculty.userId} className="flex border-b last:border-b-0 hover:bg-muted/30 transition-colors min-h-[60px]">
-                  {/* Faculty info */}
-                  <div className="w-52 min-w-52 p-2 border-r flex items-center gap-2">
-                    <Avatar className="h-8 w-8 shrink-0">
-                      <AvatarImage src={faculty.avatarUrl || undefined} />
-                      <AvatarFallback className="text-xs">
-                        {faculty.name.split(" ").map(n => n[0]).join("")}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium truncate">{faculty.name}</p>
-                      {faculty.isOnLeave && (
-                        <Badge variant="secondary" className="text-[10px] bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
-                          {formatLeaveType(faculty.leaveType || "other")}
-                        </Badge>
+                <div key={faculty.userId} className="flex border-b last:border-b-0 hover:bg-muted/30 transition-colors min-h-[80px]">
+                  {/* Faculty info with select-all and quick totals */}
+                  <div className="w-52 min-w-52 p-2 border-r flex flex-col justify-center gap-1">
+                    <div className="flex items-center gap-2">
+                      {/* Faculty-wise Select All checkbox */}
+                      {showSelection && onSelectAllForFaculty && faculty.entries.length > 0 && (
+                        <Checkbox
+                          checked={isFacultyAllSelected(faculty)}
+                          onCheckedChange={(checked) => {
+                            const facultyEntryIds = faculty.entries.map(e => e.id);
+                            onSelectAllForFaculty(faculty.userId, facultyEntryIds, checked === true);
+                          }}
+                          className="h-4 w-4 shrink-0"
+                        />
                       )}
+                      {showSelection && (!onSelectAllForFaculty || faculty.entries.length === 0) && (
+                        <div className="w-4 shrink-0" />
+                      )}
+                      <Avatar className="h-8 w-8 shrink-0">
+                        <AvatarImage src={faculty.avatarUrl || undefined} />
+                        <AvatarFallback className="text-xs">
+                          {faculty.name.split(" ").map(n => n[0]).join("")}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium truncate">{faculty.name}</p>
+                        {faculty.isOnLeave && (
+                          <Badge variant="secondary" className="text-[10px] bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
+                            {formatLeaveType(faculty.leaveType || "other")}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
+                    {/* Quick totals */}
+                    {!faculty.isOnLeave && (faculty.pendingMinutes > 0 || faculty.approvedMinutes > 0) && (
+                      <div className="flex flex-wrap gap-2 text-[10px] pl-6">
+                        {faculty.pendingMinutes > 0 && (
+                          <span className="text-yellow-600 dark:text-yellow-400">
+                            Pending: {formatMinutesToHours(faculty.pendingMinutes)}
+                          </span>
+                        )}
+                        {faculty.approvedMinutes > 0 && (
+                          <span className="text-green-600 dark:text-green-400">
+                            Approved: {formatMinutesToHours(faculty.approvedMinutes)}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Time slots */}
@@ -174,7 +247,10 @@ export function DayMatrixView({
                     faculty.slots.map(slot => (
                       <div 
                         key={slot.start} 
-                        className="flex-1 min-w-[100px] p-0.5 border-r last:border-r-0 flex flex-col gap-0.5"
+                        className={cn(
+                          "p-0.5 border-r last:border-r-0 flex flex-col gap-0.5",
+                          slotInterval === "15min" ? "flex-1 min-w-[55px]" : "flex-1 min-w-[100px]"
+                        )}
                       >
                         {slot.entries.length > 0 ? (
                           slot.entries.map(entry => {
@@ -183,7 +259,7 @@ export function DayMatrixView({
                               <div
                                 key={entry.id}
                                 className={cn(
-                                  "relative rounded text-xs flex items-center transition-all group min-h-[52px] overflow-hidden",
+                                  "relative rounded text-xs flex items-center transition-all group min-h-[56px] overflow-hidden",
                                   getStatusBgColor(entry.status),
                                   "border-l-[3px]",
                                   entry.status === "approved" && "border-l-green-500",
@@ -206,7 +282,7 @@ export function DayMatrixView({
                                   </div>
                                 )}
                                 
-                                {/* Entry content - truncated with vertical/program */}
+                                {/* Entry content - show activity + time */}
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <div 
@@ -220,7 +296,7 @@ export function DayMatrixView({
                                         {entry.activity_type.replace(/_/g, " ")}
                                       </span>
                                       <span className="text-[10px] text-muted-foreground leading-tight truncate">
-                                        {entry.vertical_code || "-"} • {entry.batch_name || "-"}
+                                        {entry.start_time} - {entry.end_time}
                                       </span>
                                     </div>
                                   </TooltipTrigger>
@@ -252,7 +328,7 @@ export function DayMatrixView({
                                   </TooltipContent>
                                 </Tooltip>
 
-                                {/* Inline action buttons - fixed to not overflow */}
+                                {/* Inline action buttons - only for submitted entries */}
                                 {(onApprove || onReject) && entry.status === "submitted" && (
                                   <div className="flex flex-col gap-0.5 pr-1 shrink-0 flex-none">
                                     {onApprove && (
@@ -301,7 +377,10 @@ export function DayMatrixView({
                             );
                           })
                         ) : (
-                          <div className="h-[52px] w-full rounded bg-muted/30 border border-dashed border-muted-foreground/20" />
+                          <div className={cn(
+                            "w-full rounded bg-muted/30 border border-dashed border-muted-foreground/20",
+                            slotInterval === "15min" ? "h-[40px]" : "h-[56px]"
+                          )} />
                         )}
                       </div>
                     ))
