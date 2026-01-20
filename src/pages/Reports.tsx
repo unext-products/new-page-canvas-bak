@@ -305,6 +305,7 @@ export default function Reports() {
                     onValueChange={setSelectedFaculty}
                     includeAll={false}
                     departmentIds={isHod ? hodDepartmentIds : undefined}
+                    includeInactive={true}
                   />
                 </div>
               ) : (

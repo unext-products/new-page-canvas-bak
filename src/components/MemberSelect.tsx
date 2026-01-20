@@ -23,6 +23,7 @@ interface Member {
   full_name: string;
   email: string;
   department_names: string[];
+  is_active: boolean;
 }
 
 interface MemberSelectProps {
@@ -30,25 +31,33 @@ interface MemberSelectProps {
   onValueChange: (value: string) => void;
   includeAll?: boolean;
   departmentIds?: string[]; // Filter members by these department IDs
+  includeInactive?: boolean; // Include inactive users for historical data access
 }
 
-export function MemberSelect({ value, onValueChange, includeAll = false, departmentIds }: MemberSelectProps) {
+export function MemberSelect({ value, onValueChange, includeAll = false, departmentIds, includeInactive = false }: MemberSelectProps) {
   const [open, setOpen] = useState(false);
   const [members, setMembers] = useState<Member[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     fetchMembers();
-  }, [departmentIds]);
+  }, [departmentIds, includeInactive]);
 
   const fetchMembers = async () => {
     try {
-      // Get all active profiles
-      const { data: profiles, error: profilesError } = await supabase
+      // Get profiles (optionally include inactive)
+      let profilesQuery = supabase
         .from("profiles")
-        .select("id, full_name")
-        .eq("is_active", true)
+        .select("id, full_name, is_active")
         .order("full_name");
+
+      if (!includeInactive) {
+        profilesQuery = profilesQuery.eq("is_active", true);
+      }
+
+      const { data: profiles, error: profilesError } = await profilesQuery;
+
+      if (profilesError) throw profilesError;
 
       if (profilesError) throw profilesError;
 
@@ -143,8 +152,15 @@ export function MemberSelect({ value, onValueChange, includeAll = false, departm
             full_name: p.full_name,
             email: p.id,
             department_names: vertNames.length > 0 ? vertNames : ["N/A"],
+            is_active: p.is_active,
           };
         }) || [];
+
+      // Sort: active first, then inactive
+      memberData.sort((a, b) => {
+        if (a.is_active === b.is_active) return 0;
+        return a.is_active ? -1 : 1;
+      });
 
       setMembers(memberData);
     } catch (error) {
@@ -228,7 +244,14 @@ export function MemberSelect({ value, onValueChange, includeAll = false, departm
                     )}
                   />
                   <div className="flex flex-col">
-                    <span>{member.full_name}</span>
+                    <div className="flex items-center gap-2">
+                      <span>{member.full_name}</span>
+                      {!member.is_active && (
+                        <Badge variant="outline" className="text-[10px] px-1 py-0 text-muted-foreground">
+                          Inactive
+                        </Badge>
+                      )}
+                    </div>
                     <div className="flex items-center gap-1">
                       <span className="text-xs text-muted-foreground">
                         {member.department_names[0]}

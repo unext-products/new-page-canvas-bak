@@ -57,6 +57,25 @@ export async function signIn(email: string, password: string) {
     email,
     password,
   });
+
+  // If login succeeded, check if user is active
+  if (data?.user && !error) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("is_active")
+      .eq("id", data.user.id)
+      .single();
+
+    // If user is deactivated, sign them out and return error
+    if (profile && profile.is_active === false) {
+      await supabase.auth.signOut();
+      return {
+        data: null,
+        error: { message: "Your account has been deactivated. Please contact your administrator." } as any,
+      };
+    }
+  }
+
   return { data, error };
 }
 
