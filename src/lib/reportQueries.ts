@@ -447,12 +447,17 @@ export function groupEntriesByPeriod(
   }, {} as Record<string, any[]>);
 }
 
-export async function fetchFacultyList() {
-  const { data: profiles, error: profilesError } = await supabase
+export async function fetchFacultyList(includeInactive = false) {
+  let query = supabase
     .from("profiles")
-    .select("id, full_name")
-    .eq("is_active", true)
+    .select("id, full_name, is_active")
     .order("full_name");
+
+  if (!includeInactive) {
+    query = query.eq("is_active", true);
+  }
+
+  const { data: profiles, error: profilesError } = await query;
 
   if (profilesError) throw profilesError;
 
@@ -461,7 +466,7 @@ export async function fetchFacultyList() {
     .from("user_roles")
     .select("user_id")
     .in("user_id", userIds)
-    .eq("role", "faculty");
+    .in("role", ["l1", "l2", "faculty", "program_manager"]);
 
   if (rolesError) throw rolesError;
 
