@@ -86,8 +86,12 @@ function RoleSettingRow({
   );
 }
 
-export default function ApprovalWorkflowSettings() {
-  const { settings, loading, updateSettings, resetToDefaults, getApprovalChain } = useApprovalSettings();
+interface ApprovalWorkflowSettingsProps {
+  organizationId?: string;
+}
+
+export default function ApprovalWorkflowSettings({ organizationId }: ApprovalWorkflowSettingsProps) {
+  const { settings, loading, updateSettings, resetToDefaults, getApprovalChain } = useApprovalSettings(organizationId);
   const { roleLabel } = useLabels();
 
   if (loading) {

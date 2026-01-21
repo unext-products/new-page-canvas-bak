@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Download, Filter, ChevronDown, ChevronLeft, ChevronRight, BarChart3 } from "lucide-react";
 import { DateRangePicker } from "@/components/DateRangePicker";
@@ -54,6 +55,10 @@ export default function Reports() {
   const [selectedFaculty, setSelectedFaculty] = useState<string>("all");
   const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
   
+  // Organization filter for Super Admin
+  const [selectedOrg, setSelectedOrg] = useState<string>("all");
+  const [organizations, setOrganizations] = useState<{ id: string; name: string; code: string }[]>([]);
+  
   const [facultyReport, setFacultyReport] = useState<FacultyReportData | null>(null);
   const [departmentReport, setDepartmentReport] = useState<DepartmentReportData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -65,8 +70,30 @@ export default function Reports() {
   // HOD department filter
   const [hodDepartmentIds, setHodDepartmentIds] = useState<string[]>([]);
 
+  const isSuperAdmin = isRole(userWithRole?.role, "super_admin");
   const isHod = isRole(userWithRole?.role, "l3", "l2", "manager", "program_manager");
   const hasReportsAccess = isRole(userWithRole?.role, "admin", "org_admin", "super_admin", "l3", "l2", "manager", "program_manager");
+
+  // Fetch organizations for Super Admin
+  useEffect(() => {
+    const fetchOrganizations = async () => {
+      if (!isSuperAdmin) return;
+      
+      const { data } = await supabase
+        .from("organizations")
+        .select("id, name, code")
+        .order("name");
+      
+      setOrganizations(data || []);
+      
+      // Set default org if only one available
+      if (data && data.length === 1) {
+        setSelectedOrg(data[0].id);
+      }
+    };
+    
+    fetchOrganizations();
+  }, [isSuperAdmin]);
 
   // Fetch HOD's vertical IDs (from user_verticals, fallback to user_departments)
   useEffect(() => {
@@ -261,7 +288,28 @@ export default function Reports() {
             <CardTitle>Report Type</CardTitle>
             <CardDescription>Select the type of report you want to generate</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            {/* Organization selector for Super Admin */}
+            {isSuperAdmin && (
+              <div className="mb-4">
+                <Label className="mb-2 block">Organization</Label>
+                <Select value={selectedOrg} onValueChange={setSelectedOrg}>
+                  <SelectTrigger className="w-full max-w-xs">
+                    <SelectValue placeholder="Select organization" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {organizations.map(org => (
+                      <SelectItem key={org.id} value={org.id}>
+                        {org.name} ({org.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedOrg === "all" && (
+                  <p className="text-sm text-muted-foreground mt-1">Please select an organization to view reports</p>
+                )}
+              </div>
+            )}
             <ReportTypeToggle value={reportType} onValueChange={setReportType} />
           </CardContent>
         </Card>

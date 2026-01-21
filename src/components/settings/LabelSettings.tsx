@@ -34,7 +34,11 @@ const defaultRoleLabels: RoleLabels = {
   role_l1: "L1",
 };
 
-export default function LabelSettings() {
+interface LabelSettingsProps {
+  organizationId?: string;
+}
+
+export default function LabelSettings({ organizationId }: LabelSettingsProps) {
   const { userWithRole } = useAuth();
   const { labels, roleLabels, refetchLabels } = useLabels();
   const { toast } = useToast();
@@ -48,7 +52,7 @@ export default function LabelSettings() {
     setRoleFormData(roleLabels);
   }, [labels, roleLabels]);
 
-  const isOrgAdmin = userWithRole?.role === "org_admin" || userWithRole?.role === "admin";
+  const isOrgAdmin = userWithRole?.role === "org_admin" || userWithRole?.role === "admin" || userWithRole?.role === "super_admin";
 
   const handleSave = async () => {
     if (!isOrgAdmin) return;

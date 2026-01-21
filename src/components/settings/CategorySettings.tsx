@@ -158,7 +158,11 @@ function SortableCategoryItem({
   );
 }
 
-export default function CategorySettings() {
+interface CategorySettingsProps {
+  organizationId?: string;
+}
+
+export default function CategorySettings({ organizationId }: CategorySettingsProps) {
   const { userWithRole } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -174,7 +178,7 @@ export default function CategorySettings() {
   const [newName, setNewName] = useState("");
   const [newDescription, setNewDescription] = useState("");
 
-  const isOrgAdmin = isRole(userWithRole?.role, "admin", "org_admin");
+  const isOrgAdmin = isRole(userWithRole?.role, "admin", "org_admin", "super_admin");
 
   // DnD sensors
   const sensors = useSensors(
@@ -190,7 +194,7 @@ export default function CategorySettings() {
 
   useEffect(() => {
     fetchCategories();
-  }, [userWithRole]);
+  }, [userWithRole, organizationId]);
 
   // Separate parent categories and child activities
   const parentCategories = useMemo(() => {
@@ -208,11 +212,16 @@ export default function CategorySettings() {
   const fetchCategories = async () => {
     setLoading(true);
     try {
-      const query = supabase
+      let query = supabase
         .from("activity_categories")
         .select("*")
         .order("sort_order", { ascending: true })
         .order("name", { ascending: true });
+      
+      // If organizationId is provided (Super Admin context), filter by it
+      if (organizationId) {
+        query = query.eq("organization_id", organizationId);
+      }
 
       const { data, error } = await query;
 
@@ -266,10 +275,14 @@ export default function CategorySettings() {
 
     setSaving(true);
     try {
-      // Get organization_id
-      const { data: orgData } = await supabase.rpc("get_user_organization", {
-        user_id: userWithRole?.user.id,
-      });
+      // Get organization_id - use passed prop or fetch from user
+      let orgId = organizationId;
+      if (!orgId) {
+        const { data: orgData } = await supabase.rpc("get_user_organization", {
+          user_id: userWithRole?.user.id,
+        });
+        orgId = orgData;
+      }
 
       // Calculate sort_order
       let sortOrder = 0;
@@ -280,7 +293,7 @@ export default function CategorySettings() {
       }
 
       const { error } = await supabase.from("activity_categories").insert({
-        organization_id: orgData,
+        organization_id: orgId,
         name: newName.trim(),
         description: newDescription.trim() || null,
         parent_id: dialogMode === "activity" ? selectedParentId : null,

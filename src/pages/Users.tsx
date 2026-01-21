@@ -49,6 +49,8 @@ interface UserProfile {
   department_name?: string | null;
   program_id?: string | null;
   organization_id?: string | null;
+  organization_code?: string | null;
+  organization_name?: string | null;
   departments: { id: string; name: string }[];
   programs: { id: string; name: string }[];
 }
@@ -73,6 +75,8 @@ export default function Users() {
     email: "",
     phone: "",
     role: "" as UserRole | "",
+    // Organization field for Super Admin
+    organization_id: "",
     // Legacy department fields (for backward compatibility)
     department_id: "",
     department_ids: [] as string[],
@@ -87,6 +91,8 @@ export default function Users() {
     password: "",
     confirmPassword: "",
   });
+  
+  const isSuperAdmin = isRole(userWithRole?.role, "super_admin");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -248,6 +254,10 @@ export default function Users() {
         userProgramsMap.set(up.user_id, programs);
       });
 
+      // Create organization lookup map
+      const orgMap = new Map<string, { name: string; code: string }>();
+      organizations.forEach(o => orgMap.set(o.id, { name: o.name, code: o.code }));
+
       const enrichedUsers: UserProfile[] = profilesData?.map(profile => {
         const roleData = rolesMap.get(profile.id);
         
@@ -275,6 +285,10 @@ export default function Users() {
           }
         }
 
+        // Get organization info for this user
+        const userOrgId = roleData?.organization_id;
+        const userOrg = userOrgId ? orgMap.get(userOrgId) : null;
+
         return {
           ...profile,
           email: emailMap.get(profile.id) || undefined,
@@ -283,6 +297,8 @@ export default function Users() {
           department_name: roleData?.department_id ? deptMap.get(roleData.department_id) || null : null,
           program_id: roleData?.program_id || null,
           organization_id: roleData?.organization_id || null,
+          organization_code: userOrg?.code || null,
+          organization_name: userOrg?.name || null,
           departments: userDepts,
           programs: userProgs,
         };
@@ -471,6 +487,8 @@ export default function Users() {
           password: validatedData.password,
           is_active: formData.is_active,
           role: displayToDbRole[validatedData.role],
+          // Organization ID for Super Admin creating users in other orgs
+          organization_id: isSuperAdmin && formData.organization_id ? formData.organization_id : undefined,
           // New hierarchy fields
           vertical_ids: formData.vertical_ids.length > 0 ? formData.vertical_ids : undefined,
           program_ids: formData.program_ids.length > 0 ? formData.program_ids : undefined,
@@ -496,6 +514,7 @@ export default function Users() {
         email: "",
         phone: "",
         role: "",
+        organization_id: "",
         department_id: "",
         department_ids: [],
         vertical_ids: [],
@@ -668,6 +687,7 @@ export default function Users() {
         email: "",
         phone: "",
         role: "" as UserRole | "",
+        organization_id: "",
         department_id: "",
         department_ids: [],
         vertical_ids: [],
@@ -765,6 +785,7 @@ export default function Users() {
       email: user.email || "",
       phone: user.phone || "",
       role: user.role || "",
+      organization_id: user.organization_id || "",
       department_id: deptIds[0] || user.department_id || "",
       department_ids: deptIds.length > 0 ? deptIds : (user.department_id ? [user.department_id] : []),
       vertical_ids: [], // TODO: Load from user_verticals
@@ -928,6 +949,35 @@ export default function Users() {
                       <p className="text-sm text-destructive mt-1">Passwords do not match</p>
                     )}
                   </div>
+                  {/* Organization selector for Super Admin */}
+                  {isSuperAdmin && (
+                    <div>
+                      <Label>Organization *</Label>
+                      <Select
+                        value={formData.organization_id}
+                        onValueChange={(value) => setFormData({ 
+                          ...formData, 
+                          organization_id: value,
+                          vertical_ids: [],
+                          program_ids: [],
+                          batch_ids: [],
+                          subject_ids: [],
+                        })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select organization" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {organizations.map(org => (
+                            <SelectItem key={org.id} value={org.id}>
+                              {org.name} ({org.code})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  
                   <div>
                     <Label>Role</Label>
                     <UserRoleSelect
@@ -942,6 +992,7 @@ export default function Users() {
                           subject_ids: [],
                         });
                       }}
+                      excludeSuperAdmin={!isSuperAdmin}
                     />
                   </div>
                   
@@ -1030,7 +1081,9 @@ export default function Users() {
                       formData.password.length < 8 ||
                       formData.password !== formData.confirmPassword ||
                       !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password) ||
-                      // L3, L2, L1 require vertical assignment
+                      // Super Admin must select an org when creating non-super_admin users
+                      (isSuperAdmin && !formData.organization_id && formData.role !== "super_admin") ||
+                      // L3, L2, L1 require vertical assignment (except for super_admin and admin roles)
                       ((formData.role === "l3" || formData.role === "l2" || formData.role === "l1") && formData.vertical_ids.length === 0) ||
                       // L1 requires program assignment
                       (formData.role === "l1" && formData.program_ids.length === 0)
@@ -1044,8 +1097,8 @@ export default function Users() {
           </div>
         </div>
 
-        <div className="flex gap-4 mb-6">
-          <div className="relative flex-1">
+        <div className="flex gap-4 mb-6 flex-wrap">
+          <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search by name or email..."
@@ -1054,12 +1107,29 @@ export default function Users() {
               className="pl-10"
             />
           </div>
+          {/* Organization filter for Super Admin */}
+          {isSuperAdmin && (
+            <Select value={orgFilter} onValueChange={setOrgFilter}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Filter by org" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Organizations</SelectItem>
+                {organizations.map(org => (
+                  <SelectItem key={org.id} value={org.id}>
+                    {org.name} ({org.code})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <Select value={roleFilter} onValueChange={setRoleFilter}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Filter by role" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Roles</SelectItem>
+              {isSuperAdmin && <SelectItem value="super_admin">{roleLabel("super_admin")}</SelectItem>}
               <SelectItem value="org_admin">{roleLabel("org_admin")}</SelectItem>
               <SelectItem value="l3">{roleLabel("l3")}</SelectItem>
               <SelectItem value="l2">{roleLabel("l2")}</SelectItem>
@@ -1068,14 +1138,18 @@ export default function Users() {
           </Select>
         </div>
 
-        <div className="border rounded-lg">
+        <div className="border rounded-lg overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>User</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Role</TableHead>
-                <TableHead>{entityLabel("vertical")}</TableHead>
+                {isSuperAdmin ? (
+                  <TableHead>Organization</TableHead>
+                ) : (
+                  <TableHead>{entityLabel("vertical")}</TableHead>
+                )}
                 <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
@@ -1107,17 +1181,27 @@ export default function Users() {
                       <span className="text-muted-foreground">No role</span>
                     )}
                   </TableCell>
-                  <TableCell>
-                    {user.departments.length === 0 ? (
-                      "-"
-                    ) : user.departments.length === 1 ? (
-                      user.departments[0].name
-                    ) : (
-                      <span title={user.departments.map(d => d.name).join(", ")}>
-                        {user.departments[0].name} <Badge variant="secondary" className="ml-1 text-xs">+{user.departments.length - 1}</Badge>
-                      </span>
-                    )}
-                  </TableCell>
+                  {isSuperAdmin ? (
+                    <TableCell>
+                      {user.organization_code ? (
+                        <Badge variant="outline" title={user.organization_name || ""}>
+                          {user.organization_code}
+                        </Badge>
+                      ) : "-"}
+                    </TableCell>
+                  ) : (
+                    <TableCell>
+                      {user.departments.length === 0 ? (
+                        "-"
+                      ) : user.departments.length === 1 ? (
+                        user.departments[0].name
+                      ) : (
+                        <span title={user.departments.map(d => d.name).join(", ")}>
+                          {user.departments[0].name} <Badge variant="secondary" className="ml-1 text-xs">+{user.departments.length - 1}</Badge>
+                        </span>
+                      )}
+                    </TableCell>
+                  )}
                   <TableCell>
                     <Badge variant={user.is_active ? "default" : "secondary"}>
                       {user.is_active ? "Active" : "Inactive"}
