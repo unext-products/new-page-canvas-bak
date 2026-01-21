@@ -25,7 +25,11 @@ interface Vertical {
   name: string;
 }
 
-export default function TimesheetSettings() {
+interface TimesheetSettingsProps {
+  organizationId?: string;
+}
+
+export default function TimesheetSettings({ organizationId }: TimesheetSettingsProps) {
   const { userWithRole } = useAuth();
   const { entityLabel } = useLabels();
   const { toast } = useToast();
@@ -34,6 +38,7 @@ export default function TimesheetSettings() {
   const [selectedScope, setSelectedScope] = useState<"organization" | string>("organization");
   const [saving, setSaving] = useState(false);
 
+  const isSuperAdmin = isRole(userWithRole?.role, "super_admin");
   const isOrgAdmin = isRole(userWithRole?.role, "admin", "org_admin", "super_admin");
   const isHod = isRole(userWithRole?.role, "l3", "manager");
   const canEdit = isOrgAdmin || isHod;
@@ -58,7 +63,7 @@ export default function TimesheetSettings() {
       fetchDepartments();
       fetchVerticals();
     }
-  }, [isOrgAdmin]);
+  }, [isOrgAdmin, organizationId]);
 
   useEffect(() => {
     setLocalSettings({
@@ -69,19 +74,26 @@ export default function TimesheetSettings() {
   }, [settings]);
 
   const fetchDepartments = async () => {
-    // Get user's organization first
-    const { data: userRole } = await supabase
-      .from("user_roles")
-      .select("organization_id")
-      .eq("user_id", userWithRole?.user?.id)
-      .single();
+    // For super admin with org context, use the passed organizationId
+    let orgId = organizationId;
     
-    if (!userRole?.organization_id) return;
+    if (!orgId) {
+      // Get user's organization
+      const { data: userRole } = await supabase
+        .from("user_roles")
+        .select("organization_id")
+        .eq("user_id", userWithRole?.user?.id)
+        .single();
+      
+      orgId = userRole?.organization_id;
+    }
+    
+    if (!orgId) return;
     
     const { data, error } = await supabase
       .from("departments")
       .select("id, name")
-      .eq("organization_id", userRole.organization_id)
+      .eq("organization_id", orgId)
       .order("name");
 
     if (!error && data) {
@@ -90,19 +102,26 @@ export default function TimesheetSettings() {
   };
 
   const fetchVerticals = async () => {
-    // Get user's organization first
-    const { data: userRole } = await supabase
-      .from("user_roles")
-      .select("organization_id")
-      .eq("user_id", userWithRole?.user?.id)
-      .single();
+    // For super admin with org context, use the passed organizationId
+    let orgId = organizationId;
     
-    if (!userRole?.organization_id) return;
+    if (!orgId) {
+      // Get user's organization
+      const { data: userRole } = await supabase
+        .from("user_roles")
+        .select("organization_id")
+        .eq("user_id", userWithRole?.user?.id)
+        .single();
+      
+      orgId = userRole?.organization_id;
+    }
+    
+    if (!orgId) return;
     
     const { data, error } = await supabase
       .from("verticals")
       .select("id, name")
-      .eq("organization_id", userRole.organization_id)
+      .eq("organization_id", orgId)
       .order("name");
 
     if (!error && data) {

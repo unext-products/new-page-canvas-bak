@@ -27,26 +27,24 @@ const DEFAULT_SETTINGS: ApprovalSettings = {
   l3_approved_by: ["org_admin"],
 };
 
-export function useApprovalSettings() {
+export function useApprovalSettings(organizationId?: string) {
   const { userWithRole } = useAuth();
   const [settings, setSettings] = useState<ApprovalSettings | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchSettings = useCallback(async () => {
-    if (!userWithRole?.user?.id) {
-      setLoading(false);
-      return;
-    }
-
     try {
-      // First get the user's organization_id
-      const { data: roleData } = await supabase
-        .from("user_roles")
-        .select("organization_id")
-        .eq("user_id", userWithRole.user.id)
-        .maybeSingle();
-
-      const orgId = roleData?.organization_id;
+      // Use passed organizationId or get from user's role
+      let orgId = organizationId;
+      
+      if (!orgId && userWithRole?.user?.id) {
+        const { data: roleData } = await supabase
+          .from("user_roles")
+          .select("organization_id")
+          .eq("user_id", userWithRole.user.id)
+          .maybeSingle();
+        orgId = roleData?.organization_id;
+      }
       
       if (!orgId) {
         setSettings(DEFAULT_SETTINGS);

@@ -1,7 +1,7 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLabels } from "@/contexts/LabelContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { getCreatableRoles } from "@/lib/roleMapping";
+import { getCreatableRoles, isRole } from "@/lib/roleMapping";
 
 interface UserRoleSelectProps {
   value: string;
@@ -17,6 +17,7 @@ export function UserRoleSelect({ value, onValueChange, excludeSuperAdmin = true 
   const creatableRoles = getCreatableRoles(userWithRole?.role || null);
 
   // Filter out super_admin if excludeSuperAdmin is true (default behavior for most UIs)
+  // For Super Admins, they can create super_admin users
   const availableRoles = excludeSuperAdmin 
     ? creatableRoles.filter(role => role !== "super_admin")
     : creatableRoles;
@@ -27,6 +28,12 @@ export function UserRoleSelect({ value, onValueChange, excludeSuperAdmin = true 
         <SelectValue placeholder="Select role" />
       </SelectTrigger>
       <SelectContent>
+        {availableRoles.includes("super_admin") && (
+          <SelectItem value="super_admin">{roleLabel("super_admin")}</SelectItem>
+        )}
+        {availableRoles.includes("admin") && (
+          <SelectItem value="admin">{roleLabel("admin")}</SelectItem>
+        )}
         {availableRoles.includes("org_admin") && (
           <SelectItem value="org_admin">{roleLabel("org_admin")}</SelectItem>
         )}
