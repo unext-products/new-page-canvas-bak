@@ -32,7 +32,8 @@ export function UserRoleSelect({ value, onValueChange, excludeSuperAdmin = true 
           <SelectItem value="super_admin">{roleLabel("super_admin")}</SelectItem>
         )}
         {availableRoles.includes("admin") && (
-          <SelectItem value="admin">{roleLabel("admin")}</SelectItem>
+          // IMPORTANT: UI uses display role "admin", but DB/validation expects "org_admin"
+          <SelectItem value="org_admin">{roleLabel("admin")}</SelectItem>
         )}
         {availableRoles.includes("org_admin") && (
           <SelectItem value="org_admin">{roleLabel("org_admin")}</SelectItem>
