@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -34,7 +34,7 @@ export default function Timesheet() {
   const navigate = useNavigate();
   const { fireConfetti } = useConfetti();
   const { resetTour, hasSeen } = useOnboardingTour();
-  const { categories, loading: categoriesLoading } = useActivityCategories(userWithRole?.verticalId || userWithRole?.departmentId);
+  const { categories, loading: categoriesLoading, parentCategories, getChildren, hasHierarchy, selectableActivities } = useActivityCategories(userWithRole?.verticalId || userWithRole?.departmentId);
   const [entries, setEntries] = useState<any[]>([]);
   const [leaveEntries, setLeaveEntries] = useState<any[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -141,10 +141,10 @@ export default function Timesheet() {
 
   // Set initial activity type when categories load
   useEffect(() => {
-    if (categories.length > 0 && !activityType) {
-      setActivityType(categories[0].code);
+    if (selectableActivities.length > 0 && !activityType) {
+      setActivityType(selectableActivities[0].code);
     }
-  }, [categories]);
+  }, [selectableActivities]);
 
   const loadEntries = async () => {
     if (!userWithRole) return;
@@ -435,7 +435,7 @@ export default function Timesheet() {
     setEntryDate(new Date().toISOString().split("T")[0]);
     setStartTime("09:00");
     setEndTime("10:00");
-    setActivityType(categories[0]?.code || "");
+    setActivityType(selectableActivities[0]?.code || "");
     setActivitySubtype("");
     setNotes("");
     setVerticalCode("");
@@ -810,11 +810,32 @@ export default function Timesheet() {
                       <SelectValue placeholder="Select activity type" />
                     </SelectTrigger>
                     <SelectContent>
-                      {categories.map((cat) => (
-                        <SelectItem key={cat.code} value={cat.code}>
-                          {cat.name}
-                        </SelectItem>
-                      ))}
+                      {hasHierarchy ? (
+                        // Hierarchical view with grouped activities
+                        parentCategories.map((parent) => {
+                          const children = getChildren(parent.id);
+                          if (children.length === 0) return null;
+                          return (
+                            <SelectGroup key={parent.id}>
+                              <SelectLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                                {parent.name}
+                              </SelectLabel>
+                              {children.map((activity) => (
+                                <SelectItem key={activity.code} value={activity.code}>
+                                  {activity.name}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                          );
+                        })
+                      ) : (
+                        // Flat list for non-hierarchical categories
+                        categories.map((cat) => (
+                          <SelectItem key={cat.code} value={cat.code}>
+                            {cat.name}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
