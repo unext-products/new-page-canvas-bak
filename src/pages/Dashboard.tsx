@@ -60,6 +60,11 @@ export default function Dashboard() {
     activityBreakdown: [] as any[],
     recentActivity: [] as any[],
   });
+  const [superAdminStats, setSuperAdminStats] = useState({
+    totalOrganizations: 0,
+    totalUsers: 0,
+    organizationMetrics: [] as any[],
+  });
   const [hodStats, setHodStats] = useState({
     teamMembers: 0,
     pendingApprovals: 0,
@@ -73,6 +78,8 @@ export default function Dashboard() {
     todayWorking: 0,
   });
   const [loading, setLoading] = useState(true);
+  
+  const isSuperAdmin = isRole(userWithRole?.role, "super_admin");
 
   useEffect(() => {
     loadDashboardData();
@@ -84,8 +91,15 @@ export default function Dashboard() {
     setLoading(true);
     const today = new Date().toISOString().split("T")[0];
 
+    // Load Super Admin specific dashboard
+    if (isSuperAdmin) {
+      await loadSuperAdminDashboardData();
+      setLoading(false);
+      return;
+    }
+
     // Load org admin dashboard data
-    if (isRole(userWithRole.role, "admin", "org_admin", "super_admin")) {
+    if (isRole(userWithRole.role, "admin", "org_admin")) {
       await loadAdminDashboardData();
       setLoading(false);
       return;
@@ -460,6 +474,55 @@ export default function Dashboard() {
         })) || [],
       todayWorking,
     });
+  };
+
+  const loadSuperAdminDashboardData = async () => {
+    try {
+      // Fetch all organizations
+      const { data: allOrgs, error: orgsError } = await supabase
+        .from("organizations")
+        .select("id, name, code");
+
+      if (orgsError) throw orgsError;
+
+      // Fetch all users with org info
+      const { data: allUserRoles, error: usersError } = await supabase
+        .from("user_roles")
+        .select("user_id, organization_id, role");
+
+      if (usersError) throw usersError;
+
+      // Calculate metrics per organization
+      const orgMetricsMap = new Map<string, { name: string; code: string; userCount: number }>();
+      
+      allOrgs?.forEach(org => {
+        orgMetricsMap.set(org.id, {
+          name: org.name,
+          code: org.code,
+          userCount: 0,
+        });
+      });
+
+      allUserRoles?.forEach(ur => {
+        if (ur.organization_id && orgMetricsMap.has(ur.organization_id)) {
+          const metrics = orgMetricsMap.get(ur.organization_id)!;
+          metrics.userCount += 1;
+        }
+      });
+
+      const organizationMetrics = Array.from(orgMetricsMap.entries()).map(([id, data]) => ({
+        id,
+        ...data,
+      })).sort((a, b) => b.userCount - a.userCount);
+
+      setSuperAdminStats({
+        totalOrganizations: allOrgs?.length || 0,
+        totalUsers: allUserRoles?.length || 0,
+        organizationMetrics,
+      });
+    } catch (error) {
+      console.error("Error loading super admin dashboard:", error);
+    }
   };
 
   const loadAdminDashboardData = async () => {
@@ -1003,7 +1066,134 @@ export default function Dashboard() {
           </>
         )}
 
-        {isRole(userWithRole.role, "admin", "org_admin", "super_admin") && (
+        {/* Super Admin Dashboard */}
+        {isSuperAdmin && (
+          <>
+            {loading ? (
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                {[1, 2, 3].map((i) => (
+                  <Card key={i}>
+                    <CardHeader className="pb-2">
+                      <Skeleton className="h-4 w-24" />
+                    </CardHeader>
+                    <CardContent>
+                      <Skeleton className="h-8 w-20" />
+                      <Skeleton className="h-3 w-32 mt-2" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <>
+                {/* Super Admin Key Metrics */}
+                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">Organizations</CardTitle>
+                      <Building2 className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{superAdminStats.totalOrganizations}</div>
+                      <p className="text-xs text-muted-foreground mt-1">Active organizations</p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">Total Users</CardTitle>
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{superAdminStats.totalUsers}</div>
+                      <p className="text-xs text-muted-foreground mt-1">Across all organizations</p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">Avg Users/Org</CardTitle>
+                      <Target className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">
+                        {superAdminStats.totalOrganizations > 0 
+                          ? Math.round(superAdminStats.totalUsers / superAdminStats.totalOrganizations)
+                          : 0}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">Average per organization</p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Organization Performance Table */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Building2 className="h-5 w-5" />
+                      Organization Overview
+                    </CardTitle>
+                    <CardDescription>Users by organization</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {superAdminStats.organizationMetrics.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No organizations found.</p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Organization</TableHead>
+                              <TableHead>Code</TableHead>
+                              <TableHead className="text-right">Users</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {superAdminStats.organizationMetrics.map((org) => (
+                              <TableRow key={org.id}>
+                                <TableCell className="font-medium">{org.name}</TableCell>
+                                <TableCell className="text-muted-foreground font-mono">{org.code}</TableCell>
+                                <TableCell className="text-right">{org.userCount}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Quick Actions */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Quick Actions</CardTitle>
+                    <CardDescription>System-wide management</CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex flex-wrap gap-2">
+                    <Button onClick={() => navigate("/organizations")}>
+                      <Building2 className="mr-2 h-4 w-4" />
+                      Manage Organizations
+                    </Button>
+                    <Button variant="outline" onClick={() => navigate("/users")}>
+                      <Users className="mr-2 h-4 w-4" />
+                      Manage Users
+                    </Button>
+                    <Button variant="outline" onClick={() => navigate("/reports")}>
+                      <TrendingUp className="mr-2 h-4 w-4" />
+                      View Reports
+                    </Button>
+                    <Button variant="outline" onClick={() => navigate("/settings")}>
+                      <Activity className="mr-2 h-4 w-4" />
+                      Settings
+                    </Button>
+                  </CardContent>
+                </Card>
+              </>
+            )}
+          </>
+        )}
+
+        {/* Org Admin Dashboard */}
+        {isRole(userWithRole.role, "admin", "org_admin") && !isSuperAdmin && (
           <>
             {loading ? (
               <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">

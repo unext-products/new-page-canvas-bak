@@ -29,6 +29,7 @@ import { userCreateSchema, type UserCreateInput } from "@/lib/validation";
 import { getUserErrorMessage } from "@/lib/errorHandler";
 import type { UserRole } from "@/lib/supabase";
 import { displayToDbRole, toDisplayRole, type DbRole } from "@/lib/roleMapping";
+import { isRole } from "@/lib/roleMapping";
 import { PageHeader } from "@/components/PageHeader";
 import { PageSkeleton } from "@/components/PageSkeleton";
 import { calculateDurationMinutes } from "@/lib/timesheetUtils";
@@ -47,6 +48,7 @@ interface UserProfile {
   department_id?: string | null;
   department_name?: string | null;
   program_id?: string | null;
+  organization_id?: string | null;
   departments: { id: string; name: string }[];
   programs: { id: string; name: string }[];
 }
@@ -64,6 +66,8 @@ export default function Users() {
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [orgFilter, setOrgFilter] = useState<string>("all");
+  const [organizations, setOrganizations] = useState<{ id: string; name: string; code: string }[]>([]);
   const [formData, setFormData] = useState({
     full_name: "",
     email: "",
@@ -112,12 +116,20 @@ export default function Users() {
     const isAdmin = userWithRole?.role === "org_admin" || userWithRole?.role === "admin" || userWithRole?.role === "super_admin";
     if (isAdmin) {
       fetchUsers();
+      if (isRole(userWithRole?.role, "super_admin")) {
+        fetchOrganizations();
+      }
     }
   }, [userWithRole]);
 
   useEffect(() => {
     filterUsers();
-  }, [searchQuery, roleFilter, users]);
+  }, [searchQuery, roleFilter, orgFilter, users]);
+
+  const fetchOrganizations = async () => {
+    const { data } = await supabase.from("organizations").select("id, name, code").order("name");
+    setOrganizations(data || []);
+  };
 
   const fetchUsers = async () => {
     try {
@@ -134,7 +146,7 @@ export default function Users() {
       // Fetch user roles
       const { data: rolesData, error: rolesError } = await supabase
         .from("user_roles")
-        .select("user_id, role, department_id, program_id");
+        .select("user_id, role, department_id, program_id, organization_id");
 
       if (rolesError) throw rolesError;
 
@@ -270,6 +282,7 @@ export default function Users() {
           department_id: roleData?.department_id || null,
           department_name: roleData?.department_id ? deptMap.get(roleData.department_id) || null : null,
           program_id: roleData?.program_id || null,
+          organization_id: roleData?.organization_id || null,
           departments: userDepts,
           programs: userProgs,
         };
@@ -299,6 +312,10 @@ export default function Users() {
 
     if (roleFilter !== "all") {
       filtered = filtered.filter(user => user.role === roleFilter);
+    }
+
+    if (orgFilter !== "all") {
+      filtered = filtered.filter(user => user.organization_id === orgFilter);
     }
 
     setFilteredUsers(filtered);

@@ -12,9 +12,17 @@ interface OrganizationSelectProps {
   value: string;
   onValueChange: (value: string) => void;
   disabled?: boolean;
+  includeAll?: boolean;
+  placeholder?: string;
 }
 
-export function OrganizationSelect({ value, onValueChange, disabled = false }: OrganizationSelectProps) {
+export function OrganizationSelect({ 
+  value, 
+  onValueChange, 
+  disabled = false,
+  includeAll = false,
+  placeholder = "Select organization"
+}: OrganizationSelectProps) {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -41,9 +49,12 @@ export function OrganizationSelect({ value, onValueChange, disabled = false }: O
   return (
     <Select value={value} onValueChange={onValueChange} disabled={isLoading || disabled}>
       <SelectTrigger>
-        <SelectValue placeholder={isLoading ? "Loading..." : "Select organization"} />
+        <SelectValue placeholder={isLoading ? "Loading..." : placeholder} />
       </SelectTrigger>
       <SelectContent>
+        {includeAll && (
+          <SelectItem value="all">All Organizations</SelectItem>
+        )}
         {organizations.map((org) => (
           <SelectItem key={org.id} value={org.id}>
             {org.name} ({org.code})
