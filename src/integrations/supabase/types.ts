@@ -22,6 +22,8 @@ export type Database = {
           is_active: boolean
           name: string
           organization_id: string | null
+          parent_id: string | null
+          sort_order: number | null
         }
         Insert: {
           created_at?: string
@@ -30,6 +32,8 @@ export type Database = {
           is_active?: boolean
           name: string
           organization_id?: string | null
+          parent_id?: string | null
+          sort_order?: number | null
         }
         Update: {
           created_at?: string
@@ -38,6 +42,8 @@ export type Database = {
           is_active?: boolean
           name?: string
           organization_id?: string | null
+          parent_id?: string | null
+          sort_order?: number | null
         }
         Relationships: [
           {
@@ -45,6 +51,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_categories_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "activity_categories"
             referencedColumns: ["id"]
           },
         ]

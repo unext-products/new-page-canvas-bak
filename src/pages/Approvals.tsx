@@ -485,20 +485,30 @@ export default function Approvals() {
     );
   }, [entries, leaveEntries]);
 
-  // Filter entries based on selections (only applies to timesheet entries)
-  // For actions, we only operate on "submitted" entries
+  // Filter entries based on selections (for day view - respects showPendingOnly toggle)
   const filteredEntries = useMemo(() => {
     return entries.filter(entry => {
       if (filterFaculty && entry.user_id !== filterFaculty) return false;
       if (filterActivity && entry.activity_type !== filterActivity) return false;
       if (filterDate && entry.entry_date !== format(filterDate, "yyyy-MM-dd")) return false;
-      // Apply showPendingOnly toggle
+      // Apply showPendingOnly toggle for day view
       if (showPendingOnly && entry.status !== "submitted") return false;
       return true;
     });
   }, [entries, filterFaculty, filterActivity, filterDate, showPendingOnly]);
   
-  // Pending entries for actions (always only submitted)
+  // List view entries - ALWAYS show only pending (submitted) entries
+  const listViewEntries = useMemo(() => {
+    return entries.filter(entry => {
+      if (filterFaculty && entry.user_id !== filterFaculty) return false;
+      if (filterActivity && entry.activity_type !== filterActivity) return false;
+      if (filterDate && entry.entry_date !== format(filterDate, "yyyy-MM-dd")) return false;
+      // List view always shows only pending entries
+      return entry.status === "submitted";
+    });
+  }, [entries, filterFaculty, filterActivity, filterDate]);
+  
+  // Pending entries for badge count (always only submitted)
   const pendingEntries = useMemo(() => {
     return entries.filter(entry => entry.status === "submitted");
   }, [entries]);
@@ -512,9 +522,9 @@ export default function Approvals() {
     });
   }, [leaveEntries, filterFaculty, filterDate]);
 
-  // Combined filtered entries for display
-  const filteredCombinedEntries = useMemo(() => {
-    const timesheetItems = filteredEntries.map(entry => ({
+  // Combined filtered entries for LIST VIEW display - always pending only
+  const listViewCombinedEntries = useMemo(() => {
+    const timesheetItems = listViewEntries.map(entry => ({
       ...entry,
       type: 'timesheet' as const,
       sortDate: entry.entry_date,
@@ -529,7 +539,7 @@ export default function Approvals() {
     return [...timesheetItems, ...leaveItems].sort((a, b) => 
       new Date(b.sortDate).getTime() - new Date(a.sortDate).getTime()
     );
-  }, [filteredEntries, filteredLeaveEntries]);
+  }, [listViewEntries, filteredLeaveEntries]);
 
   // Prepare faculty data for day matrix view
   const dayMatrixData = useMemo(() => {
@@ -627,7 +637,8 @@ export default function Approvals() {
   };
 
   const selectAllEntries = () => {
-    const allIds = new Set(filteredEntries.map(e => e.id));
+    // For list view, only select pending entries
+    const allIds = new Set(listViewEntries.map(e => e.id));
     setSelectedEntries(allIds);
   };
 
@@ -635,7 +646,7 @@ export default function Approvals() {
     setSelectedEntries(new Set());
   };
 
-  const isAllSelected = selectedEntries.size === filteredEntries.length && filteredEntries.length > 0;
+  const isAllSelected = selectedEntries.size === listViewEntries.length && listViewEntries.length > 0;
 
   // Clear filters
   const clearFilters = () => {
@@ -809,15 +820,15 @@ export default function Approvals() {
           description="Review and approve timesheet entries from your team"
           icon={ClipboardCheck}
           actions={
-            entries.length > 0 && (
+            pendingEntries.length > 0 && (
               <Badge variant="secondary" className="text-base px-4 py-1.5">
-                {entries.length} pending
+                {pendingEntries.length} pending
               </Badge>
             )
           }
         />
 
-        {entries.length === 0 ? (
+        {pendingEntries.length === 0 ? (
           <Card>
             <CardContent className="py-0">
               <EmptyState
@@ -1022,7 +1033,7 @@ export default function Approvals() {
                       {selectedEntries.size > 0 ? (
                         <>Selected: {selectedEntries.size} {selectedEntries.size === 1 ? 'entry' : 'entries'}</>
                       ) : (
-                        <>Select All ({viewMode === "list" ? filteredEntries.length : dayViewEntryIds.length})</>
+                        <>Select All ({viewMode === "list" ? listViewEntries.length : dayViewEntryIds.length})</>
                       )}
                     </span>
                     {selectedEntries.size > 0 && (
@@ -1094,14 +1105,14 @@ export default function Approvals() {
                 slotInterval={slotInterval}
               />
             ) : (
-              /* List View */
-              filteredCombinedEntries.length === 0 ? (
+              /* List View - Always shows only pending entries */
+              listViewCombinedEntries.length === 0 ? (
                 <Card>
                   <CardContent className="flex flex-col items-center justify-center py-12">
                     <Filter className="h-12 w-12 text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">No entries found</h3>
+                    <h3 className="text-lg font-semibold mb-2">No pending entries found</h3>
                     <p className="text-muted-foreground text-center mb-4">
-                      No entries match the selected filters.
+                      No pending entries match the selected filters.
                     </p>
                     <Button variant="outline" onClick={clearFilters}>
                       Clear Filters
@@ -1110,7 +1121,7 @@ export default function Approvals() {
                 </Card>
               ) : (
                 <div className="grid gap-4">
-                  {filteredCombinedEntries.map((item) => (
+                  {listViewCombinedEntries.map((item) => (
                     item.type === 'timesheet' ? (
                       <Card 
                         key={item.id}
