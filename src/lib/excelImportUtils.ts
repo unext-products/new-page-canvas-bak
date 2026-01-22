@@ -338,9 +338,10 @@ export async function fetchUsersAndDepartments(): Promise<{
   usersMap: Map<string, string>;
   deptsMap: Map<string, string>;
 }> {
-  const [usersResponse, deptsResponse] = await Promise.all([
+  const [usersResponse, deptsResponse, verticalsResponse] = await Promise.all([
     supabase.from('profiles').select('id, full_name').eq('is_active', true),
     supabase.from('departments').select('id, code, name'),
+    supabase.from('verticals').select('id, code, name'),
   ]);
 
   const usersMap = new Map<string, string>();
@@ -371,19 +372,36 @@ export async function fetchUsersAndDepartments(): Promise<{
   deptsResponse.data?.forEach((dept) => {
     deptsMap.set(dept.code.toUpperCase(), dept.id);
   });
+  
+  // Also add verticals to the map (these take precedence if there's overlap)
+  verticalsResponse.data?.forEach((vert) => {
+    deptsMap.set(vert.code.toUpperCase(), vert.id);
+  });
 
   return { usersMap, deptsMap };
 }
 
 /**
- * Fetch departments only (for faculty mode)
+ * Fetch departments and verticals (for faculty mode)
+ * Checks both departments and verticals tables since codes may exist in either
  */
 export async function fetchDepartments(): Promise<Map<string, string>> {
-  const { data } = await supabase.from('departments').select('id, code');
+  // Fetch from both departments and verticals tables
+  const [deptsRes, verticalsRes] = await Promise.all([
+    supabase.from('departments').select('id, code'),
+    supabase.from('verticals').select('id, code'),
+  ]);
   
   const deptsMap = new Map<string, string>();
-  data?.forEach((dept) => {
+  
+  // Add departments
+  deptsRes.data?.forEach((dept) => {
     deptsMap.set(dept.code.toUpperCase(), dept.id);
+  });
+  
+  // Add verticals (these take precedence if there's overlap)
+  verticalsRes.data?.forEach((vert) => {
+    deptsMap.set(vert.code.toUpperCase(), vert.id);
   });
 
   return deptsMap;
