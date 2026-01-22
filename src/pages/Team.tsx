@@ -112,7 +112,7 @@ export default function Team() {
           );
         }
       }
-      // L2 sees L1 in their programs
+      // L2 sees L1 in their programs OR in their verticals if no program assignments
       else if (isL2) {
         // Get L2's programs
         const { data: l2Programs } = await supabase
@@ -131,16 +131,49 @@ export default function Team() {
 
           const candidateUserIds = [...new Set(programUsers?.map((u) => u.user_id) || [])];
 
-          // Filter to L1 roles only
-          const { data: l1Roles } = await supabase
-            .from("user_roles")
-            .select("user_id")
-            .in("user_id", candidateUserIds)
-            .in("role", ["l1", "faculty"]);
+          if (candidateUserIds.length > 0) {
+            // Filter to L1 roles only
+            const { data: l1Roles } = await supabase
+              .from("user_roles")
+              .select("user_id")
+              .in("user_id", candidateUserIds)
+              .in("role", ["l1", "faculty"]);
 
-          userIds = (l1Roles?.map((r) => r.user_id) || []).filter(
-            (id) => id !== userWithRole.user.id
-          );
+            userIds = (l1Roles?.map((r) => r.user_id) || []).filter(
+              (id) => id !== userWithRole.user.id
+            );
+          }
+        }
+        
+        // Fallback: If no L1s found via programs, try via verticals (same as L3 logic)
+        if (userIds.length === 0) {
+          const { data: l2Verticals } = await supabase
+            .from("user_verticals")
+            .select("vertical_id")
+            .eq("user_id", userWithRole.user.id);
+
+          const verticalIds = l2Verticals?.map((v) => v.vertical_id) || [];
+
+          if (verticalIds.length > 0) {
+            const { data: verticalUsers } = await supabase
+              .from("user_verticals")
+              .select("user_id")
+              .in("vertical_id", verticalIds);
+
+            const candidateUserIds = [...new Set(verticalUsers?.map((u) => u.user_id) || [])];
+
+            if (candidateUserIds.length > 0) {
+              const { data: l1Roles } = await supabase
+                .from("user_roles")
+                .select("user_id")
+                .in("user_id", candidateUserIds)
+                .in("role", ["l1", "faculty"]);
+
+              userIds = (l1Roles?.map((r) => r.user_id) || []).filter(
+                (id) => id !== userWithRole.user.id
+              );
+            }
+          }
         }
       }
       // Admin sees all users in org (except super_admin)

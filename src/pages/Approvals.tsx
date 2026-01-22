@@ -87,8 +87,8 @@ export default function Approvals() {
   const [filterActivity, setFilterActivity] = useState<string | null>(null);
   const [filterDate, setFilterDate] = useState<Date | null>(null);
   
-  // View mode state
-  const [viewMode, setViewMode] = useState<"list" | "day">("list");
+  // View mode state - default to day view
+  const [viewMode, setViewMode] = useState<"list" | "day">("day");
   
   // New: Show all statuses toggle (default: show all)
   const [showPendingOnly, setShowPendingOnly] = useState(false);

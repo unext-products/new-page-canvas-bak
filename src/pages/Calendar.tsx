@@ -54,8 +54,8 @@ export default function CalendarPage() {
   const { fireConfetti } = useConfetti();
   const { categories } = useActivityCategories(userWithRole?.verticalId || userWithRole?.departmentId);
   
-  // View mode state
-  const [viewMode, setViewMode] = useState<"month" | "day">("month");
+  // View mode state - default to day view
+  const [viewMode, setViewMode] = useState<"month" | "day">("day");
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(new Date());
   
@@ -851,6 +851,7 @@ export default function CalendarPage() {
                 entries={dayEntries}
                 leaveEntry={dayLeave}
                 onSlotClick={handleSlotClick}
+                showTotals={true}
               />
             )}
           </CardContent>

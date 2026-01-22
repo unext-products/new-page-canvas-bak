@@ -59,8 +59,8 @@ export default function Settings() {
     return <Navigate to="/auth" replace />;
   }
 
-  // L1 users only see Account tab
-  if (isL1 && !isHod && !isL2 && !isOrgAdmin) {
+  // L1 users (who are not also L2/L3/Admin) only see Account tab
+  if (isL1 && !isHod && !isL2 && !isOrgAdmin && !isSuperAdmin) {
     return (
       <Layout>
         <div className="max-w-4xl mx-auto p-6 space-y-6">

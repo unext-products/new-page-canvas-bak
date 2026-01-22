@@ -5,6 +5,8 @@ import { cn } from "@/lib/utils";
 import { HOUR_SLOTS, calculateSlotCoverage, getStatusColor, getStatusBgColor, timeToMinutes } from "./HourSlots";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format } from "date-fns";
+import { Clock, CheckCircle } from "lucide-react";
+import { calculateDurationMinutes } from "@/lib/timesheetUtils";
 
 interface TimesheetEntry {
   id: string;
@@ -29,9 +31,10 @@ interface DayHourlyViewProps {
   leaveEntry?: LeaveEntry;
   onSlotClick?: (startTime: string, endTime: string) => void;
   readOnly?: boolean;
+  showTotals?: boolean;
 }
 
-export function DayHourlyView({ date, entries, leaveEntry, onSlotClick, readOnly = false }: DayHourlyViewProps) {
+export function DayHourlyView({ date, entries, leaveEntry, onSlotClick, readOnly = false, showTotals = false }: DayHourlyViewProps) {
   const formatLeaveType = (type: string) => {
     const labels: Record<string, string> = {
       casual: "Casual Leave",
@@ -66,6 +69,31 @@ export function DayHourlyView({ date, entries, leaveEntry, onSlotClick, readOnly
   const isWeekend = date.getDay() === 0 || date.getDay() === 6;
   const isFuture = date > new Date();
 
+  // Calculate total hours for the day
+  const { totalAppliedMinutes, totalApprovedMinutes } = useMemo(() => {
+    let applied = 0;
+    let approved = 0;
+    
+    entries.forEach(entry => {
+      const duration = calculateDurationMinutes(entry.start_time, entry.end_time);
+      applied += duration;
+      if (entry.status === "approved") {
+        approved += duration;
+      }
+    });
+    
+    return { totalAppliedMinutes: applied, totalApprovedMinutes: approved };
+  }, [entries]);
+
+  const formatHours = (minutes: number) => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    if (hours === 0 && mins === 0) return "0h";
+    if (hours === 0) return `${mins}m`;
+    if (mins === 0) return `${hours}h`;
+    return `${hours}h ${mins}m`;
+  };
+
   if (leaveEntry) {
     return (
       <Card className="border-blue-200 bg-blue-50/50 dark:bg-blue-900/20 dark:border-blue-800">
@@ -86,6 +114,24 @@ export function DayHourlyView({ date, entries, leaveEntry, onSlotClick, readOnly
       <Card>
         <CardContent className="py-4">
           <div className="flex flex-col gap-3">
+            {/* Total Hours Summary */}
+            {showTotals && entries.length > 0 && (
+              <div className="flex items-center justify-center gap-6 pb-3 border-b">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Total Applied:</span>
+                  <Badge variant="secondary">{formatHours(totalAppliedMinutes)}</Badge>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <span className="text-sm text-muted-foreground">Total Approved:</span>
+                  <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300">
+                    {formatHours(totalApprovedMinutes)}
+                  </Badge>
+                </div>
+              </div>
+            )}
+            
             {/* Hour slots header */}
             <div className="flex gap-1 overflow-x-auto pb-2">
               {HOUR_SLOTS.map((slot, index) => (
