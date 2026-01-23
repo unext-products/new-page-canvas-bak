@@ -56,50 +56,90 @@ export default function BulkImport() {
   const isMember = isRole(userWithRole?.role, "l1", "member");
   const isAdmin = isRole(userWithRole?.role, "admin", "org_admin");
   const isHod = isRole(userWithRole?.role, "l3", "manager");
+  const isL2 = isRole(userWithRole?.role, "l2", "program_manager");
+  const isManager = isHod || isL2; // L2 and L3 are both managers with similar capabilities
 
-  // Fetch department members for HOD
+  // Fetch department members for HOD/L2/L3
   useEffect(() => {
     const fetchDepartmentMembers = async () => {
-      if (!isHod || !userWithRole?.departmentId) return;
+      if (!isManager || !userWithRole?.user?.id) return;
       
       setLoadingMembers(true);
       try {
-        // Get all faculty in HOD's department
-        const { data: userRoles, error: rolesError } = await supabase
+        // Get manager's verticals from user_verticals
+        const { data: managerVerticals } = await supabase
+          .from("user_verticals")
+          .select("vertical_id")
+          .eq("user_id", userWithRole.user.id);
+        
+        const verticalIds = managerVerticals?.map(v => v.vertical_id) || [];
+        
+        if (verticalIds.length === 0) {
+          // Fallback to user_departments
+          const { data: managerDepts } = await supabase
+            .from("user_departments")
+            .select("department_id")
+            .eq("user_id", userWithRole.user.id);
+          
+          verticalIds.push(...(managerDepts?.map(d => d.department_id) || []));
+        }
+        
+        if (verticalIds.length === 0) {
+          setLoadingMembers(false);
+          return;
+        }
+
+        // Get all users in those verticals
+        const { data: vertUsers } = await supabase
+          .from("user_verticals")
+          .select("user_id")
+          .in("vertical_id", verticalIds);
+        
+        const allUserIds = [...new Set(vertUsers?.map(v => v.user_id) || [])];
+        
+        if (allUserIds.length === 0) {
+          setLoadingMembers(false);
+          return;
+        }
+
+        // Get L1/faculty roles only
+        const { data: facultyRoles } = await supabase
           .from("user_roles")
           .select("user_id")
-          .eq("department_id", userWithRole.departmentId)
-          .eq("role", "faculty");
-
-        if (rolesError) throw rolesError;
-
-        if (userRoles && userRoles.length > 0) {
-          const userIds = userRoles.map(ur => ur.user_id);
-          
-          // Get profiles for these users
-          const { data: profiles, error: profilesError } = await supabase
-            .from("profiles")
-            .select("id, full_name")
-            .in("id", userIds)
-            .eq("is_active", true);
-
-          if (profilesError) throw profilesError;
-
-          // Get emails via edge function
-          const { data: usersData, error: usersError } = await supabase.functions.invoke("admin-list-users");
-          
-          if (usersError) throw usersError;
-
-          const emailMap = new Map(usersData?.users?.map((u: any) => [u.id, u.email]) || []);
-          
-          const members: DepartmentMember[] = (profiles || []).map(p => ({
-            id: p.id,
-            full_name: p.full_name,
-            email: emailMap.get(p.id) as string || ""
-          }));
-
-          setDepartmentMembers(members);
+          .in("role", ["l1", "faculty"])
+          .in("user_id", allUserIds);
+        
+        const facultyUserIds = (facultyRoles?.map(r => r.user_id) || [])
+          .filter(id => id !== userWithRole.user.id);
+        
+        if (facultyUserIds.length === 0) {
+          setLoadingMembers(false);
+          return;
         }
+        
+        // Get profiles for these users
+        const { data: profiles, error: profilesError } = await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", facultyUserIds)
+          .eq("is_active", true);
+
+        if (profilesError) throw profilesError;
+
+        // Get emails via edge function
+        const { data: usersData, error: usersError } = await supabase.functions.invoke("admin-list-users");
+        
+        if (usersError) throw usersError;
+
+        const emailMap = new Map(usersData?.users?.map((u: any) => [u.id, u.email]) || []);
+        
+        const members: DepartmentMember[] = (profiles || []).map(p => ({
+          id: p.id,
+          full_name: p.full_name,
+          email: emailMap.get(p.id) as string || ""
+        }));
+
+        setDepartmentMembers(members);
       } catch (error) {
         console.error("Error fetching department members:", error);
       } finally {
@@ -108,7 +148,7 @@ export default function BulkImport() {
     };
 
     fetchDepartmentMembers();
-  }, [isHod, userWithRole?.departmentId]);
+  }, [isManager, userWithRole?.user?.id]);
 
   if (authLoading) {
     return (
@@ -120,8 +160,8 @@ export default function BulkImport() {
     );
   }
 
-  // Redirect if not member, admin, or HOD
-  if (!isMember && !isAdmin && !isHod) {
+  // Redirect if not member, admin, HOD, or L2
+  if (!isMember && !isAdmin && !isHod && !isL2) {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -184,36 +224,37 @@ export default function BulkImport() {
 
       let results: ValidationResult[] = [];
 
-      if (isMember || isHod) {
-        // Member or HOD mode: validate without email, use selected user
+      if (isMember || isManager) {
+        // Member or Manager mode: validate without email, use selected user
         const deptsMap = await fetchDepartments();
         
-        // For HOD, use selected member if not "self"
+        // For Manager, use selected member if not "self"
         let targetUserId = userWithRole?.user.id;
         let targetDepartmentId = userWithRole?.departmentId;
         
-        if (isHod && selectedMemberId !== "self") {
+        if (isManager && selectedMemberId !== "self") {
           targetUserId = selectedMemberId;
-          // Department remains same as HOD's department
+          // Department remains same as manager's department
         }
 
-        if (!targetUserId || !targetDepartmentId) {
+        if (!targetUserId) {
           toast({
             title: "Error",
-            description: "Could not determine user or department",
+            description: "Could not determine user",
             variant: "destructive",
           });
           setIsValidating(false);
           return;
         }
 
-        // Fetch user's departments for validation
-        const { data: userDepts } = await supabase
-          .from("user_departments")
-          .select("department_id")
-          .eq("user_id", targetUserId);
+        // Fetch user's departments AND verticals for validation
+        const [userDepsRes, userVertsRes] = await Promise.all([
+          supabase.from("user_departments").select("department_id").eq("user_id", targetUserId),
+          supabase.from("user_verticals").select("vertical_id").eq("user_id", targetUserId),
+        ]);
         
-        const deptIds = userDepts?.map(ud => ud.department_id) || [];
+        const deptIds = userDepsRes.data?.map(ud => ud.department_id) || [];
+        const vertIds = userVertsRes.data?.map(uv => uv.vertical_id) || [];
         
         // Also include department from user_roles as fallback
         if (targetDepartmentId && !deptIds.includes(targetDepartmentId)) {
@@ -221,18 +262,30 @@ export default function BulkImport() {
         }
         
         let userDeptCodes = new Set<string>();
+        
+        // Fetch codes from departments table
         if (deptIds.length > 0) {
           const { data: depts } = await supabase
             .from("departments")
             .select("code")
             .in("id", deptIds);
           
-          userDeptCodes = new Set(depts?.map(d => d.code.toUpperCase()) || []);
+          depts?.forEach(d => userDeptCodes.add(d.code.toUpperCase()));
+        }
+        
+        // Fetch codes from verticals table
+        if (vertIds.length > 0) {
+          const { data: verts } = await supabase
+            .from("verticals")
+            .select("code")
+            .in("id", vertIds);
+          
+          verts?.forEach(v => userDeptCodes.add(v.code.toUpperCase()));
         }
 
         results = await Promise.all(
           rows.map(async (row, index) => {
-            const validation = await validateMemberExcelRow(row, targetUserId!, targetDepartmentId!, deptsMap, userDeptCodes);
+            const validation = await validateMemberExcelRow(row, targetUserId!, targetDepartmentId || "", deptsMap, userDeptCodes);
             return {
               rowNumber: index + 2,
               rowData: row,
@@ -301,7 +354,7 @@ export default function BulkImport() {
       setImportProgress(100);
 
       if (results.success > 0) {
-        const isForSelf = isMember || (isHod && selectedMemberId === "self");
+        const isForSelf = isMember || (isManager && selectedMemberId === "self");
         toast({
           title: isForSelf ? "Submitted for approval" : "Import complete",
           description: isForSelf 
@@ -332,8 +385,8 @@ export default function BulkImport() {
     let blob: Blob;
     let filename: string;
 
-    if (isMember || isHod) {
-      // Member/HOD template (no email column)
+    if (isMember || isManager) {
+      // Member/Manager template (no email column)
       blob = generateMemberExcelTemplate();
       filename = 'timesheet_template.xlsx';
     } else {
@@ -366,13 +419,13 @@ export default function BulkImport() {
 
   const getPageTitle = () => {
     if (isMember) return "Bulk Upload My Timesheets";
-    if (isHod) return "Bulk Upload Timesheets";
+    if (isManager) return "Bulk Upload Timesheets";
     return "Bulk Import Timesheets (Admin)";
   };
 
   const getPageDescription = () => {
     if (isMember) return "Upload your timesheet entries in bulk. Entries will be submitted for manager approval.";
-    if (isHod) return "Upload timesheet entries for yourself or your department members.";
+    if (isManager) return "Upload timesheet entries for yourself or your department members.";
     return "Upload timesheet entries for any team member using Excel files.";
   };
 
@@ -401,7 +454,7 @@ export default function BulkImport() {
               Download Excel Template
             </Button>
             <p className="text-sm text-muted-foreground mt-4">
-              {(isMember || isHod)
+              {(isMember || isManager)
                 ? "Template includes: date, times, activity type, subtype, notes, and department code"
                 : "Template includes: member email, date, times, activity type, subtype, notes, and department code"
               }
@@ -422,8 +475,8 @@ export default function BulkImport() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* HOD Member Selection */}
-              {isHod && (
+              {/* Manager Member Selection */}
+              {isManager && (
                 <div className="space-y-2">
                   <Label htmlFor="member-select">Choose Member</Label>
                   <Select value={selectedMemberId} onValueChange={setSelectedMemberId}>
