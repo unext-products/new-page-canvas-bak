@@ -136,26 +136,35 @@ export default function Dashboard() {
       const workingDaysThisWeek = Math.max(0, 5 - leaveDaysThisWeek);
       const expectedWeeklyMinutes = resolvedDailyTargetMinutes * workingDaysThisWeek;
 
-      // Fetch user's departments from user_departments table
-      const { data: userDepts } = await supabase
-        .from("user_departments")
-        .select("department_id")
-        .eq("user_id", userWithRole.user.id);
+      // Fetch user's departments from BOTH user_departments AND user_verticals tables
+      const [userDepsRes, userVertsRes] = await Promise.all([
+        supabase.from("user_departments").select("department_id").eq("user_id", userWithRole.user.id),
+        supabase.from("user_verticals").select("vertical_id").eq("user_id", userWithRole.user.id),
+      ]);
 
-      let deptIds: string[] = [];
+      let deptIds: string[] = userDepsRes.data?.map((ud) => ud.department_id) || [];
+      let vertIds: string[] = userVertsRes.data?.map((uv) => uv.vertical_id) || [];
 
-      if (userDepts && userDepts.length > 0) {
-        deptIds = userDepts.map((ud) => ud.department_id);
-      } else if (userWithRole.departmentId) {
-        // Fallback to user_roles.department_id if user_departments is empty
+      // Fallback to user_roles.department_id if both are empty
+      if (deptIds.length === 0 && vertIds.length === 0 && userWithRole.departmentId) {
         deptIds = [userWithRole.departmentId];
       }
 
+      let displayDepartments: string[] = [];
+
+      // Fetch department names
       if (deptIds.length > 0) {
         const { data: deptDetails } = await supabase.from("departments").select("name, code").in("id", deptIds);
-
-        setUserDepartments(deptDetails?.map((d) => `${d.name} (${d.code})`) || []);
+        displayDepartments.push(...(deptDetails?.map((d) => `${d.name} (${d.code})`) || []));
       }
+
+      // Fetch vertical names
+      if (vertIds.length > 0) {
+        const { data: vertDetails } = await supabase.from("verticals").select("name, code").in("id", vertIds);
+        displayDepartments.push(...(vertDetails?.map((v) => `${v.name} (${v.code})`) || []));
+      }
+
+      setUserDepartments(displayDepartments);
 
       const { data: entries } = await supabase
         .from("timesheet_entries")

@@ -99,14 +99,16 @@ export function AppSidebar() {
       );
     }
 
-    // L2 (Program Manager) - Timesheet + Approvals for L1
+    // L2 (Program Manager) - Timesheet + Approvals for L1 + Reports + Settings (same as L3)
     if (isRole(role, "l2", "program_manager")) {
       items.push(
         { to: "/timesheet", icon: FileText, label: "Timesheet", group: "Work" },
         { to: "/calendar", icon: CalendarDays, label: "Calendar", group: "Work" },
         { to: "/bulk-import", icon: Upload, label: "Bulk Upload", group: "Work" },
         { to: "/approvals", icon: ClipboardCheck, label: "Approvals", group: "Management" },
-        { to: "/team", icon: UsersRound, label: "Team", group: "Management" }
+        { to: "/team", icon: UsersRound, label: "Team", group: "Management" },
+        { to: "/reports", icon: BarChart3, label: "Reports", group: "Analytics" },
+        { to: "/settings", icon: Settings, label: "Settings", group: "Tools" }
       );
     }
 
