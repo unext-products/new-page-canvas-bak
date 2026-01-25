@@ -584,7 +584,37 @@ export default function Users() {
 
         if (roleError) throw roleError;
 
-        // Sync user_departments junction table
+        // Sync user_verticals junction table (new hierarchy)
+        const vertIds = formData.vertical_ids.length > 0 ? formData.vertical_ids : deptIds;
+        if (formData.role !== "org_admin" && formData.role !== "admin" && vertIds.length > 0) {
+          // Delete existing vertical assignments
+          const { error: deleteVertError } = await supabase
+            .from("user_verticals")
+            .delete()
+            .eq("user_id", selectedUser.id);
+          
+          if (deleteVertError) throw deleteVertError;
+
+          // Insert new vertical assignments
+          const vertInserts = vertIds.map(vert_id => ({
+            user_id: selectedUser.id,
+            vertical_id: vert_id,
+          }));
+          
+          const { error: insertVertError } = await supabase
+            .from("user_verticals")
+            .insert(vertInserts);
+          
+          if (insertVertError) throw insertVertError;
+        } else if (formData.role === "org_admin" || formData.role === "admin") {
+          // Clear vertical assignments for admin roles
+          await supabase
+            .from("user_verticals")
+            .delete()
+            .eq("user_id", selectedUser.id);
+        }
+
+        // Sync user_departments junction table (backward compatibility)
         if (formData.role !== "org_admin" && deptIds.length > 0) {
           // Delete existing department assignments
           const { error: deleteDeptError } = await supabase
@@ -614,7 +644,7 @@ export default function Users() {
         }
 
         // Sync user_programs junction table
-        if ((formData.role === "program_manager" || formData.role === "member") && progIds.length > 0) {
+        if ((formData.role === "program_manager" || formData.role === "member" || formData.role === "l1" || formData.role === "l2") && progIds.length > 0) {
           // Delete existing program assignments
           const { error: deleteProgError } = await supabase
             .from("user_programs")
@@ -634,7 +664,7 @@ export default function Users() {
             .insert(progInserts);
           
           if (insertProgError) throw insertProgError;
-        } else if (formData.role === "org_admin" || formData.role === "manager") {
+        } else if (formData.role === "org_admin" || formData.role === "admin" || formData.role === "l3" || formData.role === "manager") {
           // Clear program assignments for roles that don't need them
           await supabase
             .from("user_programs")
@@ -774,11 +804,23 @@ export default function Users() {
     setDeleteDialogOpen(true);
   };
 
-  const openEditDialog = (user: UserProfile) => {
+  const openEditDialog = async (user: UserProfile) => {
     setSelectedUser(user);
+    
+    // Load vertical assignments from user_verticals table
+    const { data: userVerticals } = await supabase
+      .from("user_verticals")
+      .select("vertical_id")
+      .eq("user_id", user.id);
+    
+    const verticalIds = userVerticals?.map(uv => uv.vertical_id) || [];
+    
     // Load all departments and programs from junction tables
     const deptIds = user.departments.map(d => d.id);
     const progIds = user.programs.map(p => p.id);
+    
+    // Use vertical_ids if available, otherwise fall back to department_ids for backward compatibility
+    const effectiveVerticalIds = verticalIds.length > 0 ? verticalIds : deptIds;
     
     setFormData({
       full_name: user.full_name,
@@ -788,10 +830,10 @@ export default function Users() {
       organization_id: user.organization_id || "",
       department_id: deptIds[0] || user.department_id || "",
       department_ids: deptIds.length > 0 ? deptIds : (user.department_id ? [user.department_id] : []),
-      vertical_ids: [], // TODO: Load from user_verticals
+      vertical_ids: effectiveVerticalIds,
       program_ids: progIds.length > 0 ? progIds : (user.program_id ? [user.program_id] : []),
-      batch_ids: [], // TODO: Load from user_batches
-      subject_ids: [], // TODO: Load from user_subjects
+      batch_ids: [], // TODO: Load from user_batches if needed
+      subject_ids: [], // TODO: Load from user_subjects if needed
       program_id: progIds[0] || user.program_id || "",
       is_active: user.is_active,
       password: "",
@@ -1498,61 +1540,88 @@ export default function Users() {
 
               <div>
                 <Label>
-                  {entityLabel("department", true)} {(formData.role === "manager" || formData.role === "member" || formData.role === "program_manager") && "*"}
+                  {entityLabel("vertical", true)} {(formData.role === "l3" || formData.role === "l2" || formData.role === "l1" || formData.role === "manager" || formData.role === "member" || formData.role === "program_manager") && "*"}
                 </Label>
-                {(formData.role === "member" || formData.role === "manager") ? (
-                  <DepartmentMultiSelect
-                    value={formData.department_ids}
-                    onValueChange={(value) => setFormData({ ...formData, department_ids: value, department_id: value[0] || "", program_ids: [], program_id: "" })}
+                {(formData.role === "l1" || formData.role === "l2" || formData.role === "l3" || formData.role === "member" || formData.role === "manager") ? (
+                  <VerticalMultiSelect
+                    value={formData.vertical_ids}
+                    onValueChange={(value) => setFormData({ 
+                      ...formData, 
+                      vertical_ids: value, 
+                      department_ids: value, // Sync for backward compatibility
+                      department_id: value[0] || "",
+                      program_ids: [], 
+                      program_id: "" 
+                    })}
+                    disabled={false}
+                  />
+                ) : formData.role === "program_manager" ? (
+                  <VerticalMultiSelect
+                    value={formData.vertical_ids}
+                    onValueChange={(value) => setFormData({ 
+                      ...formData, 
+                      vertical_ids: value, 
+                      department_ids: value,
+                      department_id: value[0] || "",
+                      program_ids: [], 
+                      program_id: "" 
+                    })}
                     disabled={false}
                   />
                 ) : (
-                  <DepartmentSelect
-                    value={formData.department_id}
-                    onValueChange={(value) => setFormData({ ...formData, department_id: value, department_ids: value ? [value] : [], program_id: "", program_ids: [] })}
-                    disabled={formData.role === "org_admin"}
+                  <VerticalSelect
+                    value={formData.vertical_ids[0] || formData.department_id}
+                    onValueChange={(value) => setFormData({ 
+                      ...formData, 
+                      vertical_ids: value ? [value] : [],
+                      department_id: value,
+                      department_ids: value ? [value] : []
+                    })}
+                    disabled={formData.role === "org_admin" || formData.role === "admin"}
                   />
                 )}
-                {formData.role === "org_admin" && (
+                {(formData.role === "org_admin" || formData.role === "admin") && (
                   <p className="text-sm text-muted-foreground mt-1">
-                    Not required for Organization Admin role
+                    Not required for Admin role
                   </p>
                 )}
-                {(formData.role === "manager" || formData.role === "member" || formData.role === "program_manager") && formData.department_ids.length === 0 && !formData.department_id && (
+                {(formData.role === "l3" || formData.role === "l2" || formData.role === "l1" || formData.role === "manager" || formData.role === "member" || formData.role === "program_manager") && formData.vertical_ids.length === 0 && (
                   <p className="text-sm text-muted-foreground mt-1">
                     Required for this role
                   </p>
                 )}
               </div>
 
-              {(formData.role === "program_manager" || formData.role === "member") && (
+              {(formData.role === "program_manager" || formData.role === "member" || formData.role === "l1" || formData.role === "l2") && (
                 <div>
                   <Label htmlFor="edit-program">
-                    {entityLabel("program", true)} {formData.role === "program_manager" && "*"}
+                    {entityLabel("program", true)} {(formData.role === "program_manager" || formData.role === "l2") && "*"}
                   </Label>
-                  {formData.role === "member" ? (
+                  {(formData.role === "member" || formData.role === "l1") ? (
                     <ProgramMultiSelect
                       value={formData.program_ids}
                       onValueChange={(value) => setFormData({ ...formData, program_ids: value, program_id: value[0] || "" })}
+                      verticalIds={formData.vertical_ids.length > 0 ? formData.vertical_ids : undefined}
                       departmentIds={formData.department_ids.length > 0 ? formData.department_ids : (formData.department_id ? [formData.department_id] : [])}
-                      disabled={formData.department_ids.length === 0 && !formData.department_id}
+                      disabled={formData.vertical_ids.length === 0 && formData.department_ids.length === 0 && !formData.department_id}
                     />
                   ) : (
-                    <ProgramSelect
-                      value={formData.program_id}
-                      onValueChange={(value) => setFormData({ ...formData, program_id: value, program_ids: value ? [value] : [] })}
-                      departmentId={formData.department_id}
-                      disabled={!formData.department_id}
+                    <ProgramMultiSelect
+                      value={formData.program_ids}
+                      onValueChange={(value) => setFormData({ ...formData, program_ids: value, program_id: value[0] || "" })}
+                      verticalIds={formData.vertical_ids.length > 0 ? formData.vertical_ids : undefined}
+                      departmentIds={formData.department_ids.length > 0 ? formData.department_ids : (formData.department_id ? [formData.department_id] : [])}
+                      disabled={formData.vertical_ids.length === 0 && formData.department_ids.length === 0 && !formData.department_id}
                     />
                   )}
-                  {formData.role === "program_manager" && !formData.program_id && (
+                  {(formData.role === "program_manager" || formData.role === "l2") && formData.program_ids.length === 0 && (
                     <p className="text-sm text-muted-foreground mt-1">
-                      Required for Program Manager role
+                      Required for {roleLabel(formData.role)} role
                     </p>
                   )}
-                  {formData.role === "member" && (
+                  {(formData.role === "member" || formData.role === "l1") && (
                     <p className="text-sm text-muted-foreground mt-1">
-                      Optional for {roleLabel("member")} role
+                      Optional for {roleLabel(formData.role)} role
                     </p>
                   )}
                 </div>
