@@ -565,7 +565,11 @@ export default function Users() {
 
       // Update or insert user role
       if (formData.role) {
-        const deptIds = formData.department_ids.length > 0 ? formData.department_ids : (formData.department_id ? [formData.department_id] : []);
+        // IMPORTANT: Keep vertical_ids separate from department_ids
+        // vertical_ids go to user_verticals junction table
+        // department_id in user_roles table is a LEGACY field that references the departments table
+        // vertical_id in user_roles table references the verticals table
+        const vertIds = formData.vertical_ids.length > 0 ? formData.vertical_ids : [];
         const progIds = formData.program_ids.length > 0 ? formData.program_ids : (formData.program_id ? [formData.program_id] : []);
         
         const { error: roleError } = await supabase
@@ -574,8 +578,14 @@ export default function Users() {
             {
               user_id: selectedUser.id,
               role: displayToDbRole[formData.role],
-              department_id: formData.role === "org_admin" ? null : deptIds[0] || null,
-              program_id: (formData.role === "program_manager" || formData.role === "member") ? progIds[0] || null : null,
+              // DO NOT set department_id to a vertical UUID - that causes FK violations
+              // Set it to NULL for new hierarchy roles, or keep existing for legacy
+              department_id: null,
+              // Set vertical_id for the primary vertical reference (first selected vertical)
+              vertical_id: (formData.role === "org_admin" || formData.role === "admin") ? null : 
+                           (vertIds.length > 0 ? vertIds[0] : null),
+              program_id: (formData.role === "program_manager" || formData.role === "member" || 
+                          formData.role === "l1" || formData.role === "l2") ? progIds[0] || null : null,
             },
             {
               onConflict: 'user_id'
@@ -585,7 +595,7 @@ export default function Users() {
         if (roleError) throw roleError;
 
         // Sync user_verticals junction table (new hierarchy)
-        const vertIds = formData.vertical_ids.length > 0 ? formData.vertical_ids : deptIds;
+        // DO NOT fallback to deptIds - verticals and departments are different tables!
         if (formData.role !== "org_admin" && formData.role !== "admin" && vertIds.length > 0) {
           // Delete existing vertical assignments
           const { error: deleteVertError } = await supabase
@@ -615,28 +625,16 @@ export default function Users() {
         }
 
         // Sync user_departments junction table (backward compatibility)
-        if (formData.role !== "org_admin" && deptIds.length > 0) {
-          // Delete existing department assignments
-          const { error: deleteDeptError } = await supabase
+        // Since we're now using verticals, clear legacy department assignments
+        if (formData.role === "org_admin" || formData.role === "admin") {
+          // Clear department assignments for admin roles
+          await supabase
             .from("user_departments")
             .delete()
             .eq("user_id", selectedUser.id);
-          
-          if (deleteDeptError) throw deleteDeptError;
-
-          // Insert new department assignments
-          const deptInserts = deptIds.map(dept_id => ({
-            user_id: selectedUser.id,
-            department_id: dept_id,
-          }));
-          
-          const { error: insertDeptError } = await supabase
-            .from("user_departments")
-            .insert(deptInserts);
-          
-          if (insertDeptError) throw insertDeptError;
-        } else if (formData.role === "org_admin") {
-          // Clear department assignments for org_admin
+        } else {
+          // For non-admin roles, we no longer sync to user_departments from verticals
+          // Just clear the old department assignments to avoid FK issues
           await supabase
             .from("user_departments")
             .delete()
