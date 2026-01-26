@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import * as XLSX from "xlsx";
 import { getUserErrorMessage } from "./errorHandler";
+import { validateAgainstThresholds, type Thresholds } from "./thresholdValidation";
 
 // Common row structure
 interface ExcelRowBase {
@@ -26,6 +27,9 @@ export interface ValidationResult {
   errors: string[];
   data?: any;
 }
+
+// Re-export Thresholds type for consumers
+export type { Thresholds };
 
 /**
  * Convert Excel time decimal to HH:MM format
@@ -119,7 +123,8 @@ export async function validateMemberExcelRow(
   userId: string,
   departmentId: string,
   deptsMap: Map<string, string>,
-  userDeptCodes?: Set<string>
+  userDeptCodes?: Set<string>,
+  thresholds?: Thresholds | null
 ): Promise<ValidationResult> {
   const errors: string[] = [];
 
@@ -184,27 +189,33 @@ export async function validateMemberExcelRow(
     if (endMinutes <= startMinutes) {
       errors.push("end_time must be after start_time");
     }
+  }
 
-    const durationMinutes = endMinutes - startMinutes;
-
-    if (errors.length === 0) {
-      return {
-        isValid: true,
-        errors: [],
-        data: {
-          user_id: userId,
-          entry_date: normalizedDate,
-          start_time: row.start_time,
-          end_time: row.end_time,
-          activity_type: row.activity_type.toLowerCase(),
-          activity_subtype: row.activity_subtype || null,
-          notes: row.notes || null,
-          department_code: deptCodeUpper,
-          status: 'submitted',
-          source: 'bulk_upload',
-        },
-      };
+  // Validate against thresholds (work hour window, etc.)
+  if (errors.length === 0 && thresholds) {
+    const thresholdResult = validateAgainstThresholds(row.start_time, row.end_time, thresholds);
+    if (!thresholdResult.valid && thresholdResult.error) {
+      errors.push(thresholdResult.error);
     }
+  }
+
+  if (errors.length === 0) {
+    return {
+      isValid: true,
+      errors: [],
+      data: {
+        user_id: userId,
+        entry_date: normalizedDate,
+        start_time: row.start_time,
+        end_time: row.end_time,
+        activity_type: row.activity_type.toLowerCase(),
+        activity_subtype: row.activity_subtype || null,
+        notes: row.notes || null,
+        department_code: deptCodeUpper,
+        status: 'submitted',
+        source: 'bulk_upload',
+      },
+    };
   }
 
   return { isValid: false, errors };
@@ -216,7 +227,8 @@ export async function validateMemberExcelRow(
 export async function validateAdminExcelRow(
   row: AdminExcelRow,
   usersMap: Map<string, string>,
-  deptsMap: Map<string, string>
+  deptsMap: Map<string, string>,
+  thresholds?: Thresholds | null
 ): Promise<ValidationResult> {
   const errors: string[] = [];
 
@@ -275,27 +287,33 @@ export async function validateAdminExcelRow(
     if (endMinutes <= startMinutes) {
       errors.push("end_time must be after start_time");
     }
+  }
 
-    const durationMinutes = endMinutes - startMinutes;
-
-    if (errors.length === 0) {
-      return {
-        isValid: true,
-        errors: [],
-        data: {
-          user_id: userId,
-          entry_date: row.entry_date,
-          start_time: row.start_time,
-          end_time: row.end_time,
-          activity_type: row.activity_type.toLowerCase(),
-          activity_subtype: row.activity_subtype || null,
-          notes: row.notes || null,
-          department_code: row.department_code.toUpperCase(),
-          status: 'submitted',
-          source: 'bulk_upload',
-        },
-      };
+  // Validate against thresholds (work hour window, etc.)
+  if (errors.length === 0 && thresholds) {
+    const thresholdResult = validateAgainstThresholds(row.start_time, row.end_time, thresholds);
+    if (!thresholdResult.valid && thresholdResult.error) {
+      errors.push(thresholdResult.error);
     }
+  }
+
+  if (errors.length === 0 && userId && deptId) {
+    return {
+      isValid: true,
+      errors: [],
+      data: {
+        user_id: userId,
+        entry_date: row.entry_date,
+        start_time: row.start_time,
+        end_time: row.end_time,
+        activity_type: row.activity_type.toLowerCase(),
+        activity_subtype: row.activity_subtype || null,
+        notes: row.notes || null,
+        department_code: row.department_code.toUpperCase(),
+        status: 'submitted',
+        source: 'bulk_upload',
+      },
+    };
   }
 
   return { isValid: false, errors };

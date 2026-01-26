@@ -27,6 +27,7 @@ import {
   getFileType,
   type ValidationResult as ExcelValidationResult
 } from "@/lib/excelImportUtils";
+import { fetchUserThresholds } from "@/lib/thresholdValidation";
 import { supabase } from "@/integrations/supabase/client";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -283,9 +284,19 @@ export default function BulkImport() {
           verts?.forEach(v => userDeptCodes.add(v.code.toUpperCase()));
         }
 
+        // Fetch thresholds for the target user
+        const thresholds = await fetchUserThresholds(targetUserId!);
+
         results = await Promise.all(
           rows.map(async (row, index) => {
-            const validation = await validateMemberExcelRow(row, targetUserId!, targetDepartmentId || "", deptsMap, userDeptCodes);
+            const validation = await validateMemberExcelRow(
+              row, 
+              targetUserId!, 
+              targetDepartmentId || "", 
+              deptsMap, 
+              userDeptCodes,
+              thresholds
+            );
             return {
               rowNumber: index + 2,
               rowData: row,
@@ -296,10 +307,16 @@ export default function BulkImport() {
       } else {
         // Admin mode: validate with email
         const { usersMap, deptsMap } = await fetchUsersAndDepartments();
+        
+        // Fetch thresholds for admin's organization by getting org from user_roles
+        let thresholds = null;
+        if (userWithRole?.user?.id) {
+          thresholds = await fetchUserThresholds(userWithRole.user.id);
+        }
 
         results = await Promise.all(
           rows.map(async (row, index) => {
-            const validation = await validateAdminExcelRow(row, usersMap, deptsMap);
+            const validation = await validateAdminExcelRow(row, usersMap, deptsMap, thresholds);
             return {
               rowNumber: index + 2,
               rowData: row,
