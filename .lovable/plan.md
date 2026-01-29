@@ -1,239 +1,162 @@
 
-## Plan: Fix User Edit Multi-Vertical Save Error and Bulk Upload Threshold Validation
+## Plan: Timesheet Bulk Upload & Dialog Improvements
 
 ### Overview
-This plan addresses two critical issues:
-1. **User Edit Foreign Key Error** - Saving user edits with multiple verticals fails with "user_roles_department_id_fkey" violation
-2. **Bulk Upload Threshold Validation** - Work Hour Window thresholds (08:30-17:30) are not enforced during bulk upload, allowing entries outside allowed hours
+This plan addresses three interconnected changes to the Timesheet functionality:
+1. **Google Drive Template Download** - Replace local template generation with Google Drive file download
+2. **Enhanced Bulk Upload Validation** - Add working days, holidays, and activity type validation
+3. **Scrollable Dialog Boxes** - Fix dialog UX so all fields and buttons are accessible
 
 ---
 
-### Issue 1: User Edit Multi-Vertical Save Error
+### Change 1: Google Drive Template Download
 
-**Root Cause Analysis:**
+**Current State:**
+- The `handleDownloadTemplate` function in `BulkImport.tsx` generates Excel templates locally using the `xlsx` library
+- Templates are created in-memory and downloaded as blobs
 
-The error occurs in `src/pages/Users.tsx` in the `handleEdit` function (line 577):
-```typescript
-department_id: formData.role === "org_admin" ? null : deptIds[0] || null,
+**New Behavior:**
+- When user clicks "Download Excel Template", redirect to Google Drive export URL
+- The user receives a downloaded copy of the Google Sheet (not the original editable file)
+- Only the first sheet matters for data/validation (extra tabs are ignored - this is already handled)
+
+**Technical Approach:**
+Google Sheets can be downloaded directly using a special export URL format:
+```
+https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=xlsx
 ```
 
-The problem:
-1. When editing a user with vertical assignments, `formData.department_ids` is empty
-2. `deptIds` gets set to the first vertical ID from `formData.vertical_ids` (line 568 fallback logic)
-3. The code then tries to set `user_roles.department_id` to a vertical ID
-4. Since `user_roles.department_id` has a foreign key to the `departments` table, and vertical IDs don't exist in that table, the FK constraint fails
+For the provided link, the spreadsheet ID is: `1Z7478M5CrtU0LCIzbyQ_BmCqd6u5JgRk`
 
-**Fix in `src/pages/Users.tsx`:**
+**File Changes:**
 
-A. Update the `handleEdit` function to properly handle vertical_id vs department_id:
+`src/pages/BulkImport.tsx`:
+- Update `handleDownloadTemplate` to open the Google Drive export link
+- Remove dependency on local template generation for member/manager mode
 
 ```typescript
-// Update or insert user role
-if (formData.role) {
-  // Keep department_ids separate from vertical_ids
-  const deptIds = formData.department_ids.length > 0 ? formData.department_ids : 
-                  (formData.department_id ? [formData.department_id] : []);
-  const vertIds = formData.vertical_ids.length > 0 ? formData.vertical_ids : [];
-  const progIds = formData.program_ids.length > 0 ? formData.program_ids : 
-                  (formData.program_id ? [formData.program_id] : []);
+const handleDownloadTemplate = () => {
+  // Google Drive export URL - automatically downloads a copy
+  const SPREADSHEET_ID = "1Z7478M5CrtU0LCIzbyQ_BmCqd6u5JgRk";
+  const exportUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=xlsx`;
   
-  // For user_roles table:
-  // - department_id: use actual department ID (from departments table) or NULL
-  // - vertical_id: use first vertical ID from verticals table
-  // DON'T mix vertical IDs with department_id field
-  const { error: roleError } = await supabase
-    .from("user_roles")
-    .upsert(
-      {
-        user_id: selectedUser.id,
-        role: displayToDbRole[formData.role],
-        // Only set department_id if it's an actual department ID, otherwise NULL
-        department_id: formData.role === "org_admin" || formData.role === "admin" ? null : 
-                       (deptIds.length > 0 ? deptIds[0] : null),
-        // Set vertical_id for the primary vertical reference
-        vertical_id: formData.role === "org_admin" || formData.role === "admin" ? null : 
-                     (vertIds.length > 0 ? vertIds[0] : null),
-        program_id: (formData.role === "program_manager" || formData.role === "member" || 
-                     formData.role === "l1" || formData.role === "l2") ? progIds[0] || null : null,
-      },
-      { onConflict: 'user_id' }
-    );
-
-  if (roleError) throw roleError;
-
-  // Sync user_verticals junction table (DON'T fallback to deptIds)
-  if (formData.role !== "org_admin" && formData.role !== "admin" && vertIds.length > 0) {
-    // Delete and insert vertical assignments
-    // ... existing logic but use vertIds directly, not fallback
-  }
-}
-```
-
-B. Update the `openEditDialog` function to NOT mix vertical_ids with department_ids:
-
-```typescript
-// Keep vertical_ids and department_ids separate
-setFormData({
-  // ...
-  department_id: deptIds[0] || user.department_id || "",
-  department_ids: deptIds,  // Keep as actual department IDs only
-  vertical_ids: verticalIds,  // Keep as actual vertical IDs only
-  // ...
-});
+  // Open in new tab to trigger download
+  window.open(exportUrl, "_blank");
+};
 ```
 
 ---
 
-### Issue 2: Bulk Upload Threshold Validation Missing
+### Change 2: Enhanced Bulk Upload Validation
 
-**Root Cause Analysis:**
+**Current State:**
+The validation in `excelImportUtils.ts` currently checks:
+- Required fields (date, times, activity_type, department_code)
+- Date format (DD/MM/YYYY or YYYY-MM-DD)
+- Time format (HH:MM 24-hour)
+- Activity type (hardcoded list: class, quiz, invigilation, admin, other)
+- Department/vertical code exists
+- User belongs to that department
+- Work hour window thresholds
 
-The validation functions in `src/lib/excelImportUtils.ts` (`validateMemberExcelRow` and `validateAdminExcelRow`) do not check:
-1. Work Hour Window constraints (08:30-17:30)
-2. Maximum hours per day
-3. Holiday restrictions
-4. Working day restrictions
+**Missing Validations:**
+1. **Working Days** - Entries on non-working days (e.g., Saturday/Sunday if configured)
+2. **Holidays** - Entries on configured holidays should be rejected
+3. **Dynamic Activity Types** - Should validate against org's `activity_categories` table, not a hardcoded list
 
-The `useThresholds` hook has a `validateEntry` function that performs these checks, but it's a React hook and cannot be used directly in utility functions.
+**Technical Approach:**
+
+**A. Extend `thresholdValidation.ts`** to also fetch and validate:
+- Working days configuration from `working_days` table
+- Holidays from `holidays` table
+
+Add new functions:
+```typescript
+interface ExtendedValidationContext {
+  thresholds: Thresholds | null;
+  holidays: { holiday_date: string; name: string }[];
+  workingDays: WorkingDaysConfig;
+  activityTypes: string[]; // Valid activity codes from activity_categories
+}
+
+async function fetchExtendedValidationContext(userId: string): Promise<ExtendedValidationContext>
+
+function validateEntryDateAgainstHolidaysAndWorkingDays(
+  entryDate: string, 
+  holidays: { holiday_date: string; name: string }[], 
+  workingDays: WorkingDaysConfig
+): { valid: boolean; error?: string }
+```
+
+**B. Update `excelImportUtils.ts`**:
+- Pass extended validation context to `validateMemberExcelRow` and `validateAdminExcelRow`
+- Add holiday check: if `entry_date` matches any holiday, reject with error
+- Add working day check: if `entry_date` falls on a non-working day, reject with error
+- Replace hardcoded activity type list with dynamic validation against fetched activity categories
+
+**C. Update `BulkImport.tsx`**:
+- Fetch the extended validation context before processing rows
+- Pass all validation data (thresholds, holidays, working days, activity types) to validation functions
+
+**File Changes:**
+
+`src/lib/thresholdValidation.ts`:
+- Add `WorkingDaysConfig` interface
+- Add `fetchExtendedValidationContext` function
+- Add `validateDateAgainstHolidaysAndWorkingDays` function
+
+`src/lib/excelImportUtils.ts`:
+- Update `validateMemberExcelRow` signature to accept extended context
+- Update `validateAdminExcelRow` signature to accept extended context  
+- Add holiday validation logic
+- Add working day validation logic
+- Replace hardcoded activity types with dynamic validation
+
+`src/pages/BulkImport.tsx`:
+- Import and call `fetchExtendedValidationContext`
+- Pass all validation data to row validation functions
+
+---
+
+### Change 3: Scrollable Dialog Boxes
+
+**Problem:**
+The "Add Timesheet Entry" dialogs in `Timesheet.tsx` and `Calendar.tsx` have many form fields (date, times, activity type, vertical, program, batch, term, subject, notes, buttons). On smaller screens or when many programs/batches are available, the dialog content overflows and the submit button becomes inaccessible.
 
 **Solution:**
+Add scroll capability to the DialogContent by:
+1. Setting a maximum height on the dialog content
+2. Adding `overflow-y-auto` to allow scrolling
+3. Ensuring the header stays fixed and the form area scrolls
 
-Create a standalone threshold validation function that can be called from the bulk import validation. This function will:
-1. Fetch the organization's threshold settings
-2. Check work hour window constraints
-3. Return appropriate error messages for violations
+**Technical Approach:**
 
-**Fix 1: Create new utility function in `src/lib/thresholdValidation.ts`:**
+Update the `DialogContent` wrapper in both files to include:
+- `max-h-[90vh]` - Limit height to 90% of viewport height
+- `overflow-y-auto` - Enable vertical scrolling
+- Wrap the form fields in a `ScrollArea` component for better UX
 
-```typescript
-import { supabase } from "@/integrations/supabase/client";
+**File Changes:**
 
-interface ThresholdValidationResult {
-  valid: boolean;
-  error?: string;
-}
-
-interface Thresholds {
-  work_hours_enabled: boolean;
-  work_start_time: string;
-  work_end_time: string;
-  max_hours_enabled: boolean;
-  max_hours_minutes: number;
-}
-
-/**
- * Fetch thresholds for a user's organization
- */
-export async function fetchUserThresholds(userId: string): Promise<Thresholds | null> {
-  // Get user's organization
-  const { data: userRole } = await supabase
-    .from("user_roles")
-    .select("organization_id")
-    .eq("user_id", userId)
-    .single();
-
-  if (!userRole?.organization_id) return null;
-
-  // Fetch org-wide thresholds
-  const { data: thresholds } = await supabase
-    .from("timesheet_thresholds")
-    .select("*")
-    .eq("organization_id", userRole.organization_id)
-    .is("vertical_id", null)
-    .single();
-
-  if (!thresholds) return null;
-
-  return {
-    work_hours_enabled: thresholds.work_hours_enabled,
-    work_start_time: thresholds.work_start_time || "08:30:00",
-    work_end_time: thresholds.work_end_time || "17:30:00",
-    max_hours_enabled: thresholds.max_hours_enabled,
-    max_hours_minutes: thresholds.max_hours_minutes || 480,
-  };
-}
-
-/**
- * Validate a timesheet entry against thresholds
- */
-export function validateAgainstThresholds(
-  startTime: string,
-  endTime: string,
-  thresholds: Thresholds | null
-): ThresholdValidationResult {
-  if (!thresholds) return { valid: true };
-
-  // Check work hour window
-  if (thresholds.work_hours_enabled) {
-    const workStart = thresholds.work_start_time.slice(0, 5);
-    const workEnd = thresholds.work_end_time.slice(0, 5);
-
-    if (startTime < workStart || endTime > workEnd) {
-      return {
-        valid: false,
-        error: `Entry must be within work hours (${workStart} - ${workEnd}). Your entry: ${startTime} - ${endTime}`,
-      };
-    }
-  }
-
-  return { valid: true };
-}
+`src/pages/Timesheet.tsx` (lines 759-984):
+```tsx
+<DialogContent className="max-w-md max-h-[90vh] flex flex-col">
+  <DialogHeader className="flex-shrink-0">
+    {/* Header stays fixed */}
+  </DialogHeader>
+  <ScrollArea className="flex-1 overflow-y-auto pr-4">
+    <div className="space-y-4">
+      {/* All form fields */}
+    </div>
+  </ScrollArea>
+  <div className="flex gap-2 flex-shrink-0 pt-4 border-t">
+    {/* Buttons stay visible at bottom */}
+  </div>
+</DialogContent>
 ```
 
-**Fix 2: Update `src/lib/excelImportUtils.ts` to use threshold validation:**
-
-Add threshold validation to `validateMemberExcelRow`:
-
-```typescript
-// Import the new function
-import { fetchUserThresholds, validateAgainstThresholds } from "./thresholdValidation";
-
-// In validateMemberExcelRow function, add threshold validation:
-export async function validateMemberExcelRow(
-  row: MemberExcelRow,
-  userId: string,
-  userDepartmentId: string,
-  deptsMap: Map<string, string>,
-  userDeptCodes?: Set<string>,
-  thresholds?: Thresholds | null  // Add threshold parameter
-): Promise<ValidationResult> {
-  // ... existing validation ...
-
-  // After time format validation, add threshold check:
-  if (thresholds && timeRegex.test(row.start_time) && timeRegex.test(row.end_time)) {
-    const thresholdResult = validateAgainstThresholds(row.start_time, row.end_time, thresholds);
-    if (!thresholdResult.valid) {
-      errors.push(thresholdResult.error!);
-    }
-  }
-
-  // ... rest of validation ...
-}
-```
-
-**Fix 3: Update `src/pages/BulkImport.tsx` to fetch and pass thresholds:**
-
-```typescript
-// In handleParseAndValidate function:
-if (isMember || isManager) {
-  // ... existing code ...
-
-  // Fetch thresholds for the target user
-  const thresholds = await fetchUserThresholds(targetUserId!);
-
-  results = await Promise.all(
-    rows.map(async (row, index) => {
-      const validation = await validateMemberExcelRow(
-        row, targetUserId!, targetDepartmentId || "", deptsMap, userDeptCodes,
-        thresholds  // Pass thresholds
-      );
-      return { rowNumber: index + 2, rowData: row, ...validation };
-    })
-  );
-}
-```
-
-Similarly update the admin validation path.
+`src/pages/Calendar.tsx` (lines 861-1048):
+- Same pattern as Timesheet.tsx
 
 ---
 
@@ -241,34 +164,71 @@ Similarly update the admin validation path.
 
 | File | Changes |
 |------|---------|
-| `src/pages/Users.tsx` | Fix `handleEdit` to separate vertical_ids from department_ids, don't set department_id to vertical UUID |
-| `src/lib/thresholdValidation.ts` | NEW FILE - Standalone threshold validation functions |
-| `src/lib/excelImportUtils.ts` | Add threshold validation to `validateMemberExcelRow` and `validateAdminExcelRow` |
-| `src/pages/BulkImport.tsx` | Fetch thresholds and pass to validation functions |
+| `src/lib/thresholdValidation.ts` | Add WorkingDaysConfig, holiday/working day validation functions, fetchExtendedValidationContext |
+| `src/lib/excelImportUtils.ts` | Update validateMemberExcelRow and validateAdminExcelRow to check holidays, working days, and dynamic activity types |
+| `src/pages/BulkImport.tsx` | Replace local template with Google Drive download, fetch extended validation context |
+| `src/pages/Timesheet.tsx` | Add ScrollArea and max-height to dialog, restructure for fixed header/footer |
+| `src/pages/Calendar.tsx` | Same dialog scroll improvements as Timesheet.tsx |
 
 ---
 
 ### Technical Details
 
-**Issue 1 - Foreign Key Fix:**
-- `user_roles.department_id` references `departments(id)` - legacy field
-- `user_roles.vertical_id` references `verticals(id)` - new hierarchy field  
-- The code was incorrectly setting `department_id` to vertical UUIDs
-- Fix: Set `vertical_id` for verticals, keep `department_id` NULL or actual department ID
+**Google Drive Export URL:**
+- Format: `https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=xlsx`
+- This automatically triggers a download of a copy - the original file is not modified
+- Users receive the same template with dropdown functionality preserved
 
-**Issue 2 - Threshold Validation:**
-- Thresholds are stored in `timesheet_thresholds` table
-- `work_hours_enabled` with `work_start_time`/`work_end_time` defines allowed window
-- Bulk upload validation must fetch and apply these constraints
-- Error message will show: "Entry must be within work hours (08:30 - 17:30). Your entry: 17:00 - 18:00"
+**Holiday Validation Logic:**
+```typescript
+function isHolidayDate(dateStr: string, holidays: Holiday[]): Holiday | null {
+  return holidays.find(h => h.holiday_date === dateStr) || null;
+}
+
+// In validation:
+const holiday = isHolidayDate(normalizedDate, holidays);
+if (holiday) {
+  errors.push(`Cannot create entries on holidays (${holiday.name})`);
+}
+```
+
+**Working Day Validation Logic:**
+```typescript
+function isWorkingDayDate(dateStr: string, workingDays: WorkingDaysConfig): boolean {
+  const date = new Date(dateStr);
+  const dayIndex = date.getDay(); // 0=Sun, 1=Mon, ...
+  const dayMap = { 0: 'sunday', 1: 'monday', ... };
+  return workingDays[dayMap[dayIndex]];
+}
+
+// In validation:
+if (!isWorkingDayDate(normalizedDate, workingDays)) {
+  errors.push("Cannot create entries on non-working days");
+}
+```
+
+**Activity Type Validation:**
+```typescript
+// Fetch from activity_categories table
+const activityCodes = await fetchOrgActivityCodes(organizationId);
+
+// In validation:
+const activityCodeLower = row.activity_type.toLowerCase();
+if (!activityCodes.includes(activityCodeLower)) {
+  errors.push(`Invalid activity type '${row.activity_type}'. Valid types: ${activityCodes.join(', ')}`);
+}
+```
 
 ---
 
 ### Testing Checklist
 
-- [ ] As Admin, edit Moses (L1) and assign 2 verticals - save should succeed without FK error
-- [ ] Verify user_roles has correct vertical_id set (first vertical)
-- [ ] Verify user_verticals has both vertical assignments
-- [ ] As Moses, try bulk upload with entry 17:00-18:00 - should fail validation with work hour error
-- [ ] As Moses, try bulk upload with entry 09:00-10:00 - should pass validation
-- [ ] Existing single timesheet entry validation continues to work
+- [ ] Download template from Google Drive - verify xlsx downloads correctly with dropdowns
+- [ ] Upload file with entry on a holiday date - should fail validation
+- [ ] Upload file with entry on a non-working day (e.g., Sunday) - should fail validation
+- [ ] Upload file with invalid activity type - should fail with list of valid types
+- [ ] Upload file with entry outside work hour window - should fail validation
+- [ ] Upload file with valid entries - should pass and import successfully
+- [ ] Open New Entry dialog on Timesheet page - verify scrolling works
+- [ ] Open New Entry dialog on Calendar page - verify scrolling works
+- [ ] Submit button should always be visible in dialogs
