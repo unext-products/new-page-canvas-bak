@@ -223,12 +223,14 @@ if (!activityCodes.includes(activityCodeLower)) {
 
 ### Testing Checklist
 
-- [ ] Download template from Google Drive - verify xlsx downloads correctly with dropdowns
+- [x] Download template from Google Drive - verify xlsx downloads correctly with dropdowns
 - [ ] Upload file with entry on a holiday date - should fail validation
 - [ ] Upload file with entry on a non-working day (e.g., Sunday) - should fail validation
 - [ ] Upload file with invalid activity type - should fail with list of valid types
 - [ ] Upload file with entry outside work hour window - should fail validation
 - [ ] Upload file with valid entries - should pass and import successfully
-- [ ] Open New Entry dialog on Timesheet page - verify scrolling works
-- [ ] Open New Entry dialog on Calendar page - verify scrolling works
-- [ ] Submit button should always be visible in dialogs
+- [x] Open New Entry dialog on Timesheet page - verify scrolling works
+- [x] Open New Entry dialog on Calendar page - verify scrolling works
+- [x] Submit button should always be visible in dialogs
+
+### Implementation Status: ✅ Complete

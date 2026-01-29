@@ -1,7 +1,16 @@
 import { supabase } from "@/integrations/supabase/client";
 import * as XLSX from "xlsx";
 import { getUserErrorMessage } from "./errorHandler";
-import { validateAgainstThresholds, type Thresholds } from "./thresholdValidation";
+import { 
+  validateAgainstThresholds, 
+  validateDateAgainstHolidaysAndWorkingDays,
+  isHolidayDate,
+  isWorkingDayDate,
+  type Thresholds,
+  type ExtendedValidationContext,
+  type Holiday,
+  type WorkingDaysConfig
+} from "./thresholdValidation";
 
 // Common row structure
 interface ExcelRowBase {
@@ -28,8 +37,8 @@ export interface ValidationResult {
   data?: any;
 }
 
-// Re-export Thresholds type for consumers
-export type { Thresholds };
+// Re-export types for consumers
+export type { Thresholds, ExtendedValidationContext };
 
 /**
  * Convert Excel time decimal to HH:MM format
@@ -124,7 +133,7 @@ export async function validateMemberExcelRow(
   departmentId: string,
   deptsMap: Map<string, string>,
   userDeptCodes?: Set<string>,
-  thresholds?: Thresholds | null
+  validationContext?: ExtendedValidationContext | null
 ): Promise<ValidationResult> {
   const errors: string[] = [];
 
@@ -161,10 +170,18 @@ export async function validateMemberExcelRow(
     errors.push("end_time must be in HH:MM format (24-hour)");
   }
 
-  // Validate activity type
-  const validActivityTypes = ['class', 'quiz', 'invigilation', 'admin', 'other'];
-  if (!validActivityTypes.includes(row.activity_type.toLowerCase())) {
-    errors.push(`activity_type must be one of: ${validActivityTypes.join(', ')}`);
+  // Validate activity type - use dynamic validation if available
+  if (validationContext && validationContext.activityTypes.length > 0) {
+    const activityLower = row.activity_type.toLowerCase();
+    if (!validationContext.activityTypes.includes(activityLower)) {
+      errors.push(`Invalid activity type '${row.activity_type}'. Valid types: ${validationContext.activityTypes.join(', ')}`);
+    }
+  } else {
+    // Fallback to hardcoded list for backward compatibility
+    const validActivityTypes = ['class', 'quiz', 'invigilation', 'admin', 'other'];
+    if (!validActivityTypes.includes(row.activity_type.toLowerCase())) {
+      errors.push(`activity_type must be one of: ${validActivityTypes.join(', ')}`);
+    }
   }
 
   // Validate department exists
@@ -191,9 +208,21 @@ export async function validateMemberExcelRow(
     }
   }
 
+  // Validate against holidays and working days
+  if (errors.length === 0 && validationContext) {
+    const dateValidation = validateDateAgainstHolidaysAndWorkingDays(
+      normalizedDate,
+      validationContext.holidays,
+      validationContext.workingDays
+    );
+    if (!dateValidation.valid && dateValidation.error) {
+      errors.push(dateValidation.error);
+    }
+  }
+
   // Validate against thresholds (work hour window, etc.)
-  if (errors.length === 0 && thresholds) {
-    const thresholdResult = validateAgainstThresholds(row.start_time, row.end_time, thresholds);
+  if (errors.length === 0 && validationContext?.thresholds) {
+    const thresholdResult = validateAgainstThresholds(row.start_time, row.end_time, validationContext.thresholds);
     if (!thresholdResult.valid && thresholdResult.error) {
       errors.push(thresholdResult.error);
     }
@@ -228,7 +257,7 @@ export async function validateAdminExcelRow(
   row: AdminExcelRow,
   usersMap: Map<string, string>,
   deptsMap: Map<string, string>,
-  thresholds?: Thresholds | null
+  validationContext?: ExtendedValidationContext | null
 ): Promise<ValidationResult> {
   const errors: string[] = [];
 
@@ -250,10 +279,17 @@ export async function validateAdminExcelRow(
     errors.push(`Member email '${row.member_email}' not found`);
   }
 
-  // Validate date format
-  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-  if (!dateRegex.test(row.entry_date)) {
-    errors.push("entry_date must be in YYYY-MM-DD format");
+  // Validate date format (DD/MM/YYYY or YYYY-MM-DD)
+  const ddmmyyyy = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+  const isoFormat = /^\d{4}-\d{2}-\d{2}$/;
+  let normalizedDate = row.entry_date;
+  
+  const ddMatch = row.entry_date.match(ddmmyyyy);
+  if (ddMatch) {
+    // Convert DD/MM/YYYY to YYYY-MM-DD
+    normalizedDate = `${ddMatch[3]}-${ddMatch[2].padStart(2, '0')}-${ddMatch[1].padStart(2, '0')}`;
+  } else if (!isoFormat.test(row.entry_date)) {
+    errors.push("entry_date must be in DD/MM/YYYY or YYYY-MM-DD format");
   }
 
   // Validate time format
@@ -265,10 +301,18 @@ export async function validateAdminExcelRow(
     errors.push("end_time must be in HH:MM format (24-hour)");
   }
 
-  // Validate activity type
-  const validActivityTypes = ['class', 'quiz', 'invigilation', 'admin', 'other'];
-  if (!validActivityTypes.includes(row.activity_type.toLowerCase())) {
-    errors.push(`activity_type must be one of: ${validActivityTypes.join(', ')}`);
+  // Validate activity type - use dynamic validation if available
+  if (validationContext && validationContext.activityTypes.length > 0) {
+    const activityLower = row.activity_type.toLowerCase();
+    if (!validationContext.activityTypes.includes(activityLower)) {
+      errors.push(`Invalid activity type '${row.activity_type}'. Valid types: ${validationContext.activityTypes.join(', ')}`);
+    }
+  } else {
+    // Fallback to hardcoded list for backward compatibility
+    const validActivityTypes = ['class', 'quiz', 'invigilation', 'admin', 'other'];
+    if (!validActivityTypes.includes(row.activity_type.toLowerCase())) {
+      errors.push(`activity_type must be one of: ${validActivityTypes.join(', ')}`);
+    }
   }
 
   // Validate department exists
@@ -289,9 +333,21 @@ export async function validateAdminExcelRow(
     }
   }
 
+  // Validate against holidays and working days
+  if (errors.length === 0 && validationContext) {
+    const dateValidation = validateDateAgainstHolidaysAndWorkingDays(
+      normalizedDate,
+      validationContext.holidays,
+      validationContext.workingDays
+    );
+    if (!dateValidation.valid && dateValidation.error) {
+      errors.push(dateValidation.error);
+    }
+  }
+
   // Validate against thresholds (work hour window, etc.)
-  if (errors.length === 0 && thresholds) {
-    const thresholdResult = validateAgainstThresholds(row.start_time, row.end_time, thresholds);
+  if (errors.length === 0 && validationContext?.thresholds) {
+    const thresholdResult = validateAgainstThresholds(row.start_time, row.end_time, validationContext.thresholds);
     if (!thresholdResult.valid && thresholdResult.error) {
       errors.push(thresholdResult.error);
     }
@@ -303,7 +359,7 @@ export async function validateAdminExcelRow(
       errors: [],
       data: {
         user_id: userId,
-        entry_date: row.entry_date,
+        entry_date: normalizedDate,
         start_time: row.start_time,
         end_time: row.end_time,
         activity_type: row.activity_type.toLowerCase(),

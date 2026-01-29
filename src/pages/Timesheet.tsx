@@ -763,223 +763,225 @@ export default function Timesheet() {
                   New Entry
                 </Button>
               </DialogTrigger>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
+            <DialogContent className="max-w-md max-h-[90vh] flex flex-col">
+              <DialogHeader className="flex-shrink-0">
                 <DialogTitle>Add Timesheet Entry</DialogTitle>
                 <DialogDescription>
                   Fill in the details of your work activity
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="date">Date</Label>
-                  <Input
-                    id="date"
-                    type="date"
-                    value={entryDate}
-                    onChange={(e) => setEntryDate(e.target.value)}
-                    max={new Date().toISOString().split("T")[0]}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
+              <div className="flex-1 overflow-y-auto pr-2">
+                <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="startTime">Start Time</Label>
+                    <Label htmlFor="date">Date</Label>
                     <Input
-                      id="startTime"
-                      type="time"
-                      value={startTime}
-                      onChange={(e) => setStartTime(e.target.value)}
+                      id="date"
+                      type="date"
+                      value={entryDate}
+                      onChange={(e) => setEntryDate(e.target.value)}
+                      max={new Date().toISOString().split("T")[0]}
                     />
                   </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="startTime">Start Time</Label>
+                      <Input
+                        id="startTime"
+                        type="time"
+                        value={startTime}
+                        onChange={(e) => setStartTime(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="endTime">End Time</Label>
+                      <Input
+                        id="endTime"
+                        type="time"
+                        value={endTime}
+                        onChange={(e) => setEndTime(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
-                    <Label htmlFor="endTime">End Time</Label>
+                    <Label htmlFor="activityType">Activity Type</Label>
+                    <Select value={activityType} onValueChange={setActivityType}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select activity type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {hasHierarchy ? (
+                          // Hierarchical view with grouped activities
+                          parentCategories.map((parent) => {
+                            const children = getChildren(parent.id);
+                            if (children.length === 0) return null;
+                            return (
+                              <SelectGroup key={parent.id}>
+                                <SelectLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                                  {parent.name}
+                                </SelectLabel>
+                                {children.map((activity) => (
+                                  <SelectItem key={activity.code} value={activity.code}>
+                                    {activity.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
+                            );
+                          })
+                        ) : (
+                          // Flat list for non-hierarchical categories
+                          categories.map((cat) => (
+                            <SelectItem key={cat.code} value={cat.code}>
+                              {cat.name}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="subtype">Subject / Details (Optional)</Label>
                     <Input
-                      id="endTime"
-                      type="time"
-                      value={endTime}
-                      onChange={(e) => setEndTime(e.target.value)}
+                      id="subtype"
+                      placeholder="e.g., Mathematics, Physics Lab"
+                      value={activitySubtype}
+                      onChange={(e) => setActivitySubtype(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="verticalCode">Vertical <span className="text-destructive">*</span></Label>
+                    <Select 
+                      value={verticalCode} 
+                      onValueChange={handleVerticalChange}
+                    >
+                      <SelectTrigger id="verticalCode">
+                        <SelectValue placeholder="Select vertical" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {userVerticals.map((vert) => (
+                          <SelectItem key={vert.id} value={vert.code.toUpperCase()}>
+                            {vert.name} ({vert.code})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="programId">Program <span className="text-destructive">*</span></Label>
+                    <Select 
+                      value={programId} 
+                      onValueChange={handleProgramChange}
+                      disabled={!verticalCode}
+                    >
+                      <SelectTrigger id="programId">
+                        <SelectValue placeholder={verticalCode ? "Select program" : "Select vertical first"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {programs.map((prog) => (
+                          <SelectItem key={prog.id} value={prog.id}>
+                            {prog.name} ({prog.code})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="batchId">Batch</Label>
+                      <Select 
+                        value={batchId} 
+                        onValueChange={handleBatchChange}
+                        disabled={!programId}
+                      >
+                        <SelectTrigger id="batchId">
+                          <SelectValue placeholder="Optional" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {batches.map((batch) => (
+                            <SelectItem key={batch.id} value={batch.id}>
+                              {batch.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="termId">Term</Label>
+                      <Select 
+                        value={termId} 
+                        onValueChange={handleTermChange}
+                        disabled={!batchId}
+                      >
+                        <SelectTrigger id="termId">
+                          <SelectValue placeholder="Optional" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {terms.map((term) => (
+                            <SelectItem key={term.id} value={term.id}>
+                              {term.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="subjectId">Subject</Label>
+                      <Select 
+                        value={subjectId} 
+                        onValueChange={setSubjectId}
+                        disabled={!termId}
+                      >
+                        <SelectTrigger id="subjectId">
+                          <SelectValue placeholder="Optional" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {subjects.map((subj) => (
+                            <SelectItem key={subj.id} value={subj.id}>
+                              {subj.name} ({subj.code})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="notes">Notes (Optional)</Label>
+                    <Textarea
+                      id="notes"
+                      placeholder="Additional details..."
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      rows={3}
                     />
                   </div>
                 </div>
+              </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="activityType">Activity Type</Label>
-                  <Select value={activityType} onValueChange={setActivityType}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select activity type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {hasHierarchy ? (
-                        // Hierarchical view with grouped activities
-                        parentCategories.map((parent) => {
-                          const children = getChildren(parent.id);
-                          if (children.length === 0) return null;
-                          return (
-                            <SelectGroup key={parent.id}>
-                              <SelectLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                                {parent.name}
-                              </SelectLabel>
-                              {children.map((activity) => (
-                                <SelectItem key={activity.code} value={activity.code}>
-                                  {activity.name}
-                                </SelectItem>
-                              ))}
-                            </SelectGroup>
-                          );
-                        })
-                      ) : (
-                        // Flat list for non-hierarchical categories
-                        categories.map((cat) => (
-                          <SelectItem key={cat.code} value={cat.code}>
-                            {cat.name}
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="subtype">Subject / Details (Optional)</Label>
-                  <Input
-                    id="subtype"
-                    placeholder="e.g., Mathematics, Physics Lab"
-                    value={activitySubtype}
-                    onChange={(e) => setActivitySubtype(e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="verticalCode">Vertical <span className="text-destructive">*</span></Label>
-                  <Select 
-                    value={verticalCode} 
-                    onValueChange={handleVerticalChange}
-                  >
-                    <SelectTrigger id="verticalCode">
-                      <SelectValue placeholder="Select vertical" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {userVerticals.map((vert) => (
-                        <SelectItem key={vert.id} value={vert.code.toUpperCase()}>
-                          {vert.name} ({vert.code})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="programId">Program <span className="text-destructive">*</span></Label>
-                  <Select 
-                    value={programId} 
-                    onValueChange={handleProgramChange}
-                    disabled={!verticalCode}
-                  >
-                    <SelectTrigger id="programId">
-                      <SelectValue placeholder={verticalCode ? "Select program" : "Select vertical first"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {programs.map((prog) => (
-                        <SelectItem key={prog.id} value={prog.id}>
-                          {prog.name} ({prog.code})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="batchId">Batch</Label>
-                    <Select 
-                      value={batchId} 
-                      onValueChange={handleBatchChange}
-                      disabled={!programId}
-                    >
-                      <SelectTrigger id="batchId">
-                        <SelectValue placeholder="Optional" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {batches.map((batch) => (
-                          <SelectItem key={batch.id} value={batch.id}>
-                            {batch.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="termId">Term</Label>
-                    <Select 
-                      value={termId} 
-                      onValueChange={handleTermChange}
-                      disabled={!batchId}
-                    >
-                      <SelectTrigger id="termId">
-                        <SelectValue placeholder="Optional" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {terms.map((term) => (
-                          <SelectItem key={term.id} value={term.id}>
-                            {term.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="subjectId">Subject</Label>
-                    <Select 
-                      value={subjectId} 
-                      onValueChange={setSubjectId}
-                      disabled={!termId}
-                    >
-                      <SelectTrigger id="subjectId">
-                        <SelectValue placeholder="Optional" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {subjects.map((subj) => (
-                          <SelectItem key={subj.id} value={subj.id}>
-                            {subj.name} ({subj.code})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="notes">Notes (Optional)</Label>
-                  <Textarea
-                    id="notes"
-                    placeholder="Additional details..."
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    rows={3}
-                  />
-                </div>
-
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => {
-                      setDialogOpen(false);
-                      resetForm();
-                    }}
-                    disabled={loading}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    className="flex-1"
-                    onClick={() => handleSubmit("submitted")}
-                    disabled={loading}
-                  >
-                    Submit
-                  </Button>
-                </div>
+              <div className="flex gap-2 flex-shrink-0 pt-4 border-t mt-4">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => {
+                    setDialogOpen(false);
+                    resetForm();
+                  }}
+                  disabled={loading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1"
+                  onClick={() => handleSubmit("submitted")}
+                  disabled={loading}
+                >
+                  Submit
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
