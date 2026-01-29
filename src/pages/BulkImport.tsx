@@ -21,13 +21,12 @@ import {
   parseExcelFile,
   validateMemberExcelRow,
   validateAdminExcelRow,
-  generateMemberExcelTemplate,
   generateAdminExcelTemplate,
   fetchDepartments,
   getFileType,
   type ValidationResult as ExcelValidationResult
 } from "@/lib/excelImportUtils";
-import { fetchUserThresholds } from "@/lib/thresholdValidation";
+import { fetchExtendedValidationContext } from "@/lib/thresholdValidation";
 import { supabase } from "@/integrations/supabase/client";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -284,8 +283,8 @@ export default function BulkImport() {
           verts?.forEach(v => userDeptCodes.add(v.code.toUpperCase()));
         }
 
-        // Fetch thresholds for the target user
-        const thresholds = await fetchUserThresholds(targetUserId!);
+        // Fetch extended validation context (thresholds, holidays, working days, activity types)
+        const validationContext = await fetchExtendedValidationContext(targetUserId!);
 
         results = await Promise.all(
           rows.map(async (row, index) => {
@@ -295,7 +294,7 @@ export default function BulkImport() {
               targetDepartmentId || "", 
               deptsMap, 
               userDeptCodes,
-              thresholds
+              validationContext
             );
             return {
               rowNumber: index + 2,
@@ -308,15 +307,15 @@ export default function BulkImport() {
         // Admin mode: validate with email
         const { usersMap, deptsMap } = await fetchUsersAndDepartments();
         
-        // Fetch thresholds for admin's organization by getting org from user_roles
-        let thresholds = null;
+        // Fetch extended validation context for admin's organization
+        let validationContext = null;
         if (userWithRole?.user?.id) {
-          thresholds = await fetchUserThresholds(userWithRole.user.id);
+          validationContext = await fetchExtendedValidationContext(userWithRole.user.id);
         }
 
         results = await Promise.all(
           rows.map(async (row, index) => {
-            const validation = await validateAdminExcelRow(row, usersMap, deptsMap, thresholds);
+            const validation = await validateAdminExcelRow(row, usersMap, deptsMap, validationContext);
             return {
               rowNumber: index + 2,
               rowData: row,
@@ -399,27 +398,24 @@ export default function BulkImport() {
   };
 
   const handleDownloadTemplate = () => {
-    let blob: Blob;
-    let filename: string;
-
     if (isMember || isManager) {
-      // Member/Manager template (no email column)
-      blob = generateMemberExcelTemplate();
-      filename = 'timesheet_template.xlsx';
+      // Member/Manager template - download from Google Drive
+      const SPREADSHEET_ID = "1Z7478M5CrtU0LCIzbyQ_BmCqd6u5JgRk";
+      const exportUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=xlsx`;
+      window.open(exportUrl, "_blank");
     } else {
-      // Admin template (with email column)
-      blob = generateAdminExcelTemplate();
-      filename = 'timesheet_import_template.xlsx';
+      // Admin template (with email column) - use local generation
+      const blob = generateAdminExcelTemplate();
+      const filename = 'timesheet_import_template.xlsx';
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
     }
-
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
   };
 
   const handleReset = () => {

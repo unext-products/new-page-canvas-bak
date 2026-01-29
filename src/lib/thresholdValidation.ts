@@ -13,6 +13,38 @@ export interface Thresholds {
   max_hours_minutes: number;
 }
 
+export interface WorkingDaysConfig {
+  monday: boolean;
+  tuesday: boolean;
+  wednesday: boolean;
+  thursday: boolean;
+  friday: boolean;
+  saturday: boolean;
+  sunday: boolean;
+}
+
+export interface Holiday {
+  holiday_date: string;
+  name: string;
+}
+
+export interface ExtendedValidationContext {
+  thresholds: Thresholds | null;
+  holidays: Holiday[];
+  workingDays: WorkingDaysConfig;
+  activityTypes: string[];
+}
+
+const defaultWorkingDays: WorkingDaysConfig = {
+  monday: true,
+  tuesday: true,
+  wednesday: true,
+  thursday: true,
+  friday: true,
+  saturday: false,
+  sunday: false,
+};
+
 /**
  * Fetch thresholds for a user's organization
  */
@@ -65,6 +97,153 @@ export async function fetchOrgThresholds(organizationId: string): Promise<Thresh
     max_hours_enabled: thresholds.max_hours_enabled,
     max_hours_minutes: thresholds.max_hours_minutes || 480,
   };
+}
+
+/**
+ * Fetch extended validation context for bulk import
+ */
+export async function fetchExtendedValidationContext(userId: string): Promise<ExtendedValidationContext> {
+  // Get user's organization
+  const { data: userRole } = await supabase
+    .from("user_roles")
+    .select("organization_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  const organizationId = userRole?.organization_id;
+
+  if (!organizationId) {
+    return {
+      thresholds: null,
+      holidays: [],
+      workingDays: defaultWorkingDays,
+      activityTypes: [],
+    };
+  }
+
+  // Fetch all validation data in parallel
+  const [thresholdsRes, holidaysRes, workingDaysRes, activityCategoriesRes] = await Promise.all([
+    supabase
+      .from("timesheet_thresholds")
+      .select("*")
+      .eq("organization_id", organizationId)
+      .is("vertical_id", null)
+      .maybeSingle(),
+    supabase
+      .from("holidays")
+      .select("holiday_date, name")
+      .eq("organization_id", organizationId),
+    supabase
+      .from("working_days")
+      .select("*")
+      .eq("organization_id", organizationId)
+      .is("vertical_id", null)
+      .maybeSingle(),
+    supabase
+      .from("activity_categories")
+      .select("name")
+      .eq("organization_id", organizationId)
+      .eq("is_active", true)
+      .not("parent_id", "is", null), // Only selectable (child) activities
+  ]);
+
+  // Process thresholds
+  const thresholds = thresholdsRes.data ? {
+    work_hours_enabled: thresholdsRes.data.work_hours_enabled,
+    work_start_time: thresholdsRes.data.work_start_time || "08:30:00",
+    work_end_time: thresholdsRes.data.work_end_time || "17:30:00",
+    max_hours_enabled: thresholdsRes.data.max_hours_enabled,
+    max_hours_minutes: thresholdsRes.data.max_hours_minutes || 480,
+  } : null;
+
+  // Process holidays
+  const holidays: Holiday[] = holidaysRes.data || [];
+
+  // Process working days
+  const workingDays: WorkingDaysConfig = workingDaysRes.data ? {
+    monday: workingDaysRes.data.monday,
+    tuesday: workingDaysRes.data.tuesday,
+    wednesday: workingDaysRes.data.wednesday,
+    thursday: workingDaysRes.data.thursday,
+    friday: workingDaysRes.data.friday,
+    saturday: workingDaysRes.data.saturday,
+    sunday: workingDaysRes.data.sunday,
+  } : defaultWorkingDays;
+
+  // Process activity types - get all activity names (case-insensitive)
+  let activityTypes = activityCategoriesRes.data?.map(c => c.name.toLowerCase()) || [];
+  
+  // If no child activities, fetch all active categories
+  if (activityTypes.length === 0) {
+    const { data: allCategories } = await supabase
+      .from("activity_categories")
+      .select("name")
+      .eq("organization_id", organizationId)
+      .eq("is_active", true);
+    activityTypes = allCategories?.map(c => c.name.toLowerCase()) || [];
+  }
+
+  return {
+    thresholds,
+    holidays,
+    workingDays,
+    activityTypes,
+  };
+}
+
+/**
+ * Check if a date is a holiday
+ */
+export function isHolidayDate(dateStr: string, holidays: Holiday[]): Holiday | null {
+  return holidays.find(h => h.holiday_date === dateStr) || null;
+}
+
+/**
+ * Check if a date is a working day
+ */
+export function isWorkingDayDate(dateStr: string, workingDays: WorkingDaysConfig): boolean {
+  const date = new Date(dateStr);
+  const dayIndex = date.getDay(); // 0=Sunday, 1=Monday, ...
+  const dayMap: Record<number, keyof WorkingDaysConfig> = {
+    0: 'sunday',
+    1: 'monday',
+    2: 'tuesday',
+    3: 'wednesday',
+    4: 'thursday',
+    5: 'friday',
+    6: 'saturday',
+  };
+  return workingDays[dayMap[dayIndex]];
+}
+
+/**
+ * Validate entry date against holidays and working days
+ */
+export function validateDateAgainstHolidaysAndWorkingDays(
+  entryDate: string,
+  holidays: Holiday[],
+  workingDays: WorkingDaysConfig
+): ThresholdValidationResult {
+  // Check holiday
+  const holiday = isHolidayDate(entryDate, holidays);
+  if (holiday) {
+    return {
+      valid: false,
+      error: `Cannot create entries on holidays (${holiday.name})`,
+    };
+  }
+
+  // Check working day
+  if (!isWorkingDayDate(entryDate, workingDays)) {
+    const date = new Date(entryDate);
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    return {
+      valid: false,
+      error: `Cannot create entries on non-working days (${dayNames[date.getDay()]})`,
+    };
+  }
+
+  return { valid: true };
 }
 
 /**
