@@ -33,6 +33,19 @@ export interface ExtendedValidationContext {
   holidays: Holiday[];
   workingDays: WorkingDaysConfig;
   activityTypes: string[];
+  userLeaveDays?: Set<string>;
+}
+
+/**
+ * Fetch leave days for a user
+ */
+export async function fetchUserLeaveDays(userId: string): Promise<Set<string>> {
+  const { data } = await supabase
+    .from('leave_days')
+    .select('leave_date')
+    .eq('user_id', userId);
+  
+  return new Set(data?.map(d => d.leave_date) || []);
 }
 
 const defaultWorkingDays: WorkingDaysConfig = {

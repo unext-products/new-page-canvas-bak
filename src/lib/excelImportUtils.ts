@@ -208,6 +208,11 @@ export async function validateMemberExcelRow(
     }
   }
 
+  // Validate against leave days
+  if (errors.length === 0 && validationContext?.userLeaveDays?.has(normalizedDate)) {
+    errors.push(`Cannot create entries on leave days (${normalizedDate})`);
+  }
+
   // Validate against holidays and working days
   if (errors.length === 0 && validationContext) {
     const dateValidation = validateDateAgainstHolidaysAndWorkingDays(
@@ -331,6 +336,12 @@ export async function validateAdminExcelRow(
     if (endMinutes <= startMinutes) {
       errors.push("end_time must be after start_time");
     }
+  }
+
+  // Validate against leave days (for admin mode, we can't check individual user's leave days without additional context)
+  // This validation is primarily for member mode where we have the specific user's leave days
+  if (errors.length === 0 && validationContext?.userLeaveDays?.has(normalizedDate)) {
+    errors.push(`Cannot create entries on leave days (${normalizedDate})`);
   }
 
   // Validate against holidays and working days
