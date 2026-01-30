@@ -842,16 +842,6 @@ export default function Timesheet() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="subtype">Subject / Details (Optional)</Label>
-                    <Input
-                      id="subtype"
-                      placeholder="e.g., Mathematics, Physics Lab"
-                      value={activitySubtype}
-                      onChange={(e) => setActivitySubtype(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
                     <Label htmlFor="verticalCode">Vertical <span className="text-destructive">*</span></Label>
                     <Select 
                       value={verticalCode} 

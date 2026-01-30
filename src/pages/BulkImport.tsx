@@ -26,7 +26,7 @@ import {
   getFileType,
   type ValidationResult as ExcelValidationResult
 } from "@/lib/excelImportUtils";
-import { fetchExtendedValidationContext } from "@/lib/thresholdValidation";
+import { fetchExtendedValidationContext, fetchUserLeaveDays } from "@/lib/thresholdValidation";
 import { supabase } from "@/integrations/supabase/client";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -285,6 +285,13 @@ export default function BulkImport() {
 
         // Fetch extended validation context (thresholds, holidays, working days, activity types)
         const validationContext = await fetchExtendedValidationContext(targetUserId!);
+        
+        // Fetch user's leave days
+        const userLeaveDays = await fetchUserLeaveDays(targetUserId!);
+        const validationContextWithLeave = {
+          ...validationContext,
+          userLeaveDays,
+        };
 
         results = await Promise.all(
           rows.map(async (row, index) => {
@@ -294,7 +301,7 @@ export default function BulkImport() {
               targetDepartmentId || "", 
               deptsMap, 
               userDeptCodes,
-              validationContext
+              validationContextWithLeave
             );
             return {
               rowNumber: index + 2,
