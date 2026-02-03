@@ -262,6 +262,18 @@ export default function Timesheet() {
       return;
     }
 
+    // Validate future date - cannot create entries for future dates
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    if (entryDate > todayStr) {
+      toast({
+        title: "Future Date Not Allowed",
+        description: "Cannot create timesheet entries for future dates",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Normalize time format for overlap check
     const normalizeTimeFormat = (time: string): string => {
       const parts = time.split(":");

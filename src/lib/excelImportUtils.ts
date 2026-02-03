@@ -12,15 +12,18 @@ import {
   type WorkingDaysConfig
 } from "./thresholdValidation";
 
-// Common row structure
+// Common row structure - updated for new Excel format with batch, program, subject columns
 interface ExcelRowBase {
   entry_date: string;
   start_time: string;
   end_time: string;
   activity_type: string;
-  activity_subtype?: string;
-  notes?: string;
-  department_code: string;
+  batch?: string;           // Column E - optional
+  program: string;          // Column F - required (program code)
+  subject?: string;         // Column G - optional (subject code)
+  notes?: string;           // Column H
+  department_code: string;  // Column I - vertical code (required)
+  activity_subtype?: string; // backward compatibility
 }
 
 // Admin mode includes member email
@@ -125,6 +128,14 @@ export async function parseExcelFile(file: File): Promise<any[]> {
 }
 
 /**
+ * Helper to get today's date as YYYY-MM-DD string (local time)
+ */
+function getTodayDateString(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
+/**
  * Validate row for member mode (no email needed) with user department check
  */
 export async function validateMemberExcelRow(
@@ -133,7 +144,9 @@ export async function validateMemberExcelRow(
   departmentId: string,
   deptsMap: Map<string, string>,
   userDeptCodes?: Set<string>,
-  validationContext?: ExtendedValidationContext | null
+  validationContext?: ExtendedValidationContext | null,
+  userProgramsMap?: Map<string, { id: string; vertical_id: string }> | null,
+  programsInVertical?: Map<string, { id: string; code: string }> | null
 ): Promise<ValidationResult> {
   const errors: string[] = [];
 
@@ -142,7 +155,8 @@ export async function validateMemberExcelRow(
   if (!row.start_time) errors.push("start_time is required");
   if (!row.end_time) errors.push("end_time is required");
   if (!row.activity_type) errors.push("activity_type is required");
-  if (!row.department_code) errors.push("department_code is required");
+  if (!row.department_code) errors.push("department_code (vertical) is required");
+  if (!row.program) errors.push("program is required");
 
   if (errors.length > 0) {
     return { isValid: false, errors };
@@ -184,16 +198,40 @@ export async function validateMemberExcelRow(
     }
   }
 
-  // Validate department exists
+  // Validate department (vertical) exists
   const deptCodeUpper = row.department_code.toUpperCase();
   const deptId = deptsMap.get(deptCodeUpper);
   if (!deptId) {
-    errors.push(`Department code '${row.department_code}' not found`);
+    errors.push(`Vertical code '${row.department_code}' not found`);
   }
 
-  // Validate user belongs to this department
+  // Validate user belongs to this department/vertical
   if (deptId && userDeptCodes && !userDeptCodes.has(deptCodeUpper)) {
-    errors.push(`You are not a member of department '${row.department_code}'`);
+    errors.push(`You are not a member of vertical '${row.department_code}'`);
+  }
+
+  // Validate program (required)
+  let programId: string | null = null;
+  const programCodeUpper = row.program.toUpperCase();
+  
+  if (userProgramsMap) {
+    // Check if user is assigned to this program
+    const programInfo = userProgramsMap.get(programCodeUpper);
+    if (!programInfo) {
+      errors.push(`You are not assigned to program '${row.program}'`);
+    } else if (deptId && programInfo.vertical_id !== deptId) {
+      errors.push(`Program '${row.program}' does not belong to vertical '${row.department_code}'`);
+    } else {
+      programId = programInfo.id;
+    }
+  } else if (programsInVertical) {
+    // Fallback: check if program exists in the selected vertical
+    const progInfo = programsInVertical.get(programCodeUpper);
+    if (!progInfo) {
+      errors.push(`Program '${row.program}' not found in vertical '${row.department_code}'`);
+    } else {
+      programId = progInfo.id;
+    }
   }
 
   // Validate time logic
@@ -205,6 +243,14 @@ export async function validateMemberExcelRow(
 
     if (endMinutes <= startMinutes) {
       errors.push("end_time must be after start_time");
+    }
+  }
+
+  // Validate future date - cannot create entries for future dates
+  if (errors.length === 0) {
+    const todayStr = getTodayDateString();
+    if (normalizedDate > todayStr) {
+      errors.push(`Cannot create entries for future dates (${normalizedDate})`);
     }
   }
 
@@ -246,6 +292,11 @@ export async function validateMemberExcelRow(
         activity_subtype: row.activity_subtype || null,
         notes: row.notes || null,
         department_code: deptCodeUpper,
+        vertical_code: deptCodeUpper,
+        vertical_id: deptId || null,
+        program_id: programId,
+        batch_name: row.batch || null,
+        subject_code: row.subject || null,
         status: 'submitted',
         source: 'bulk_upload',
       },
@@ -338,6 +389,14 @@ export async function validateAdminExcelRow(
     }
   }
 
+  // Validate future date - cannot create entries for future dates
+  if (errors.length === 0) {
+    const todayStr = getTodayDateString();
+    if (normalizedDate > todayStr) {
+      errors.push(`Cannot create entries for future dates (${normalizedDate})`);
+    }
+  }
+
   // Validate against leave days (for admin mode, we can't check individual user's leave days without additional context)
   // This validation is primarily for member mode where we have the specific user's leave days
   if (errors.length === 0 && validationContext?.userLeaveDays?.has(normalizedDate)) {
@@ -377,6 +436,10 @@ export async function validateAdminExcelRow(
         activity_subtype: row.activity_subtype || null,
         notes: row.notes || null,
         department_code: row.department_code.toUpperCase(),
+        vertical_code: row.department_code.toUpperCase(),
+        vertical_id: deptId || null,
+        batch_name: row.batch || null,
+        subject_code: row.subject || null,
         status: 'submitted',
         source: 'bulk_upload',
       },

@@ -59,15 +59,30 @@ serve(async (req) => {
     const isSuperAdmin = roleData.role === 'super_admin';
     const adminOrgId = roleData.organization_id;
 
-    // List all users using admin API
-    const { data: authUsersData, error: listError } = await supabaseClient.auth.admin.listUsers();
+    // List all users using admin API with pagination
+    let allUsers: any[] = [];
+    let page = 1;
+    const perPage = 1000;
 
-    if (listError) {
-      console.error('List users error:', listError);
-      throw listError;
+    while (true) {
+      const { data: authUsersData, error: listError } = await supabaseClient.auth.admin.listUsers({
+        page,
+        perPage,
+      });
+
+      if (listError) {
+        console.error('List users error:', listError);
+        throw listError;
+      }
+
+      allUsers = [...allUsers, ...authUsersData.users];
+
+      // If we got fewer than perPage users, we've reached the last page
+      if (authUsersData.users.length < perPage) break;
+      page++;
     }
 
-    let filteredUsers = authUsersData.users;
+    let filteredUsers = allUsers;
 
     if (isSuperAdmin) {
       // Super admin can see all users EXCEPT other super_admins
@@ -80,7 +95,7 @@ serve(async (req) => {
       const superAdminIds = new Set(superAdminUsers?.map(u => u.user_id) || []);
       
       // Filter out other super_admins from the list
-      filteredUsers = authUsersData.users.filter(u => !superAdminIds.has(u.id));
+      filteredUsers = allUsers.filter((u: any) => !superAdminIds.has(u.id));
     } else {
       // Org admin can only see users in their organization
       if (!adminOrgId) {
@@ -110,7 +125,7 @@ serve(async (req) => {
       );
 
       // Filter to only include users from the admin's organization (excluding super_admins)
-      filteredUsers = authUsersData.users.filter(u => orgUserIds.has(u.id));
+      filteredUsers = allUsers.filter((u: any) => orgUserIds.has(u.id));
     }
 
     console.log(`Listed ${filteredUsers.length} users`);
