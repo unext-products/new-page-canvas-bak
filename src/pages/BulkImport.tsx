@@ -283,6 +283,27 @@ export default function BulkImport() {
           verts?.forEach(v => userDeptCodes.add(v.code.toUpperCase()));
         }
 
+        // Fetch user's assigned programs with vertical_id for program validation
+        const { data: userProgsData } = await supabase
+          .from("user_programs")
+          .select("program_id")
+          .eq("user_id", targetUserId);
+        
+        const userProgIds = userProgsData?.map(up => up.program_id) || [];
+        
+        // Fetch program details (code and vertical_id)
+        let userProgramsMap: Map<string, { id: string; vertical_id: string }> | null = null;
+        if (userProgIds.length > 0) {
+          const { data: progs } = await supabase
+            .from("programs")
+            .select("id, code, vertical_id")
+            .in("id", userProgIds);
+          
+          userProgramsMap = new Map(
+            progs?.map(p => [p.code.toUpperCase(), { id: p.id, vertical_id: p.vertical_id || '' }]) || []
+          );
+        }
+
         // Fetch extended validation context (thresholds, holidays, working days, activity types)
         const validationContext = await fetchExtendedValidationContext(targetUserId!);
         
@@ -301,7 +322,9 @@ export default function BulkImport() {
               targetDepartmentId || "", 
               deptsMap, 
               userDeptCodes,
-              validationContextWithLeave
+              validationContextWithLeave,
+              userProgramsMap,
+              null // programsInVertical - only needed as fallback
             );
             return {
               rowNumber: index + 2,
