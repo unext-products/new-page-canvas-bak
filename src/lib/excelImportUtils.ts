@@ -95,6 +95,7 @@ function excelDateToString(value: any): string {
 
 /**
  * Parse Excel file to JSON array with proper time/date handling
+ * Normalizes all header keys to lowercase to handle case variations (e.g., "Program" -> "program")
  */
 export async function parseExcelFile(file: File): Promise<any[]> {
   return new Promise((resolve, reject) => {
@@ -108,13 +109,26 @@ export async function parseExcelFile(file: File): Promise<any[]> {
         const worksheet = workbook.Sheets[firstSheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet, { raw: true });
         
-        // Convert Excel time decimals and dates to proper formats
-        const processedData = jsonData.map((row: any) => ({
-          ...row,
-          start_time: row.start_time !== undefined ? excelTimeToHHMM(row.start_time) : undefined,
-          end_time: row.end_time !== undefined ? excelTimeToHHMM(row.end_time) : undefined,
-          entry_date: row.entry_date !== undefined ? excelDateToString(row.entry_date) : undefined,
-        }));
+        // Normalize all keys to lowercase and convert Excel time decimals and dates
+        const processedData = jsonData.map((row: any) => {
+          // First, normalize all keys to lowercase
+          const normalizedRow: any = {};
+          for (const [key, value] of Object.entries(row)) {
+            normalizedRow[key.toLowerCase()] = value;
+          }
+          
+          // Handle "subjects" -> "subject" mapping (template may use plural)
+          if (normalizedRow.subjects !== undefined && normalizedRow.subject === undefined) {
+            normalizedRow.subject = normalizedRow.subjects;
+          }
+          
+          return {
+            ...normalizedRow,
+            start_time: normalizedRow.start_time !== undefined ? excelTimeToHHMM(normalizedRow.start_time) : undefined,
+            end_time: normalizedRow.end_time !== undefined ? excelTimeToHHMM(normalizedRow.end_time) : undefined,
+            entry_date: normalizedRow.entry_date !== undefined ? excelDateToString(normalizedRow.entry_date) : undefined,
+          };
+        });
         
         resolve(processedData);
       } catch (error) {
@@ -145,7 +159,7 @@ export async function validateMemberExcelRow(
   deptsMap: Map<string, string>,
   userDeptCodes?: Set<string>,
   validationContext?: ExtendedValidationContext | null,
-  userProgramsMap?: Map<string, { id: string; vertical_id: string }> | null,
+  userProgramsMap?: Map<string, { id: string; vertical_id: string; name?: string }> | null,
   programsInVertical?: Map<string, { id: string; code: string }> | null
 ): Promise<ValidationResult> {
   const errors: string[] = [];
@@ -210,13 +224,24 @@ export async function validateMemberExcelRow(
     errors.push(`You are not a member of vertical '${row.department_code}'`);
   }
 
-  // Validate program (required)
+  // Validate program (required) - check by code first, then by name
   let programId: string | null = null;
-  const programCodeUpper = row.program.toUpperCase();
+  const programValueUpper = row.program.toUpperCase();
   
   if (userProgramsMap) {
-    // Check if user is assigned to this program
-    const programInfo = userProgramsMap.get(programCodeUpper);
+    // Check if user is assigned to this program by code
+    let programInfo = userProgramsMap.get(programValueUpper);
+    
+    // If not found by code, try to find by name
+    if (!programInfo) {
+      for (const [, info] of userProgramsMap.entries()) {
+        if (info.name?.toUpperCase() === programValueUpper) {
+          programInfo = info;
+          break;
+        }
+      }
+    }
+    
     if (!programInfo) {
       errors.push(`You are not assigned to program '${row.program}'`);
     } else if (deptId && programInfo.vertical_id !== deptId) {
@@ -226,7 +251,7 @@ export async function validateMemberExcelRow(
     }
   } else if (programsInVertical) {
     // Fallback: check if program exists in the selected vertical
-    const progInfo = programsInVertical.get(programCodeUpper);
+    const progInfo = programsInVertical.get(programValueUpper);
     if (!progInfo) {
       errors.push(`Program '${row.program}' not found in vertical '${row.department_code}'`);
     } else {

@@ -281,14 +281,21 @@ export default function BulkImport() {
 
         const userProgIds = userProgsData?.map((up) => up.program_id) || [];
 
-        // Fetch program details (code and vertical_id)
-        let userProgramsMap: Map<string, { id: string; vertical_id: string }> | null = null;
+        // Fetch program details (code, name, and vertical_id)
+        let userProgramsMap: Map<string, { id: string; vertical_id: string; name?: string }> | null = null;
         if (userProgIds.length > 0) {
-          const { data: progs } = await supabase.from("programs").select("id, code, vertical_id").in("id", userProgIds);
+          const { data: progs } = await supabase.from("programs").select("id, code, name, vertical_id").in("id", userProgIds);
 
           userProgramsMap = new Map(
-            progs?.map((p) => [p.code.toUpperCase(), { id: p.id, vertical_id: p.vertical_id || "" }]) || [],
+            progs?.map((p) => [p.code.toUpperCase(), { id: p.id, vertical_id: p.vertical_id || "", name: p.name }]) || [],
           );
+          
+          // Also add by name for lookup flexibility (user may enter program name instead of code)
+          progs?.forEach((p) => {
+            if (p.name && userProgramsMap) {
+              userProgramsMap.set(p.name.toUpperCase(), { id: p.id, vertical_id: p.vertical_id || "", name: p.name });
+            }
+          });
         }
 
         // Fetch extended validation context (thresholds, holidays, working days, activity types)
