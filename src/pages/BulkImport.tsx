@@ -13,10 +13,7 @@ import { Upload, FileText, Download, AlertCircle, CheckCircle, XCircle, Loader2 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { getUserErrorMessage } from "@/lib/errorHandler";
-import { 
-  bulkInsertTimesheets, 
-  fetchUsersAndDepartments
-} from "@/lib/csvImportUtils";
+import { bulkInsertTimesheets, fetchUsersAndDepartments } from "@/lib/csvImportUtils";
 import {
   parseExcelFile,
   validateMemberExcelRow,
@@ -24,7 +21,7 @@ import {
   generateAdminExcelTemplate,
   fetchDepartments,
   getFileType,
-  type ValidationResult as ExcelValidationResult
+  type ValidationResult as ExcelValidationResult,
 } from "@/lib/excelImportUtils";
 import { fetchExtendedValidationContext, fetchUserLeaveDays } from "@/lib/thresholdValidation";
 import { supabase } from "@/integrations/supabase/client";
@@ -63,7 +60,7 @@ export default function BulkImport() {
   useEffect(() => {
     const fetchDepartmentMembers = async () => {
       if (!isManager || !userWithRole?.user?.id) return;
-      
+
       setLoadingMembers(true);
       try {
         // Get manager's verticals from user_verticals
@@ -71,19 +68,19 @@ export default function BulkImport() {
           .from("user_verticals")
           .select("vertical_id")
           .eq("user_id", userWithRole.user.id);
-        
-        const verticalIds = managerVerticals?.map(v => v.vertical_id) || [];
-        
+
+        const verticalIds = managerVerticals?.map((v) => v.vertical_id) || [];
+
         if (verticalIds.length === 0) {
           // Fallback to user_departments
           const { data: managerDepts } = await supabase
             .from("user_departments")
             .select("department_id")
             .eq("user_id", userWithRole.user.id);
-          
-          verticalIds.push(...(managerDepts?.map(d => d.department_id) || []));
+
+          verticalIds.push(...(managerDepts?.map((d) => d.department_id) || []));
         }
-        
+
         if (verticalIds.length === 0) {
           setLoadingMembers(false);
           return;
@@ -94,9 +91,9 @@ export default function BulkImport() {
           .from("user_verticals")
           .select("user_id")
           .in("vertical_id", verticalIds);
-        
-        const allUserIds = [...new Set(vertUsers?.map(v => v.user_id) || [])];
-        
+
+        const allUserIds = [...new Set(vertUsers?.map((v) => v.user_id) || [])];
+
         if (allUserIds.length === 0) {
           setLoadingMembers(false);
           return;
@@ -108,15 +105,14 @@ export default function BulkImport() {
           .select("user_id")
           .in("role", ["l1", "faculty"])
           .in("user_id", allUserIds);
-        
-        const facultyUserIds = (facultyRoles?.map(r => r.user_id) || [])
-          .filter(id => id !== userWithRole.user.id);
-        
+
+        const facultyUserIds = (facultyRoles?.map((r) => r.user_id) || []).filter((id) => id !== userWithRole.user.id);
+
         if (facultyUserIds.length === 0) {
           setLoadingMembers(false);
           return;
         }
-        
+
         // Get profiles for these users
         const { data: profiles, error: profilesError } = await supabase
           .from("profiles")
@@ -128,15 +124,15 @@ export default function BulkImport() {
 
         // Get emails via edge function
         const { data: usersData, error: usersError } = await supabase.functions.invoke("admin-list-users");
-        
+
         if (usersError) throw usersError;
 
         const emailMap = new Map(usersData?.users?.map((u: any) => [u.id, u.email]) || []);
-        
-        const members: DepartmentMember[] = (profiles || []).map(p => ({
+
+        const members: DepartmentMember[] = (profiles || []).map((p) => ({
           id: p.id,
           full_name: p.full_name,
-          email: emailMap.get(p.id) as string || ""
+          email: (emailMap.get(p.id) as string) || "",
         }));
 
         setDepartmentMembers(members);
@@ -171,7 +167,7 @@ export default function BulkImport() {
 
     // Validate file type - Excel only
     const fileType = getFileType(selectedFile.name);
-    if (fileType !== 'excel') {
+    if (fileType !== "excel") {
       toast({
         title: "Invalid file type",
         description: "Please upload an Excel file (.xlsx, .xls)",
@@ -227,11 +223,11 @@ export default function BulkImport() {
       if (isMember || isManager) {
         // Member or Manager mode: validate without email, use selected user
         const deptsMap = await fetchDepartments();
-        
+
         // For Manager, use selected member if not "self"
         let targetUserId = userWithRole?.user.id;
         let targetDepartmentId = userWithRole?.departmentId;
-        
+
         if (isManager && selectedMemberId !== "self") {
           targetUserId = selectedMemberId;
           // Department remains same as manager's department
@@ -252,35 +248,29 @@ export default function BulkImport() {
           supabase.from("user_departments").select("department_id").eq("user_id", targetUserId),
           supabase.from("user_verticals").select("vertical_id").eq("user_id", targetUserId),
         ]);
-        
-        const deptIds = userDepsRes.data?.map(ud => ud.department_id) || [];
-        const vertIds = userVertsRes.data?.map(uv => uv.vertical_id) || [];
-        
+
+        const deptIds = userDepsRes.data?.map((ud) => ud.department_id) || [];
+        const vertIds = userVertsRes.data?.map((uv) => uv.vertical_id) || [];
+
         // Also include department from user_roles as fallback
         if (targetDepartmentId && !deptIds.includes(targetDepartmentId)) {
           deptIds.push(targetDepartmentId);
         }
-        
+
         let userDeptCodes = new Set<string>();
-        
+
         // Fetch codes from departments table
         if (deptIds.length > 0) {
-          const { data: depts } = await supabase
-            .from("departments")
-            .select("code")
-            .in("id", deptIds);
-          
-          depts?.forEach(d => userDeptCodes.add(d.code.toUpperCase()));
+          const { data: depts } = await supabase.from("departments").select("code").in("id", deptIds);
+
+          depts?.forEach((d) => userDeptCodes.add(d.code.toUpperCase()));
         }
-        
+
         // Fetch codes from verticals table
         if (vertIds.length > 0) {
-          const { data: verts } = await supabase
-            .from("verticals")
-            .select("code")
-            .in("id", vertIds);
-          
-          verts?.forEach(v => userDeptCodes.add(v.code.toUpperCase()));
+          const { data: verts } = await supabase.from("verticals").select("code").in("id", vertIds);
+
+          verts?.forEach((v) => userDeptCodes.add(v.code.toUpperCase()));
         }
 
         // Fetch user's assigned programs with vertical_id for program validation
@@ -288,25 +278,22 @@ export default function BulkImport() {
           .from("user_programs")
           .select("program_id")
           .eq("user_id", targetUserId);
-        
-        const userProgIds = userProgsData?.map(up => up.program_id) || [];
-        
+
+        const userProgIds = userProgsData?.map((up) => up.program_id) || [];
+
         // Fetch program details (code and vertical_id)
         let userProgramsMap: Map<string, { id: string; vertical_id: string }> | null = null;
         if (userProgIds.length > 0) {
-          const { data: progs } = await supabase
-            .from("programs")
-            .select("id, code, vertical_id")
-            .in("id", userProgIds);
-          
+          const { data: progs } = await supabase.from("programs").select("id, code, vertical_id").in("id", userProgIds);
+
           userProgramsMap = new Map(
-            progs?.map(p => [p.code.toUpperCase(), { id: p.id, vertical_id: p.vertical_id || '' }]) || []
+            progs?.map((p) => [p.code.toUpperCase(), { id: p.id, vertical_id: p.vertical_id || "" }]) || [],
           );
         }
 
         // Fetch extended validation context (thresholds, holidays, working days, activity types)
         const validationContext = await fetchExtendedValidationContext(targetUserId!);
-        
+
         // Fetch user's leave days
         const userLeaveDays = await fetchUserLeaveDays(targetUserId!);
         const validationContextWithLeave = {
@@ -317,26 +304,26 @@ export default function BulkImport() {
         results = await Promise.all(
           rows.map(async (row, index) => {
             const validation = await validateMemberExcelRow(
-              row, 
-              targetUserId!, 
-              targetDepartmentId || "", 
-              deptsMap, 
+              row,
+              targetUserId!,
+              targetDepartmentId || "",
+              deptsMap,
               userDeptCodes,
               validationContextWithLeave,
               userProgramsMap,
-              null // programsInVertical - only needed as fallback
+              null, // programsInVertical - only needed as fallback
             );
             return {
               rowNumber: index + 2,
               rowData: row,
               ...validation,
             };
-          })
+          }),
         );
       } else {
         // Admin mode: validate with email
         const { usersMap, deptsMap } = await fetchUsersAndDepartments();
-        
+
         // Fetch extended validation context for admin's organization
         let validationContext = null;
         if (userWithRole?.user?.id) {
@@ -351,20 +338,19 @@ export default function BulkImport() {
               rowData: row,
               ...validation,
             };
-          })
+          }),
         );
       }
 
       setValidationResults(results);
-      
-      const validCount = results.filter(r => r.isValid).length;
+
+      const validCount = results.filter((r) => r.isValid).length;
       const invalidCount = results.length - validCount;
 
       toast({
         title: "Validation complete",
         description: `${validCount} valid, ${invalidCount} invalid entries`,
       });
-
     } catch (error: any) {
       toast({
         title: "Validation failed",
@@ -377,9 +363,7 @@ export default function BulkImport() {
   };
 
   const handleImport = async () => {
-    const validEntries = validationResults
-      .filter((r) => r.isValid && r.data)
-      .map((r) => r.data);
+    const validEntries = validationResults.filter((r) => r.isValid && r.data).map((r) => r.data);
 
     if (validEntries.length === 0) {
       toast({
@@ -403,7 +387,7 @@ export default function BulkImport() {
         const isForSelf = isMember || (isManager && selectedMemberId === "self");
         toast({
           title: isForSelf ? "Submitted for approval" : "Import complete",
-          description: isForSelf 
+          description: isForSelf
             ? `${results.success} entries submitted for approval`
             : `Successfully imported ${results.success} entries`,
         });
@@ -430,15 +414,15 @@ export default function BulkImport() {
   const handleDownloadTemplate = () => {
     if (isMember || isManager) {
       // Member/Manager template - download from Google Drive
-      const SPREADSHEET_ID = "1Z7478M5CrtU0LCIzbyQ_BmCqd6u5JgRk";
+      const SPREADSHEET_ID = "1XcrQT-LZ9HX6czFZKGEdZvoRiuctSSbx";
       const exportUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=xlsx`;
       window.open(exportUrl, "_blank");
     } else {
       // Admin template (with email column) - use local generation
       const blob = generateAdminExcelTemplate();
-      const filename = 'timesheet_import_template.xlsx';
+      const filename = "timesheet_import_template.xlsx";
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
       a.download = filename;
       document.body.appendChild(a);
@@ -457,7 +441,7 @@ export default function BulkImport() {
     setSelectedMemberId("self");
   };
 
-  const validCount = validationResults.filter(r => r.isValid).length;
+  const validCount = validationResults.filter((r) => r.isValid).length;
   const invalidCount = validationResults.length - validCount;
 
   const getPageTitle = () => {
@@ -487,9 +471,7 @@ export default function BulkImport() {
               <Download className="h-5 w-5" />
               Download Template
             </CardTitle>
-            <CardDescription>
-              Download a template file with example data and required columns
-            </CardDescription>
+            <CardDescription>Download a template file with example data and required columns</CardDescription>
           </CardHeader>
           <CardContent>
             <Button onClick={handleDownloadTemplate} variant="outline">
@@ -497,10 +479,9 @@ export default function BulkImport() {
               Download Excel Template
             </Button>
             <p className="text-sm text-muted-foreground mt-4">
-              {(isMember || isManager)
+              {isMember || isManager
                 ? "Template includes: date, times, activity type, subtype, notes, and department code"
-                : "Template includes: member email, date, times, activity type, subtype, notes, and department code"
-              }
+                : "Template includes: member email, date, times, activity type, subtype, notes, and department code"}
             </p>
           </CardContent>
         </Card>
@@ -513,9 +494,7 @@ export default function BulkImport() {
                 <Upload className="h-5 w-5" />
                 Upload File
               </CardTitle>
-              <CardDescription>
-                Select an Excel file containing timesheet entries (max 1000 rows, 5MB)
-              </CardDescription>
+              <CardDescription>Select an Excel file containing timesheet entries (max 1000 rows, 5MB)</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Manager Member Selection */}
@@ -529,7 +508,9 @@ export default function BulkImport() {
                     <SelectContent>
                       <SelectItem value="self">Self (My Timesheet)</SelectItem>
                       {loadingMembers ? (
-                        <SelectItem value="loading" disabled>Loading members...</SelectItem>
+                        <SelectItem value="loading" disabled>
+                          Loading members...
+                        </SelectItem>
                       ) : (
                         departmentMembers.map((member) => (
                           <SelectItem key={member.id} value={member.id}>
@@ -540,14 +521,13 @@ export default function BulkImport() {
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
-                    {selectedMemberId === "self" 
+                    {selectedMemberId === "self"
                       ? "Entries will be added to your own timesheet"
-                      : "Entries will be added to the selected faculty member's timesheet"
-                    }
+                      : "Entries will be added to the selected faculty member's timesheet"}
                   </p>
                 </div>
               )}
-              
+
               <Input
                 type="file"
                 accept=".xlsx,.xls"
@@ -578,25 +558,19 @@ export default function BulkImport() {
           <Card>
             <CardHeader>
               <CardTitle>Validation Results</CardTitle>
-              <CardDescription>
-                Review the validation results before importing
-              </CardDescription>
+              <CardDescription>Review the validation results before importing</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <Alert>
                   <CheckCircle className="h-4 w-4 text-green-600" />
                   <AlertTitle>Valid Entries</AlertTitle>
-                  <AlertDescription className="text-2xl font-bold">
-                    {validCount}
-                  </AlertDescription>
+                  <AlertDescription className="text-2xl font-bold">{validCount}</AlertDescription>
                 </Alert>
                 <Alert variant={invalidCount > 0 ? "destructive" : "default"}>
                   <XCircle className="h-4 w-4" />
                   <AlertTitle>Invalid Entries</AlertTitle>
-                  <AlertDescription className="text-2xl font-bold">
-                    {invalidCount}
-                  </AlertDescription>
+                  <AlertDescription className="text-2xl font-bold">{invalidCount}</AlertDescription>
                 </Alert>
               </div>
 
@@ -638,9 +612,7 @@ export default function BulkImport() {
                         <TableCell>{result.rowData?.activity_type}</TableCell>
                         <TableCell>
                           {result.errors.length > 0 && (
-                            <span className="text-sm text-destructive">
-                              {result.errors.join(", ")}
-                            </span>
+                            <span className="text-sm text-destructive">{result.errors.join(", ")}</span>
                           )}
                         </TableCell>
                       </TableRow>
@@ -650,17 +622,13 @@ export default function BulkImport() {
               </div>
 
               <div className="flex gap-2">
-                <Button 
-                  onClick={handleImport}
-                  disabled={isImporting || validCount === 0}
-                >
+                <Button onClick={handleImport} disabled={isImporting || validCount === 0}>
                   {isImporting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  {isImporting 
-                    ? "Importing..." 
-                    : (isMember || (isHod && selectedMemberId === "self"))
-                      ? `Submit ${validCount} Entries for Approval` 
-                      : `Import ${validCount} Valid Entries`
-                  }
+                  {isImporting
+                    ? "Importing..."
+                    : isMember || (isHod && selectedMemberId === "self")
+                      ? `Submit ${validCount} Entries for Approval`
+                      : `Import ${validCount} Valid Entries`}
                 </Button>
                 <Button variant="outline" onClick={handleReset}>
                   Cancel
@@ -671,7 +639,9 @@ export default function BulkImport() {
                 <div className="space-y-2">
                   <Progress value={importProgress} />
                   <p className="text-sm text-muted-foreground text-center">
-                    {(isMember || (isHod && selectedMemberId === "self")) ? "Submitting entries..." : "Importing entries..."}
+                    {isMember || (isHod && selectedMemberId === "self")
+                      ? "Submitting entries..."
+                      : "Importing entries..."}
                   </p>
                 </div>
               )}
@@ -683,28 +653,20 @@ export default function BulkImport() {
         {importComplete && (
           <Card>
             <CardHeader>
-              <CardTitle>
-                {isMember ? "Submission Complete" : "Import Complete"}
-              </CardTitle>
+              <CardTitle>{isMember ? "Submission Complete" : "Import Complete"}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <Alert>
                   <CheckCircle className="h-4 w-4 text-green-600" />
-                  <AlertTitle>
-                    {isMember ? "Submitted" : "Imported"}
-                  </AlertTitle>
-                  <AlertDescription className="text-2xl font-bold">
-                    {importStats.success}
-                  </AlertDescription>
+                  <AlertTitle>{isMember ? "Submitted" : "Imported"}</AlertTitle>
+                  <AlertDescription className="text-2xl font-bold">{importStats.success}</AlertDescription>
                 </Alert>
                 {importStats.failed > 0 && (
                   <Alert variant="destructive">
                     <XCircle className="h-4 w-4" />
                     <AlertTitle>Failed</AlertTitle>
-                    <AlertDescription className="text-2xl font-bold">
-                      {importStats.failed}
-                    </AlertDescription>
+                    <AlertDescription className="text-2xl font-bold">{importStats.failed}</AlertDescription>
                   </Alert>
                 )}
               </div>
@@ -714,15 +676,13 @@ export default function BulkImport() {
                   <AlertCircle className="h-4 w-4" />
                   <AlertTitle>Next Steps</AlertTitle>
                   <AlertDescription>
-                    Your timesheet entries have been submitted to your manager for approval. 
-                    You can track their status on your dashboard.
+                    Your timesheet entries have been submitted to your manager for approval. You can track their status
+                    on your dashboard.
                   </AlertDescription>
                 </Alert>
               )}
 
-              <Button onClick={handleReset}>
-                {isMember ? "Upload More Entries" : "Import Another File"}
-              </Button>
+              <Button onClick={handleReset}>{isMember ? "Upload More Entries" : "Import Another File"}</Button>
             </CardContent>
           </Card>
         )}
