@@ -274,9 +274,9 @@ export default function Reports() {
                   <ChevronDown className="ml-2 h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="z-50">
-                <DropdownMenuItem onClick={handleExportCSV}>Export to CSV</DropdownMenuItem>
-                <DropdownMenuItem onClick={handleExportPDF}>Export to PDF</DropdownMenuItem>
+              <DropdownMenuContent align="end" className="z-[100] bg-popover" sideOffset={8}>
+                <DropdownMenuItem onClick={handleExportCSV} className="cursor-pointer">Export to CSV</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportPDF} className="cursor-pointer">Export to PDF</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           }
