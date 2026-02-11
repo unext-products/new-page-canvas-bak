@@ -1,85 +1,139 @@
 
 
-## Plan: Fix Department Report Export and Add Edit Pending Entries Feature
+## Plan: Strict Threshold Enforcement and Cross-Method Overlap Detection
 
-### Issue 1: Department View Report Export Not Working
+### Overview
+Two related timesheet validation fixes:
+1. **Strict threshold enforcement** -- work hour window and max daily hours must block entries outside configured limits
+2. **Cross-method overlap detection** -- prevent duplicate/overlapping entries between manual and bulk upload
 
-**Root Cause Identified:**
-The `VerticalReportData` interface (in `reportQueries.ts`) returns `verticalName` as the property name, but both export functions reference `report.departmentName` which is `undefined`. When `undefined.replace()` is called (for the filename), it throws a runtime error, silently preventing the download.
+---
 
-Specific locations:
-- `exportUtils.ts` line 215: `report.departmentName` (should be `report.verticalName`)
-- `exportUtils.ts` line 259: `report.departmentName.replace(...)` (crashes here)
-- `pdfExportUtils.ts` line 205: `report.departmentName` (undefined)
-- `pdfExportUtils.ts` line 274: `report.departmentName.replace(...)` (crashes here)
+### Issue 1: Threshold Validation Not Blocking Entries
+
+**Root Cause:**
+The `useThresholds` hook (used by Timesheet.tsx for individual entries) uses `.single()` when querying thresholds and working days. If no row exists (or multiple rows exist), `.single()` returns an error and `data` becomes `null`. The hook then silently falls back to `defaultThresholds` which has `work_hours_enabled: false` and `max_hours_enabled: false`, effectively disabling all threshold checks.
+
+Additionally, there is a timing risk: when the user selects a vertical, the hook re-fetches thresholds asynchronously. If the user submits before the fetch completes, stale (disabled) thresholds are used.
 
 **Fix:**
-Replace all `report.departmentName` references with `report.verticalName` in both export files. This is a straightforward property name mismatch -- the data model was renamed from "department" to "vertical" but the export functions were never updated.
 
-**Files to change:**
-- `src/lib/exportUtils.ts` -- 2 occurrences of `report.departmentName` to `report.verticalName`
-- `src/lib/pdfExportUtils.ts` -- 2 occurrences of `report.departmentName` to `report.verticalName`
+**A. `src/hooks/useThresholds.ts`** -- Change all `.single()` calls to `.maybeSingle()`:
+- Line ~101: `fetchThresholds` vertical-specific query
+- Line ~114: `fetchThresholds` org-wide query  
+- Line ~137: `fetchWorkingDays` vertical-specific query
+- Line ~150: `fetchWorkingDays` org-wide query
+
+This prevents silent failures when no rows or multiple rows exist.
+
+**B. `src/pages/Timesheet.tsx`** -- Add a direct DB threshold check in `handleSubmit` as a safety net:
+Before the existing threshold validation block (lines 302-321), fetch thresholds fresh from DB using `fetchOrgThresholds` or `fetchUserThresholds` from `thresholdValidation.ts`. This ensures the validation always uses the latest threshold data, regardless of hook loading state.
+
+```typescript
+// Fetch fresh thresholds from DB to ensure latest settings
+const freshThresholds = await fetchUserThresholds(userWithRole.user.id);
+if (freshThresholds) {
+  const thresholdResult = validateAgainstThresholds(normalizedStart, normalizedEnd, freshThresholds);
+  if (!thresholdResult.valid) {
+    toast({ title: "Threshold Exceeded", description: thresholdResult.error, variant: "destructive" });
+    return;
+  }
+  
+  // Also check max hours with fresh thresholds
+  if (freshThresholds.max_hours_enabled) {
+    // ... calculate total minutes including existing entries ...
+  }
+}
+```
+
+This replaces (or supplements) the existing hook-based validation to guarantee fresh data.
 
 ---
 
-### Feature 2: Edit Pending Timesheet Entries
+### Issue 2: Cross-Method Overlap Detection (Manual vs Bulk)
 
 **Current State:**
-- Users see a list of their entries in `Timesheet.tsx` (lines 1014-1065)
-- For draft/submitted entries, there is only a Delete button (Trash2 icon)
-- The "New Entry" dialog already has all form fields and submission logic
+- Manual entry (Timesheet.tsx): Checks overlaps against locally loaded `entries` array -- works within the same session
+- Bulk upload (excelImportUtils.ts): Zero overlap checking -- neither against existing DB entries nor between rows in the same upload
 
-**Implementation Approach:**
+**Fix:**
 
-Add an "Edit" button next to the Delete button for pending entries. When clicked, it opens the same dialog pre-filled with the entry's data. On submit, it performs an UPDATE instead of an INSERT.
+**A. `src/pages/BulkImport.tsx`** -- Fetch existing entries before validation:
+After determining `targetUserId`, fetch all non-rejected timesheet entries from DB for that user. Pass them to the validation function.
 
-**Detailed Changes in `src/pages/Timesheet.tsx`:**
+```typescript
+// Fetch existing entries for overlap checking
+const { data: existingEntries } = await supabase
+  .from("timesheet_entries")
+  .select("entry_date, start_time, end_time")
+  .eq("user_id", targetUserId)
+  .neq("status", "rejected");
+```
 
-1. **Add edit state variable:**
-   ```typescript
-   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
-   ```
+**B. `src/lib/excelImportUtils.ts`** -- Add overlap checking in `validateMemberExcelRow`:
+Accept an `existingEntries` parameter. For each row, check if the time range overlaps with any existing DB entry on the same date.
 
-2. **Add `Pencil` icon import** from lucide-react
+```typescript
+// Check overlap with existing DB entries
+if (existingEntries) {
+  const sameDate = existingEntries.filter(e => e.entry_date === normalizedDate);
+  for (const existing of sameDate) {
+    if (timesOverlap(row.start_time, row.end_time, existing.start_time, existing.end_time)) {
+      errors.push(`Time ${row.start_time}-${row.end_time} overlaps with existing entry ${existing.start_time}-${existing.end_time}`);
+      break;
+    }
+  }
+}
+```
 
-3. **Create `handleEdit` function** that:
-   - Sets `editingEntryId` to the entry's ID
-   - Pre-fills all form fields from the entry data (date, times, activity type, vertical, program, batch, term, subject, notes)
-   - Triggers cascading dropdown loads (fetchUserPrograms, fetchBatches, fetchTerms, fetchSubjects) so the selectors are populated
-   - Opens the dialog
+**C. Intra-upload overlap detection** -- In BulkImport.tsx, after all rows are validated, check valid rows against each other for same-date overlaps. Mark duplicates as invalid.
 
-4. **Modify `handleSubmit`** to check `editingEntryId`:
-   - If `editingEntryId` is set, use `supabase.from("timesheet_entries").update({...}).eq("id", editingEntryId)` instead of `.insert({...})`
-   - Pass `editingEntryId` to `checkTimeOverlap` to exclude the current entry from overlap checks (already supported via the `excludeId` parameter at line 195)
-
-5. **Modify `resetForm`** to also clear `editingEntryId`
-
-6. **Update dialog title** to show "Edit Timesheet Entry" when editing, "Add Timesheet Entry" when creating
-
-7. **Add Edit button** in the entry list (lines 1055-1064), alongside the existing Delete button:
-   ```tsx
-   {(item.status === "draft" || item.status === "submitted") && (
-     <div className="flex gap-1">
-       <Button variant="ghost" size="sm" onClick={() => handleEdit(item)} title="Edit entry">
-         <Pencil className="h-4 w-4" />
-       </Button>
-       <Button variant="ghost" size="sm" onClick={() => handleDelete(item.id)} title="Delete entry">
-         <Trash2 className="h-4 w-4" />
-       </Button>
-     </div>
-   )}
-   ```
-
-**Files to change:**
-- `src/pages/Timesheet.tsx` -- Add edit state, handleEdit function, modify handleSubmit for update, add Edit button in entry list
+**D. Max hours per day in bulk upload** -- The current `validateAgainstThresholds` only checks the single entry against the work window. Add cumulative daily hours checking in bulk upload:
+- Sum existing DB entries for each date
+- Sum other bulk rows for same date
+- Ensure total doesn't exceed `max_hours_minutes`
 
 ---
 
-### Summary of All File Changes
+### Summary of File Changes
 
-| File | Change | Issue |
-|------|--------|-------|
-| `src/lib/exportUtils.ts` | Replace `report.departmentName` with `report.verticalName` (2 places) | #1 |
-| `src/lib/pdfExportUtils.ts` | Replace `report.departmentName` with `report.verticalName` (2 places) | #1 |
-| `src/pages/Timesheet.tsx` | Add editingEntryId state, handleEdit function, update handleSubmit for edit mode, add Pencil button | #2 |
+| File | Changes |
+|------|---------|
+| `src/hooks/useThresholds.ts` | Replace `.single()` with `.maybeSingle()` in 4 places to prevent silent threshold loading failures |
+| `src/pages/Timesheet.tsx` | Add fresh DB threshold fetch in `handleSubmit` as safety net, plus max hours check with fresh data |
+| `src/lib/excelImportUtils.ts` | Add `existingEntries` parameter to `validateMemberExcelRow`; add overlap checking; add `timesOverlap` helper function |
+| `src/pages/BulkImport.tsx` | Fetch existing entries from DB before validation; pass to validator; add intra-upload overlap and cumulative daily hours checks after validation |
+
+---
+
+### Technical Details
+
+**Overlap detection helper:**
+```typescript
+function timesOverlap(startA: string, endA: string, startB: string, endB: string): boolean {
+  const toMin = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+  return toMin(startA) < toMin(endB) && toMin(endA) > toMin(startB);
+}
+```
+
+**Cumulative max hours check in bulk upload:**
+```typescript
+// For each date, sum: existing DB minutes + all valid bulk rows for same date
+// If total exceeds max_hours_minutes, mark excess rows as invalid
+```
+
+---
+
+### Testing Checklist
+
+**Threshold enforcement:**
+- [ ] Set work hours to 8:30-17:30 in Admin Settings
+- [ ] Try manual entry with 17:30-19:00 -- should be blocked
+- [ ] Try bulk upload with 17:30-19:00 -- should be blocked
+- [ ] Set max hours to 8h, add entries totaling 7h, then try adding 2h more -- should be blocked
+
+**Overlap detection:**
+- [ ] Create manual entry 9:00-10:00, then bulk upload 9:30-10:30 for same date -- should be blocked
+- [ ] Bulk upload 9:00-10:00, then try manual entry 9:30-10:30 -- should be blocked (already works via local state reload)
+- [ ] Bulk upload two rows with overlapping times on same date -- should be blocked
 
