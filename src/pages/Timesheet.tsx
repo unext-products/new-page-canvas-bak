@@ -12,7 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/StatusBadge";
-import { Plus, Trash2, Calendar, FileText, HelpCircle, Upload } from "lucide-react";
+import { Plus, Trash2, Calendar, FileText, HelpCircle, Upload, Pencil } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { isRole } from "@/lib/roleMapping";
 import { timesheetEntrySchema } from "@/lib/validation";
@@ -39,6 +39,7 @@ export default function Timesheet() {
   const [leaveEntries, setLeaveEntries] = useState<any[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [runTour, setRunTour] = useState(false);
   
   
@@ -289,7 +290,7 @@ export default function Timesheet() {
     const normalizedEnd = normalizeTimeFormat(endTime);
 
     // Check for overlapping time entries
-    if (checkTimeOverlap(entryDate, normalizedStart, normalizedEnd)) {
+    if (checkTimeOverlap(entryDate, normalizedStart, normalizedEnd, editingEntryId || undefined)) {
       toast({
         title: "Time Overlap Detected",
         description: "This time slot overlaps with an existing entry. Please choose a different time.",
@@ -300,7 +301,7 @@ export default function Timesheet() {
 
     // Validate against thresholds (max hours, work hour window)
     const existingEntriesForDate = entries
-      .filter(e => e.entry_date === entryDate && e.status !== "rejected")
+      .filter(e => e.entry_date === entryDate && e.status !== "rejected" && e.id !== editingEntryId)
       .map(e => ({ start_time: e.start_time, end_time: e.end_time }));
     
     const thresholdValidation = await validateEntry(
@@ -361,9 +362,7 @@ export default function Timesheet() {
 
       setLoading(true);
 
-      // Insert new entry
-      const { error } = await supabase.from("timesheet_entries").insert({
-        user_id: userWithRole.user.id,
+      const entryData = {
         entry_date: validatedData.entry_date,
         start_time: validatedData.start_time,
         end_time: validatedData.end_time,
@@ -372,7 +371,7 @@ export default function Timesheet() {
         notes: validatedData.notes || null,
         vertical_id: verticalId,
         vertical_code: trimmedVertCode || null,
-        department_code: trimmedVertCode || null, // backward compatibility
+        department_code: trimmedVertCode || null,
         program_id: programId || null,
         batch_id: batchId || null,
         batch_name: selectedBatch?.name || null,
@@ -381,18 +380,31 @@ export default function Timesheet() {
         subject_id: subjectId || null,
         subject_code: selectedSubject?.code || null,
         status,
-      });
+      };
+
+      let error;
+      if (editingEntryId) {
+        // Update existing entry
+        const result = await supabase.from("timesheet_entries").update(entryData).eq("id", editingEntryId);
+        error = result.error;
+      } else {
+        // Insert new entry
+        const result = await supabase.from("timesheet_entries").insert({
+          user_id: userWithRole.user.id,
+          ...entryData,
+        });
+        error = result.error;
+      }
 
       setLoading(false);
 
       if (error) throw error;
 
-      // Fire confetti on successful submission!
       fireConfetti();
 
       toast({
-        title: "🎉 Submitted!",
-        description: "Your timesheet has been submitted for approval",
+        title: editingEntryId ? "✅ Updated!" : "🎉 Submitted!",
+        description: editingEntryId ? "Your timesheet entry has been updated" : "Your timesheet has been submitted for approval",
       });
       setDialogOpen(false);
       resetForm();
@@ -459,6 +471,51 @@ export default function Timesheet() {
     setBatches([]);
     setTerms([]);
     setSubjects([]);
+    setEditingEntryId(null);
+  };
+
+  const handleEdit = async (entry: any) => {
+    setEditingEntryId(entry.id);
+    setEntryDate(entry.entry_date);
+    setStartTime(entry.start_time?.substring(0, 5) || "09:00");
+    setEndTime(entry.end_time?.substring(0, 5) || "10:00");
+    setActivityType(entry.activity_type || "");
+    setActivitySubtype(entry.activity_subtype || "");
+    setNotes(entry.notes || "");
+
+    // Set vertical and load cascading dropdowns
+    const vCode = (entry.vertical_code || entry.department_code || "").toUpperCase();
+    setVerticalCode(vCode);
+    const selectedVert = userVerticals.find(v => v.code.toUpperCase() === vCode);
+    if (selectedVert) {
+      setSelectedVerticalId(selectedVert.id);
+      await fetchUserPrograms(selectedVert.id);
+    }
+
+    // Set program and load batches
+    if (entry.program_id) {
+      setProgramId(entry.program_id);
+      await fetchBatches(entry.program_id);
+    }
+
+    // Set batch and load terms
+    if (entry.batch_id) {
+      setBatchId(entry.batch_id);
+      await fetchTerms(entry.batch_id);
+    }
+
+    // Set term and load subjects
+    if (entry.term_id) {
+      setTermId(entry.term_id);
+      await fetchSubjects(entry.term_id);
+    }
+
+    // Set subject
+    if (entry.subject_id) {
+      setSubjectId(entry.subject_id);
+    }
+
+    setDialogOpen(true);
   };
   
   // Fetch programs when vertical changes
@@ -777,9 +834,9 @@ export default function Timesheet() {
               </DialogTrigger>
             <DialogContent className="max-w-md max-h-[90vh] flex flex-col">
               <DialogHeader className="flex-shrink-0">
-                <DialogTitle>Add Timesheet Entry</DialogTitle>
+                <DialogTitle>{editingEntryId ? "Edit Timesheet Entry" : "Add Timesheet Entry"}</DialogTitle>
                 <DialogDescription>
-                  Fill in the details of your work activity
+                  {editingEntryId ? "Update the details of your work activity" : "Fill in the details of your work activity"}
                 </DialogDescription>
               </DialogHeader>
               <div className="flex-1 overflow-y-auto pr-2">
@@ -1053,14 +1110,24 @@ export default function Timesheet() {
                           )}
                         </div>
                         {(item.status === "draft" || item.status === "submitted") && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDelete(item.id)}
-                            title="Delete entry"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEdit(item)}
+                              title="Edit entry"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDelete(item.id)}
+                              title="Delete entry"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         )}
                       </>
                     ) : (
