@@ -98,7 +98,7 @@ export function useThresholds(verticalId?: string | null) {
         .select("*")
         .eq("organization_id", orgId)
         .eq("vertical_id", verticalId)
-        .single();
+        .maybeSingle();
 
       if (verticalThresholds) {
         setThresholds({
@@ -118,7 +118,7 @@ export function useThresholds(verticalId?: string | null) {
       .select("*")
       .eq("organization_id", orgId)
       .is("vertical_id", null)
-      .single();
+      .maybeSingle();
 
     if (orgThresholds) {
       setThresholds({
@@ -165,7 +165,7 @@ export function useThresholds(verticalId?: string | null) {
         .select("*")
         .eq("organization_id", orgId)
         .eq("vertical_id", verticalId)
-        .single();
+        .maybeSingle();
 
       if (verticalConfig) {
         setWorkingDays({
@@ -187,7 +187,7 @@ export function useThresholds(verticalId?: string | null) {
       .select("*")
       .eq("organization_id", orgId)
       .is("vertical_id", null)
-      .single();
+      .maybeSingle();
 
     if (orgConfig) {
       setWorkingDays({

@@ -44,6 +44,14 @@ export interface ValidationResult {
 export type { Thresholds, ExtendedValidationContext };
 
 /**
+ * Check if two time ranges overlap
+ */
+export function timesOverlap(startA: string, endA: string, startB: string, endB: string): boolean {
+  const toMin = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+  return toMin(startA) < toMin(endB) && toMin(endA) > toMin(startB);
+}
+
+/**
  * Convert Excel time decimal to HH:MM format
  * Excel stores times as fractions of a day (e.g., 0.375 = 9:00 AM, 0.5 = 12:00 PM)
  */
@@ -160,7 +168,8 @@ export async function validateMemberExcelRow(
   userDeptCodes?: Set<string>,
   validationContext?: ExtendedValidationContext | null,
   userProgramsMap?: Map<string, { id: string; vertical_id: string; name?: string }> | null,
-  programsInVertical?: Map<string, { id: string; code: string }> | null
+  programsInVertical?: Map<string, { id: string; code: string }> | null,
+  existingEntries?: { entry_date: string; start_time: string; end_time: string }[] | null
 ): Promise<ValidationResult> {
   const errors: string[] = [];
 
@@ -301,6 +310,17 @@ export async function validateMemberExcelRow(
     const thresholdResult = validateAgainstThresholds(row.start_time, row.end_time, validationContext.thresholds);
     if (!thresholdResult.valid && thresholdResult.error) {
       errors.push(thresholdResult.error);
+    }
+  }
+
+  // Validate against existing DB entries for overlap
+  if (errors.length === 0 && existingEntries) {
+    const sameDate = existingEntries.filter(e => e.entry_date === normalizedDate);
+    for (const existing of sameDate) {
+      if (timesOverlap(row.start_time, row.end_time, existing.start_time, existing.end_time)) {
+        errors.push(`Time ${row.start_time}-${row.end_time} overlaps with existing entry ${existing.start_time.substring(0,5)}-${existing.end_time.substring(0,5)}`);
+        break;
+      }
     }
   }
 

@@ -21,6 +21,7 @@ import {
   generateAdminExcelTemplate,
   fetchDepartments,
   getFileType,
+  timesOverlap,
   type ValidationResult as ExcelValidationResult,
 } from "@/lib/excelImportUtils";
 import { fetchExtendedValidationContext, fetchUserLeaveDays } from "@/lib/thresholdValidation";
@@ -308,6 +309,15 @@ export default function BulkImport() {
           userLeaveDays,
         };
 
+        // Fetch existing entries for overlap checking
+        const { data: existingEntriesData } = await supabase
+          .from("timesheet_entries")
+          .select("entry_date, start_time, end_time")
+          .eq("user_id", targetUserId!)
+          .neq("status", "rejected");
+        
+        const existingEntries = existingEntriesData || [];
+
         results = await Promise.all(
           rows.map(async (row, index) => {
             const validation = await validateMemberExcelRow(
@@ -319,6 +329,7 @@ export default function BulkImport() {
               validationContextWithLeave,
               userProgramsMap,
               null, // programsInVertical - only needed as fallback
+              existingEntries, // pass existing entries for overlap checking
             );
             return {
               rowNumber: index + 2,
@@ -327,6 +338,61 @@ export default function BulkImport() {
             };
           }),
         );
+
+        // Intra-upload overlap detection: check valid rows against each other
+        const validRows = results.filter(r => r.isValid && r.data);
+        for (let i = 0; i < validRows.length; i++) {
+          for (let j = i + 1; j < validRows.length; j++) {
+            const a = validRows[i].data;
+            const b = validRows[j].data;
+            if (a.entry_date === b.entry_date && timesOverlap(a.start_time, a.end_time, b.start_time, b.end_time)) {
+              // Mark the later row as invalid
+              const idx = results.indexOf(validRows[j]);
+              results[idx] = {
+                ...results[idx],
+                isValid: false,
+                errors: [`Overlaps with row ${validRows[i].rowNumber} (${a.start_time}-${a.end_time} on ${a.entry_date})`],
+              };
+            }
+          }
+        }
+
+        // Cumulative max hours per day check
+        if (validationContext.thresholds?.max_hours_enabled) {
+          const maxMinutes = validationContext.thresholds.max_hours_minutes;
+          const toMin = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+
+          // Sum existing DB entries by date
+          const existingByDate = new Map<string, number>();
+          for (const e of existingEntries) {
+            const dur = toMin(e.end_time) - toMin(e.start_time);
+            existingByDate.set(e.entry_date, (existingByDate.get(e.entry_date) || 0) + dur);
+          }
+
+          // Track cumulative bulk minutes by date
+          const bulkByDate = new Map<string, number>();
+          for (const r of results) {
+            if (!r.isValid || !r.data) continue;
+            const date = r.data.entry_date;
+            const dur = toMin(r.data.end_time) - toMin(r.data.start_time);
+            const existingMins = existingByDate.get(date) || 0;
+            const bulkSoFar = bulkByDate.get(date) || 0;
+            const total = existingMins + bulkSoFar + dur;
+
+            if (total > maxMinutes) {
+              const maxH = Math.floor(maxMinutes / 60);
+              const maxM = maxMinutes % 60;
+              const idx = results.indexOf(r);
+              results[idx] = {
+                ...results[idx],
+                isValid: false,
+                errors: [`Would exceed max ${maxH}h ${maxM}m per day (total: ${Math.floor(total / 60)}h ${total % 60}m)`],
+              };
+            } else {
+              bulkByDate.set(date, bulkSoFar + dur);
+            }
+          }
+        }
       } else {
         // Admin mode: validate with email
         const { usersMap, deptsMap } = await fetchUsersAndDepartments();
