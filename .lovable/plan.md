@@ -1,152 +1,85 @@
 
-## Plan: Fix Department Report Export and Bulk Upload Validation
 
-### Overview
-This plan addresses two separate issues:
-1. **Department View Export Not Clickable** - Export dropdown items are visible but clicks don't work
-2. **Bulk Upload Validation Bug** - Program validation fails despite correct data entry
+## Plan: Fix Department Report Export and Add Edit Pending Entries Feature
 
----
+### Issue 1: Department View Report Export Not Working
 
-### Issue 1: Department View Export Not Clickable
+**Root Cause Identified:**
+The `VerticalReportData` interface (in `reportQueries.ts`) returns `verticalName` as the property name, but both export functions reference `report.departmentName` which is `undefined`. When `undefined.replace()` is called (for the filename), it throws a runtime error, silently preventing the download.
 
-**Root Cause Analysis:**
-Looking at the Reports.tsx code (lines 269-281), the DropdownMenu already has `align="end"` and `className="z-50"` on DropdownMenuContent. The component uses Portal (already wrapped in dropdown-menu.tsx line 59).
+Specific locations:
+- `exportUtils.ts` line 215: `report.departmentName` (should be `report.verticalName`)
+- `exportUtils.ts` line 259: `report.departmentName.replace(...)` (crashes here)
+- `pdfExportUtils.ts` line 205: `report.departmentName` (undefined)
+- `pdfExportUtils.ts` line 274: `report.departmentName.replace(...)` (crashes here)
 
-The issue is that the DropdownMenuItem in Radix UI by default uses `cursor-default` (line 82 in dropdown-menu.tsx). When the button is in a PageHeader which may have flex/overflow properties, the clickable area may be compromised.
+**Fix:**
+Replace all `report.departmentName` references with `report.verticalName` in both export files. This is a straightforward property name mismatch -- the data model was renamed from "department" to "vertical" but the export functions were never updated.
 
-**Solution:**
-Add explicit `cursor-pointer` class to DropdownMenuItem elements to ensure clickability, and ensure the dropdown menu has higher z-index to prevent any overlapping issues:
-
-**File: `src/pages/Reports.tsx`**
-```diff
-- <DropdownMenuContent align="end" className="z-50">
--   <DropdownMenuItem onClick={handleExportCSV}>Export to CSV</DropdownMenuItem>
--   <DropdownMenuItem onClick={handleExportPDF}>Export to PDF</DropdownMenuItem>
-+ <DropdownMenuContent align="end" className="z-[100]" sideOffset={8}>
-+   <DropdownMenuItem onClick={handleExportCSV} className="cursor-pointer">Export to CSV</DropdownMenuItem>
-+   <DropdownMenuItem onClick={handleExportPDF} className="cursor-pointer">Export to PDF</DropdownMenuItem>
-</DropdownMenuContent>
-```
+**Files to change:**
+- `src/lib/exportUtils.ts` -- 2 occurrences of `report.departmentName` to `report.verticalName`
+- `src/lib/pdfExportUtils.ts` -- 2 occurrences of `report.departmentName` to `report.verticalName`
 
 ---
 
-### Issue 2: Bulk Upload Validation Bug
+### Feature 2: Edit Pending Timesheet Entries
 
-**Root Cause Analysis:**
-Two issues identified:
+**Current State:**
+- Users see a list of their entries in `Timesheet.tsx` (lines 1014-1065)
+- For draft/submitted entries, there is only a Delete button (Trash2 icon)
+- The "New Entry" dialog already has all form fields and submission logic
 
-**A. Header Case Mismatch:**
-- Template headers: `Batch`, `Program`, `Subjects` (with capital letters)
-- Code expects: `batch`, `program`, `subject` (lowercase)
-- When XLSX parses, it uses exact header names as object keys
-- `row.program` returns `undefined` because the key is actually `row.Program`
+**Implementation Approach:**
 
-**B. Program Name vs Code:**
-- User enters: `PGDBSO` (program name)
-- Code validates against: `TMB01_26` (program code)
-- The validation fails because it only looks up by code
+Add an "Edit" button next to the Delete button for pending entries. When clicked, it opens the same dialog pre-filled with the entry's data. On submit, it performs an UPDATE instead of an INSERT.
 
-**Solution:**
+**Detailed Changes in `src/pages/Timesheet.tsx`:**
 
-**File: `src/lib/excelImportUtils.ts`**
+1. **Add edit state variable:**
+   ```typescript
+   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+   ```
 
-1. Add header normalization in `parseExcelFile()` to convert all keys to lowercase:
-```typescript
-const processedData = jsonData.map((row: any) => {
-  // Normalize all keys to lowercase
-  const normalizedRow: any = {};
-  for (const [key, value] of Object.entries(row)) {
-    normalizedRow[key.toLowerCase()] = value;
-  }
-  return {
-    ...normalizedRow,
-    // Handle "subjects" -> "subject" mapping
-    subject: normalizedRow.subject || normalizedRow.subjects,
-    start_time: normalizedRow.start_time !== undefined ? excelTimeToHHMM(normalizedRow.start_time) : undefined,
-    end_time: normalizedRow.end_time !== undefined ? excelTimeToHHMM(normalizedRow.end_time) : undefined,
-    entry_date: normalizedRow.entry_date !== undefined ? excelDateToString(normalizedRow.entry_date) : undefined,
-  };
-});
-```
+2. **Add `Pencil` icon import** from lucide-react
 
-2. Modify program validation to accept BOTH program code AND program name in `validateMemberExcelRow()`:
-```typescript
-// Validate program - check by code first, then by name
-let programId: string | null = null;
-const programCodeUpper = row.program.toUpperCase();
+3. **Create `handleEdit` function** that:
+   - Sets `editingEntryId` to the entry's ID
+   - Pre-fills all form fields from the entry data (date, times, activity type, vertical, program, batch, term, subject, notes)
+   - Triggers cascading dropdown loads (fetchUserPrograms, fetchBatches, fetchTerms, fetchSubjects) so the selectors are populated
+   - Opens the dialog
 
-if (userProgramsMap) {
-  // Check if user is assigned to this program by code
-  let programInfo = userProgramsMap.get(programCodeUpper);
-  
-  // If not found by code, try to find by name
-  if (!programInfo) {
-    for (const [code, info] of userProgramsMap.entries()) {
-      if (info.name?.toUpperCase() === programCodeUpper) {
-        programInfo = info;
-        break;
-      }
-    }
-  }
-  
-  if (!programInfo) {
-    errors.push(`You are not assigned to program '${row.program}'`);
-  } else if (deptId && programInfo.vertical_id !== deptId) {
-    errors.push(`Program '${row.program}' does not belong to vertical '${row.department_code}'`);
-  } else {
-    programId = programInfo.id;
-  }
-}
-```
+4. **Modify `handleSubmit`** to check `editingEntryId`:
+   - If `editingEntryId` is set, use `supabase.from("timesheet_entries").update({...}).eq("id", editingEntryId)` instead of `.insert({...})`
+   - Pass `editingEntryId` to `checkTimeOverlap` to exclude the current entry from overlap checks (already supported via the `excludeId` parameter at line 195)
 
-3. Update the userProgramsMap to include program name:
-**File: `src/pages/BulkImport.tsx`** (around line 287-291):
-```typescript
-// Fetch program details (code, name, and vertical_id)
-const { data: progs } = await supabase
-  .from("programs")
-  .select("id, code, name, vertical_id")
-  .in("id", userProgIds);
+5. **Modify `resetForm`** to also clear `editingEntryId`
 
-userProgramsMap = new Map(
-  progs?.map((p) => [
-    p.code.toUpperCase(),
-    { id: p.id, vertical_id: p.vertical_id || "", name: p.name }
-  ]) || []
-);
+6. **Update dialog title** to show "Edit Timesheet Entry" when editing, "Add Timesheet Entry" when creating
 
-// Also add by name for lookup flexibility
-progs?.forEach((p) => {
-  if (p.name) {
-    userProgramsMap!.set(p.name.toUpperCase(), { id: p.id, vertical_id: p.vertical_id || "", name: p.name });
-  }
-});
-```
+7. **Add Edit button** in the entry list (lines 1055-1064), alongside the existing Delete button:
+   ```tsx
+   {(item.status === "draft" || item.status === "submitted") && (
+     <div className="flex gap-1">
+       <Button variant="ghost" size="sm" onClick={() => handleEdit(item)} title="Edit entry">
+         <Pencil className="h-4 w-4" />
+       </Button>
+       <Button variant="ghost" size="sm" onClick={() => handleDelete(item.id)} title="Delete entry">
+         <Trash2 className="h-4 w-4" />
+       </Button>
+     </div>
+   )}
+   ```
+
+**Files to change:**
+- `src/pages/Timesheet.tsx` -- Add edit state, handleEdit function, modify handleSubmit for update, add Edit button in entry list
 
 ---
 
-### Summary of File Changes
+### Summary of All File Changes
 
-| File | Changes |
-|------|---------|
-| `src/pages/Reports.tsx` | Increase z-index to z-[100], add sideOffset, add cursor-pointer class to DropdownMenuItems |
-| `src/lib/excelImportUtils.ts` | Normalize Excel headers to lowercase, handle "subjects" -> "subject" mapping, update program validation to accept name or code |
-| `src/pages/BulkImport.tsx` | Include program name in userProgramsMap for dual lookup |
+| File | Change | Issue |
+|------|--------|-------|
+| `src/lib/exportUtils.ts` | Replace `report.departmentName` with `report.verticalName` (2 places) | #1 |
+| `src/lib/pdfExportUtils.ts` | Replace `report.departmentName` with `report.verticalName` (2 places) | #1 |
+| `src/pages/Timesheet.tsx` | Add editingEntryId state, handleEdit function, update handleSubmit for edit mode, add Pencil button | #2 |
 
----
-
-### Testing Checklist
-
-**Department View Export:**
-- [ ] Go to Reports > Department View with data
-- [ ] Click Export button - dropdown should appear
-- [ ] Click "Export to CSV" - file should download
-- [ ] Click "Export to PDF" - file should download
-
-**Bulk Upload Validation:**
-- [ ] Upload file with "Program" header (capital P) - should parse correctly
-- [ ] Enter program NAME (e.g., "PGDBSO") - should validate successfully
-- [ ] Enter program CODE (e.g., "TMB01_26") - should validate successfully
-- [ ] Enter wrong program name/code - should fail validation with clear error
-- [ ] Upload with "Subjects" header - should map to "subject" field correctly
