@@ -27,6 +27,7 @@ import { DateRangeFilter, DateFilterType, DateRange } from "@/components/DateRan
 import { startOfDay, endOfDay, isWithinInterval } from "date-fns";
 import { getEntryDuration } from "@/lib/timesheetUtils";
 import { useThresholds } from "@/hooks/useThresholds";
+import { fetchUserThresholds, validateAgainstThresholds } from "@/lib/thresholdValidation";
 
 export default function Timesheet() {
   const { userWithRole } = useAuth();
@@ -299,25 +300,57 @@ export default function Timesheet() {
       return; // Dialog remains open
     }
 
-    // Validate against thresholds (max hours, work hour window)
-    const existingEntriesForDate = entries
-      .filter(e => e.entry_date === entryDate && e.status !== "rejected" && e.id !== editingEntryId)
-      .map(e => ({ start_time: e.start_time, end_time: e.end_time }));
-    
-    const thresholdValidation = await validateEntry(
-      entryDate,
-      normalizedStart,
-      normalizedEnd,
-      existingEntriesForDate
-    );
-    
-    if (!thresholdValidation.valid) {
-      toast({
-        title: "Threshold Exceeded",
-        description: thresholdValidation.error,
-        variant: "destructive",
-      });
-      return;
+    // Validate against thresholds - fetch fresh from DB for strict enforcement
+    try {
+      const freshThresholds = await fetchUserThresholds(userWithRole.user.id);
+      if (freshThresholds) {
+        // Check work hour window
+        const thresholdResult = validateAgainstThresholds(normalizedStart, normalizedEnd, freshThresholds);
+        if (!thresholdResult.valid) {
+          toast({
+            title: "Threshold Exceeded",
+            description: thresholdResult.error,
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Check max hours per day with fresh thresholds
+        if (freshThresholds.max_hours_enabled) {
+          const existingEntriesForDate = entries
+            .filter(e => e.entry_date === entryDate && e.status !== "rejected" && e.id !== editingEntryId)
+            .map(e => ({ start_time: e.start_time, end_time: e.end_time }));
+
+          const newDuration = calculateDuration(normalizedStart, normalizedEnd);
+          let existingMinutes = 0;
+          for (const e of existingEntriesForDate) {
+            existingMinutes += calculateDuration(e.start_time, e.end_time);
+          }
+          const totalMinutes = existingMinutes + newDuration;
+
+          if (totalMinutes > freshThresholds.max_hours_minutes) {
+            const maxH = Math.floor(freshThresholds.max_hours_minutes / 60);
+            const maxM = freshThresholds.max_hours_minutes % 60;
+            toast({
+              title: "Threshold Exceeded",
+              description: `Cannot exceed ${maxH}h ${maxM}m per day. Current total would be ${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m.`,
+              variant: "destructive",
+            });
+            return;
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching fresh thresholds:", err);
+      // Fall back to hook-based validation
+      const existingEntriesForDate = entries
+        .filter(e => e.entry_date === entryDate && e.status !== "rejected" && e.id !== editingEntryId)
+        .map(e => ({ start_time: e.start_time, end_time: e.end_time }));
+      const thresholdValidation = await validateEntry(entryDate, normalizedStart, normalizedEnd, existingEntriesForDate);
+      if (!thresholdValidation.valid) {
+        toast({ title: "Threshold Exceeded", description: thresholdValidation.error, variant: "destructive" });
+        return;
+      }
     }
 
     try {
