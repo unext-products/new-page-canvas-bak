@@ -202,7 +202,7 @@ export function exportDepartmentReportPDF(
   // Metadata
   doc.setFontSize(10);
   doc.setTextColor(0, 0, 0);
-  doc.text(`Department: ${report.departmentName}`, 14, 32);
+  doc.text(`Department: ${report.verticalName}`, 14, 32);
   doc.text(`Total Faculty: ${report.totalFaculty}`, 14, 38);
   doc.text(`Period: ${reportPeriod} (${period})`, 14, 44);
   doc.text(`Generated: ${format(new Date(), "PPP")}`, 14, 50);
@@ -271,6 +271,6 @@ export function exportDepartmentReportPDF(
     );
   }
 
-  doc.save(`department_report_${report.departmentName.replace(/\s+/g, "_")}_${format(new Date(), "yyyy-MM-dd")}.pdf`);
+  doc.save(`department_report_${report.verticalName.replace(/\s+/g, "_")}_${format(new Date(), "yyyy-MM-dd")}.pdf`);
 }
 
