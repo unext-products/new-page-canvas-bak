@@ -62,16 +62,36 @@ const defaultWorkingDays: WorkingDaysConfig = {
  * Fetch thresholds for a user's organization
  */
 export async function fetchUserThresholds(userId: string): Promise<Thresholds | null> {
-  // Get user's organization
+  // Get user's organization AND vertical
   const { data: userRole } = await supabase
     .from("user_roles")
-    .select("organization_id")
+    .select("organization_id, vertical_id")
     .eq("user_id", userId)
     .maybeSingle();
 
   if (!userRole?.organization_id) return null;
 
-  // Fetch org-wide thresholds
+  // If user has a vertical, check vertical-specific thresholds first
+  if (userRole.vertical_id) {
+    const { data: verticalThresholds } = await supabase
+      .from("timesheet_thresholds")
+      .select("*")
+      .eq("organization_id", userRole.organization_id)
+      .eq("vertical_id", userRole.vertical_id)
+      .maybeSingle();
+
+    if (verticalThresholds) {
+      return {
+        work_hours_enabled: verticalThresholds.work_hours_enabled,
+        work_start_time: verticalThresholds.work_start_time || "08:30:00",
+        work_end_time: verticalThresholds.work_end_time || "17:30:00",
+        max_hours_enabled: verticalThresholds.max_hours_enabled,
+        max_hours_minutes: verticalThresholds.max_hours_minutes || 480,
+      };
+    }
+  }
+
+  // Fall back to org-wide thresholds
   const { data: thresholds } = await supabase
     .from("timesheet_thresholds")
     .select("*")
@@ -116,14 +136,15 @@ export async function fetchOrgThresholds(organizationId: string): Promise<Thresh
  * Fetch extended validation context for bulk import
  */
 export async function fetchExtendedValidationContext(userId: string): Promise<ExtendedValidationContext> {
-  // Get user's organization
+  // Get user's organization AND vertical
   const { data: userRole } = await supabase
     .from("user_roles")
-    .select("organization_id")
+    .select("organization_id, vertical_id")
     .eq("user_id", userId)
     .maybeSingle();
 
   const organizationId = userRole?.organization_id;
+  const verticalId = userRole?.vertical_id;
 
   if (!organizationId) {
     return {
@@ -134,66 +155,89 @@ export async function fetchExtendedValidationContext(userId: string): Promise<Ex
     };
   }
 
-  // Fetch all validation data in parallel
-  const [thresholdsRes, holidaysRes, workingDaysRes, activityCategoriesRes] = await Promise.all([
-    supabase
-      .from("timesheet_thresholds")
-      .select("*")
-      .eq("organization_id", organizationId)
-      .is("vertical_id", null)
-      .maybeSingle(),
-    supabase
-      .from("holidays")
-      .select("holiday_date, name")
-      .eq("organization_id", organizationId),
-    supabase
-      .from("working_days")
-      .select("*")
-      .eq("organization_id", organizationId)
-      .is("vertical_id", null)
-      .maybeSingle(),
-    supabase
-      .from("activity_categories")
-      .select("name")
-      .eq("organization_id", organizationId)
-      .eq("is_active", true)
-      .not("parent_id", "is", null), // Only selectable (child) activities
+  // Build base queries
+  const orgThresholdsQuery = supabase
+    .from("timesheet_thresholds")
+    .select("*")
+    .eq("organization_id", organizationId)
+    .is("vertical_id", null)
+    .maybeSingle();
+
+  const orgHolidaysQuery = supabase
+    .from("holidays")
+    .select("holiday_date, name")
+    .eq("organization_id", organizationId)
+    .is("vertical_id", null);
+
+  const orgWorkingDaysQuery = supabase
+    .from("working_days")
+    .select("*")
+    .eq("organization_id", organizationId)
+    .is("vertical_id", null)
+    .maybeSingle();
+
+  const activityCategoriesQuery = supabase
+    .from("activity_categories")
+    .select("name")
+    .eq("organization_id", organizationId)
+    .eq("is_active", true)
+    .not("parent_id", "is", null);
+
+  // Fetch all in parallel (including vertical-specific if applicable)
+  const [orgThresholdsRes, orgHolidaysRes, orgWorkingDaysRes, activityCategoriesRes,
+         verticalThresholdsRes, verticalHolidaysRes, verticalWorkingDaysRes] = await Promise.all([
+    orgThresholdsQuery,
+    orgHolidaysQuery,
+    orgWorkingDaysQuery,
+    activityCategoriesQuery,
+    verticalId
+      ? supabase.from("timesheet_thresholds").select("*").eq("organization_id", organizationId).eq("vertical_id", verticalId).maybeSingle()
+      : Promise.resolve({ data: null }),
+    verticalId
+      ? supabase.from("holidays").select("holiday_date, name").eq("organization_id", organizationId).eq("vertical_id", verticalId)
+      : Promise.resolve({ data: null }),
+    verticalId
+      ? supabase.from("working_days").select("*").eq("organization_id", organizationId).eq("vertical_id", verticalId).maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
 
-  // Process thresholds
-  const thresholds = thresholdsRes.data ? {
-    work_hours_enabled: thresholdsRes.data.work_hours_enabled,
-    work_start_time: thresholdsRes.data.work_start_time || "08:30:00",
-    work_end_time: thresholdsRes.data.work_end_time || "17:30:00",
-    max_hours_enabled: thresholdsRes.data.max_hours_enabled,
-    max_hours_minutes: thresholdsRes.data.max_hours_minutes || 480,
+  // Process thresholds: vertical-specific first, fall back to org-wide
+  const thresholdsData = verticalThresholdsRes?.data || orgThresholdsRes.data;
+  const thresholds = thresholdsData ? {
+    work_hours_enabled: thresholdsData.work_hours_enabled,
+    work_start_time: thresholdsData.work_start_time || "08:30:00",
+    work_end_time: thresholdsData.work_end_time || "17:30:00",
+    max_hours_enabled: thresholdsData.max_hours_enabled,
+    max_hours_minutes: thresholdsData.max_hours_minutes || 480,
   } : null;
 
-  // Process holidays
-  const holidays: Holiday[] = holidaysRes.data || [];
+  // Process holidays: merge org-wide + vertical-specific (union)
+  const orgHolidays: Holiday[] = orgHolidaysRes.data || [];
+  const verticalHolidays: Holiday[] = verticalHolidaysRes?.data || [];
+  const holidays = [...orgHolidays, ...verticalHolidays];
 
-  // Process working days
-  const workingDays: WorkingDaysConfig = workingDaysRes.data ? {
-    monday: workingDaysRes.data.monday,
-    tuesday: workingDaysRes.data.tuesday,
-    wednesday: workingDaysRes.data.wednesday,
-    thursday: workingDaysRes.data.thursday,
-    friday: workingDaysRes.data.friday,
-    saturday: workingDaysRes.data.saturday,
-    sunday: workingDaysRes.data.sunday,
+  // Process working days: vertical-specific first, fall back to org-wide
+  const workingDaysData = verticalWorkingDaysRes?.data || orgWorkingDaysRes.data;
+  const workingDays: WorkingDaysConfig = workingDaysData ? {
+    monday: workingDaysData.monday,
+    tuesday: workingDaysData.tuesday,
+    wednesday: workingDaysData.wednesday,
+    thursday: workingDaysData.thursday,
+    friday: workingDaysData.friday,
+    saturday: workingDaysData.saturday,
+    sunday: workingDaysData.sunday,
   } : defaultWorkingDays;
 
-  // Process activity types - get all activity names (case-insensitive)
-  let activityTypes = activityCategoriesRes.data?.map(c => c.name.toLowerCase()) || [];
+  // Process activity types
+  let activityTypes = activityCategoriesRes.data?.map((c: any) => c.name.toLowerCase()) || [];
   
-  // If no child activities, fetch all active categories
   if (activityTypes.length === 0) {
     const { data: allCategories } = await supabase
       .from("activity_categories")
       .select("name")
       .eq("organization_id", organizationId)
       .eq("is_active", true);
-    activityTypes = allCategories?.map(c => c.name.toLowerCase()) || [];
+    activityTypes = allCategories?.map((c: any) => c.name.toLowerCase()) || [];
   }
 
   return {
