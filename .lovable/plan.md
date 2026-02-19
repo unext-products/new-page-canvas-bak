@@ -1,139 +1,60 @@
 
 
-## Plan: Strict Threshold Enforcement and Cross-Method Overlap Detection
+## Plan: Fix Work Hour Window Threshold Enforcement
 
-### Overview
-Two related timesheet validation fixes:
-1. **Strict threshold enforcement** -- work hour window and max daily hours must block entries outside configured limits
-2. **Cross-method overlap detection** -- prevent duplicate/overlapping entries between manual and bulk upload
+### Root Cause
 
----
+The threshold validation functions in `src/lib/thresholdValidation.ts` only query **org-wide** thresholds (where `vertical_id IS NULL`). But admins can set thresholds at the **vertical (department) level** -- as shown in your screenshot where "Central Bank of India" vertical has 08:30-17:30 configured.
 
-### Issue 1: Threshold Validation Not Blocking Entries
+When a user submits a timesheet entry:
+- **Individual entries**: `fetchUserThresholds()` runs, queries only org-wide thresholds, finds none (because they're set at vertical level), returns `null`, and validation is skipped entirely
+- **Bulk upload**: `fetchExtendedValidationContext()` has the same problem -- only checks org-wide thresholds
 
-**Root Cause:**
-The `useThresholds` hook (used by Timesheet.tsx for individual entries) uses `.single()` when querying thresholds and working days. If no row exists (or multiple rows exist), `.single()` returns an error and `data` becomes `null`. The hook then silently falls back to `defaultThresholds` which has `work_hours_enabled: false` and `max_hours_enabled: false`, effectively disabling all threshold checks.
+The `useThresholds` hook (line 93-113) already has the correct logic: check vertical-specific first, fall back to org-wide. But the direct DB fetch functions used during submission bypass the hook and miss vertical thresholds.
 
-Additionally, there is a timing risk: when the user selects a vertical, the hook re-fetches thresholds asynchronously. If the user submits before the fetch completes, stale (disabled) thresholds are used.
+### Fix
 
-**Fix:**
+Update two functions in `src/lib/thresholdValidation.ts`:
 
-**A. `src/hooks/useThresholds.ts`** -- Change all `.single()` calls to `.maybeSingle()`:
-- Line ~101: `fetchThresholds` vertical-specific query
-- Line ~114: `fetchThresholds` org-wide query  
-- Line ~137: `fetchWorkingDays` vertical-specific query
-- Line ~150: `fetchWorkingDays` org-wide query
+**1. `fetchUserThresholds(userId)`** -- Add vertical-aware lookup:
+- Query the user's `vertical_id` from `user_roles` (in addition to `organization_id`)
+- If user has a `vertical_id`, first check for vertical-specific thresholds
+- If no vertical-specific thresholds found, fall back to org-wide thresholds
+- This mirrors the cascade logic already in `useThresholds` hook
 
-This prevents silent failures when no rows or multiple rows exist.
+**2. `fetchExtendedValidationContext(userId)`** -- Add vertical-aware lookup:
+- Same approach: get the user's `vertical_id`
+- For thresholds: check vertical-specific first, then org-wide
+- For working days: check vertical-specific first, then org-wide
+- For holidays: include both org-wide AND vertical-specific holidays (union)
 
-**B. `src/pages/Timesheet.tsx`** -- Add a direct DB threshold check in `handleSubmit` as a safety net:
-Before the existing threshold validation block (lines 302-321), fetch thresholds fresh from DB using `fetchOrgThresholds` or `fetchUserThresholds` from `thresholdValidation.ts`. This ensures the validation always uses the latest threshold data, regardless of hook loading state.
+### Files to Change
 
-```typescript
-// Fetch fresh thresholds from DB to ensure latest settings
-const freshThresholds = await fetchUserThresholds(userWithRole.user.id);
-if (freshThresholds) {
-  const thresholdResult = validateAgainstThresholds(normalizedStart, normalizedEnd, freshThresholds);
-  if (!thresholdResult.valid) {
-    toast({ title: "Threshold Exceeded", description: thresholdResult.error, variant: "destructive" });
-    return;
-  }
-  
-  // Also check max hours with fresh thresholds
-  if (freshThresholds.max_hours_enabled) {
-    // ... calculate total minutes including existing entries ...
-  }
-}
-```
+| File | Change |
+|------|--------|
+| `src/lib/thresholdValidation.ts` | Update `fetchUserThresholds` and `fetchExtendedValidationContext` to query the user's `vertical_id` and check vertical-specific settings before falling back to org-wide |
 
-This replaces (or supplements) the existing hook-based validation to guarantee fresh data.
-
----
-
-### Issue 2: Cross-Method Overlap Detection (Manual vs Bulk)
-
-**Current State:**
-- Manual entry (Timesheet.tsx): Checks overlaps against locally loaded `entries` array -- works within the same session
-- Bulk upload (excelImportUtils.ts): Zero overlap checking -- neither against existing DB entries nor between rows in the same upload
-
-**Fix:**
-
-**A. `src/pages/BulkImport.tsx`** -- Fetch existing entries before validation:
-After determining `targetUserId`, fetch all non-rejected timesheet entries from DB for that user. Pass them to the validation function.
-
-```typescript
-// Fetch existing entries for overlap checking
-const { data: existingEntries } = await supabase
-  .from("timesheet_entries")
-  .select("entry_date, start_time, end_time")
-  .eq("user_id", targetUserId)
-  .neq("status", "rejected");
-```
-
-**B. `src/lib/excelImportUtils.ts`** -- Add overlap checking in `validateMemberExcelRow`:
-Accept an `existingEntries` parameter. For each row, check if the time range overlaps with any existing DB entry on the same date.
-
-```typescript
-// Check overlap with existing DB entries
-if (existingEntries) {
-  const sameDate = existingEntries.filter(e => e.entry_date === normalizedDate);
-  for (const existing of sameDate) {
-    if (timesOverlap(row.start_time, row.end_time, existing.start_time, existing.end_time)) {
-      errors.push(`Time ${row.start_time}-${row.end_time} overlaps with existing entry ${existing.start_time}-${existing.end_time}`);
-      break;
-    }
-  }
-}
-```
-
-**C. Intra-upload overlap detection** -- In BulkImport.tsx, after all rows are validated, check valid rows against each other for same-date overlaps. Mark duplicates as invalid.
-
-**D. Max hours per day in bulk upload** -- The current `validateAgainstThresholds` only checks the single entry against the work window. Add cumulative daily hours checking in bulk upload:
-- Sum existing DB entries for each date
-- Sum other bulk rows for same date
-- Ensure total doesn't exceed `max_hours_minutes`
-
----
-
-### Summary of File Changes
-
-| File | Changes |
-|------|---------|
-| `src/hooks/useThresholds.ts` | Replace `.single()` with `.maybeSingle()` in 4 places to prevent silent threshold loading failures |
-| `src/pages/Timesheet.tsx` | Add fresh DB threshold fetch in `handleSubmit` as safety net, plus max hours check with fresh data |
-| `src/lib/excelImportUtils.ts` | Add `existingEntries` parameter to `validateMemberExcelRow`; add overlap checking; add `timesOverlap` helper function |
-| `src/pages/BulkImport.tsx` | Fetch existing entries from DB before validation; pass to validator; add intra-upload overlap and cumulative daily hours checks after validation |
-
----
+No other files need changes -- Timesheet.tsx and BulkImport.tsx already call these functions correctly; they just need to return the right data.
 
 ### Technical Details
 
-**Overlap detection helper:**
-```typescript
-function timesOverlap(startA: string, endA: string, startB: string, endB: string): boolean {
-  const toMin = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
-  return toMin(startA) < toMin(endB) && toMin(endA) > toMin(startB);
-}
+**Updated `fetchUserThresholds`:**
+```text
+1. Query user_roles for BOTH organization_id AND vertical_id (+ department_id for backward compat)
+2. If user has a vertical_id:
+   a. Query timesheet_thresholds WHERE organization_id = X AND vertical_id = user's vertical
+   b. If found, return those thresholds
+3. Fall back: query timesheet_thresholds WHERE organization_id = X AND vertical_id IS NULL
+4. Return result (or null if nothing found)
 ```
 
-**Cumulative max hours check in bulk upload:**
-```typescript
-// For each date, sum: existing DB minutes + all valid bulk rows for same date
-// If total exceeds max_hours_minutes, mark excess rows as invalid
+**Updated `fetchExtendedValidationContext`:**
+```text
+Same cascade for thresholds and working_days queries.
+For holidays: fetch BOTH org-wide (vertical_id IS NULL) AND vertical-specific, merge them.
 ```
 
----
+### Why This Fixes the Issue
 
-### Testing Checklist
-
-**Threshold enforcement:**
-- [ ] Set work hours to 8:30-17:30 in Admin Settings
-- [ ] Try manual entry with 17:30-19:00 -- should be blocked
-- [ ] Try bulk upload with 17:30-19:00 -- should be blocked
-- [ ] Set max hours to 8h, add entries totaling 7h, then try adding 2h more -- should be blocked
-
-**Overlap detection:**
-- [ ] Create manual entry 9:00-10:00, then bulk upload 9:30-10:30 for same date -- should be blocked
-- [ ] Bulk upload 9:00-10:00, then try manual entry 9:30-10:30 -- should be blocked (already works via local state reload)
-- [ ] Bulk upload two rows with overlapping times on same date -- should be blocked
+The entry 17:00-18:30 was accepted because `fetchUserThresholds` returned `null` (no org-wide threshold existed -- it was set at the vertical level). After this fix, the function will find the vertical-level threshold (08:30-17:30, work_hours_enabled=true) and correctly block entries outside that window.
 
