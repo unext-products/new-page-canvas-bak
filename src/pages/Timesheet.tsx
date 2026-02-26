@@ -22,7 +22,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { useConfetti } from "@/hooks/useConfetti";
 import { OnboardingTour, useOnboardingTour } from "@/components/OnboardingTour";
 import { useActivityCategories } from "@/hooks/useActivityCategories";
-import { formatDisplayDate } from "@/lib/dateUtils";
+import { formatDisplayDate, formatLocalDate } from "@/lib/dateUtils";
 import { DateRangeFilter, DateFilterType, DateRange } from "@/components/DateRangeFilter";
 import { startOfDay, endOfDay, isWithinInterval } from "date-fns";
 import { getEntryDuration } from "@/lib/timesheetUtils";
@@ -45,7 +45,7 @@ export default function Timesheet() {
   
   
   // Form state
-  const [entryDate, setEntryDate] = useState(new Date().toISOString().split("T")[0]);
+  const [entryDate, setEntryDate] = useState(formatLocalDate(new Date()));
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("10:00");
   const [activityType, setActivityType] = useState("");
@@ -70,7 +70,7 @@ export default function Timesheet() {
 
   // Leave management state
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
-  const [leaveDate, setLeaveDate] = useState(new Date().toISOString().split("T")[0]);
+  const [leaveDate, setLeaveDate] = useState(formatLocalDate(new Date()));
   const [leaveType, setLeaveType] = useState<"casual" | "sick" | "earned" | "half_day" | "comp_off" | "other">("casual");
   const [leaveComments, setLeaveComments] = useState("");
   const [userLeaveDays, setUserLeaveDays] = useState<Set<string>>(new Set());
@@ -489,7 +489,7 @@ export default function Timesheet() {
   };
 
   const resetForm = () => {
-    setEntryDate(new Date().toISOString().split("T")[0]);
+    setEntryDate(formatLocalDate(new Date()));
     setStartTime("09:00");
     setEndTime("10:00");
     setActivityType(selectableActivities[0]?.code || "");
@@ -767,7 +767,7 @@ export default function Timesheet() {
         description: "Leave day marked successfully",
       });
       setLeaveDialogOpen(false);
-      setLeaveDate(new Date().toISOString().split("T")[0]);
+      setLeaveDate(formatLocalDate(new Date()));
       setLeaveType("casual");
       setLeaveComments("");
       loadLeaveDays();
@@ -881,7 +881,7 @@ export default function Timesheet() {
                       type="date"
                       value={entryDate}
                       onChange={(e) => setEntryDate(e.target.value)}
-                      max={new Date().toISOString().split("T")[0]}
+                      max={formatLocalDate(new Date())}
                     />
                   </div>
 
