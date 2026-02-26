@@ -28,6 +28,7 @@ import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { calculateDurationMinutes } from "@/lib/timesheetUtils";
 import { calculateUserTotalDailyTargetMinutes } from "@/lib/targets";
+import { formatLocalDate } from "@/lib/dateUtils";
 
 // Helper to get duration from entry
 const getEntryDuration = (e: { start_time: string; end_time: string }) =>
@@ -89,7 +90,7 @@ export default function Dashboard() {
     if (!userWithRole) return;
 
     setLoading(true);
-    const today = new Date().toISOString().split("T")[0];
+    const today = formatLocalDate(new Date());
 
     // Load Super Admin specific dashboard
     if (isSuperAdmin) {
@@ -129,8 +130,8 @@ export default function Dashboard() {
         .from("leave_days")
         .select("leave_date")
         .eq("user_id", userWithRole.user.id)
-        .gte("leave_date", weekStartDate.toISOString().split("T")[0])
-        .lte("leave_date", weekEndDate.toISOString().split("T")[0]);
+        .gte("leave_date", formatLocalDate(weekStartDate))
+        .lte("leave_date", formatLocalDate(weekEndDate));
       
       const leaveDaysThisWeek = weekLeaves?.length || 0;
       const workingDaysThisWeek = Math.max(0, 5 - leaveDaysThisWeek);
@@ -176,8 +177,8 @@ export default function Dashboard() {
       const monthStart = new Date();
       monthStart.setDate(1);
       const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
-      const monthStartStr = monthStart.toISOString().split("T")[0];
-      const monthEndStr = monthEnd.toISOString().split("T")[0];
+      const monthStartStr = formatLocalDate(monthStart);
+      const monthEndStr = formatLocalDate(monthEnd);
 
       const { data: leavesData } = await supabase
         .from("leave_days")
@@ -219,11 +220,11 @@ export default function Dashboard() {
       // Calculate weekly completion for faculty
       const startOfWeek = new Date();
       startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay() + 1); // Monday
-      const weekStart = startOfWeek.toISOString().split("T")[0];
+      const weekStart = formatLocalDate(startOfWeek);
 
       const endOfWeek = new Date(startOfWeek);
       endOfWeek.setDate(endOfWeek.getDate() + 6); // Sunday
-      const weekEnd = endOfWeek.toISOString().split("T")[0];
+      const weekEnd = formatLocalDate(endOfWeek);
 
       const { data: weekEntries } = await supabase
         .from("timesheet_entries")
@@ -313,14 +314,14 @@ export default function Dashboard() {
       setUserDepartments(vertData.map((d) => `${d.name} (${d.code})`));
     }
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = formatLocalDate(new Date());
     const startOfWeek = new Date();
     startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay() + 1); // Monday
-    const weekStart = startOfWeek.toISOString().split("T")[0];
+    const weekStart = formatLocalDate(startOfWeek);
 
     const endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(endOfWeek.getDate() + 6);
-    const weekEnd = endOfWeek.toISOString().split("T")[0];
+    const weekEnd = formatLocalDate(endOfWeek);
 
     // Fetch all users in HOD's verticals from user_verticals (primary)
     let allVertUserIds: string[] = [];
@@ -537,11 +538,11 @@ export default function Dashboard() {
   const loadAdminDashboardData = async () => {
     const startOfWeek = new Date();
     startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
-    const weekStart = startOfWeek.toISOString().split("T")[0];
+    const weekStart = formatLocalDate(startOfWeek);
 
     const endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(endOfWeek.getDate() + 6);
-    const weekEnd = endOfWeek.toISOString().split("T")[0];
+    const weekEnd = formatLocalDate(endOfWeek);
 
     // Fetch total user count (L1, L2, L3, and legacy roles)
     const { data: users } = await supabase

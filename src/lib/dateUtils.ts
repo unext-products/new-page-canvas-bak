@@ -1,6 +1,18 @@
 import { format, parse } from "date-fns";
 
 /**
+ * Format a Date to YYYY-MM-DD using LOCAL timezone (not UTC).
+ * This avoids the bug where toISOString().split("T")[0] shifts dates
+ * for users in timezones ahead of UTC (e.g. IST).
+ */
+export function formatLocalDate(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/**
  * Format a date string from ISO format (YYYY-MM-DD) to display format (DD/MM/YYYY)
  */
 export function formatDisplayDate(isoDate: string): string {
@@ -63,7 +75,7 @@ export function isValidDisplayDate(dateStr: string): boolean {
  * Get today's date in ISO format
  */
 export function getTodayISO(): string {
-  return new Date().toISOString().split("T")[0];
+  return formatLocalDate(new Date());
 }
 
 /**
@@ -81,7 +93,7 @@ export function getWeekStartISO(): string {
   const dayOfWeek = today.getDay();
   const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
   const monday = new Date(today.setDate(diff));
-  return monday.toISOString().split("T")[0];
+  return formatLocalDate(monday);
 }
 
 /**
@@ -92,7 +104,7 @@ export function getWeekEndISO(): string {
   const dayOfWeek = today.getDay();
   const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? 0 : 7);
   const sunday = new Date(today.setDate(diff));
-  return sunday.toISOString().split("T")[0];
+  return formatLocalDate(sunday);
 }
 
 /**
@@ -100,7 +112,7 @@ export function getWeekEndISO(): string {
  */
 export function getMonthStartISO(): string {
   const today = new Date();
-  return new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split("T")[0];
+  return formatLocalDate(new Date(today.getFullYear(), today.getMonth(), 1));
 }
 
 /**
@@ -108,5 +120,5 @@ export function getMonthStartISO(): string {
  */
 export function getMonthEndISO(): string {
   const today = new Date();
-  return new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split("T")[0];
+  return formatLocalDate(new Date(today.getFullYear(), today.getMonth() + 1, 0));
 }

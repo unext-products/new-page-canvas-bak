@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { DateRangeFilter, DateFilterType, DateRange } from "@/components/DateRangeFilter";
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, differenceInBusinessDays, isWeekend } from "date-fns";
 import { calculateDurationMinutes } from "@/lib/timesheetUtils";
+import { formatLocalDate } from "@/lib/dateUtils";
 
 interface EnhancedCompletionCardProps {
   userId: string;
@@ -50,8 +51,8 @@ export function EnhancedCompletionCard({ userId }: EnhancedCompletionCardProps) 
 
   const fetchCompletionData = async () => {
     setLoading(true);
-    const fromDate = dateRange.from.toISOString().split("T")[0];
-    const toDate = dateRange.to.toISOString().split("T")[0];
+    const fromDate = formatLocalDate(dateRange.from);
+    const toDate = formatLocalDate(dateRange.to);
 
     const { data: entries } = await supabase
       .from("timesheet_entries")
