@@ -1,60 +1,70 @@
 
 
-## Plan: Fix Work Hour Window Threshold Enforcement
+## Plan: Fix Dashboard Calculation — Timezone Bug in Date Formatting
 
 ### Root Cause
 
-The threshold validation functions in `src/lib/thresholdValidation.ts` only query **org-wide** thresholds (where `vertical_id IS NULL`). But admins can set thresholds at the **vertical (department) level** -- as shown in your screenshot where "Central Bank of India" vertical has 08:30-17:30 configured.
+All date formatting across the app uses `date.toISOString().split("T")[0]`, which converts to **UTC** before extracting the date string. For users in timezones ahead of UTC (like IST, UTC+5:30), this shifts midnight back to the previous day in UTC, causing date queries to include entries from the wrong day.
 
-When a user submits a timesheet entry:
-- **Individual entries**: `fetchUserThresholds()` runs, queries only org-wide thresholds, finds none (because they're set at vertical level), returns `null`, and validation is skipped entirely
-- **Bulk upload**: `fetchExtendedValidationContext()` has the same problem -- only checks org-wide thresholds
+**Example with IST user (the reported bug):**
+- "Today" filter: `startOfDay(Feb 26)` = Feb 26 00:00 IST = Feb 25 18:30 UTC
+- `.toISOString().split("T")[0]` = **"2026-02-25"** (wrong day!)
+- Query fetches Feb 25 + Feb 26 entries = 465 + 460 = 925 min = **15.4h** instead of 7.67h
+- But `getWorkingDaysInRange` uses local Date objects correctly, counting only 1 day
+- So: Actual = 15.4h (doubled), Expected = 8.0h (correct), Avg/Day = 15.4h (doubled)
 
-The `useThresholds` hook (line 93-113) already has the correct logic: check vertical-specific first, fall back to org-wide. But the direct DB fetch functions used during submission bypass the hook and miss vertical thresholds.
+This explains the exact numbers shown in the screenshot.
 
 ### Fix
 
-Update two functions in `src/lib/thresholdValidation.ts`:
+Create a timezone-safe local date formatting utility and replace all occurrences of the buggy pattern.
 
-**1. `fetchUserThresholds(userId)`** -- Add vertical-aware lookup:
-- Query the user's `vertical_id` from `user_roles` (in addition to `organization_id`)
-- If user has a `vertical_id`, first check for vertical-specific thresholds
-- If no vertical-specific thresholds found, fall back to org-wide thresholds
-- This mirrors the cascade logic already in `useThresholds` hook
+**1. Update `src/lib/dateUtils.ts`** -- Add `formatLocalDate` function and fix existing helpers:
 
-**2. `fetchExtendedValidationContext(userId)`** -- Add vertical-aware lookup:
-- Same approach: get the user's `vertical_id`
-- For thresholds: check vertical-specific first, then org-wide
-- For working days: check vertical-specific first, then org-wide
-- For holidays: include both org-wide AND vertical-specific holidays (union)
+```typescript
+/** Format a Date to YYYY-MM-DD using LOCAL timezone (not UTC) */
+export function formatLocalDate(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+```
+
+Also fix `getTodayISO`, `getWeekStartISO`, `getWeekEndISO`, `getMonthStartISO`, `getMonthEndISO` to use `formatLocalDate` internally instead of `toISOString()`.
+
+**2. Update `src/pages/Dashboard.tsx`** -- Replace all `toISOString().split("T")[0]` with `formatLocalDate()`:
+- Line 92: `const today = formatLocalDate(new Date());`
+- Lines 132-133: leave date range
+- Lines 179-180: month start/end
+- Lines 222, 226: week start/end for L1
+- Lines 316, 319, 323: today/week for HOD
+- Lines 540, 544: week for admin
+
+**3. Update `src/components/dashboard/EnhancedCompletionCard.tsx`** -- Lines 53-54:
+- Replace `dateRange.from.toISOString().split("T")[0]` with `formatLocalDate(dateRange.from)`
+- Replace `dateRange.to.toISOString().split("T")[0]` with `formatLocalDate(dateRange.to)`
+
+**4. Update `src/pages/Timesheet.tsx`** -- Lines 48, 73, 492, 770, 884:
+- Replace all `new Date().toISOString().split("T")[0]` with `formatLocalDate(new Date())`
 
 ### Files to Change
 
-| File | Change |
-|------|--------|
-| `src/lib/thresholdValidation.ts` | Update `fetchUserThresholds` and `fetchExtendedValidationContext` to query the user's `vertical_id` and check vertical-specific settings before falling back to org-wide |
-
-No other files need changes -- Timesheet.tsx and BulkImport.tsx already call these functions correctly; they just need to return the right data.
-
-### Technical Details
-
-**Updated `fetchUserThresholds`:**
-```text
-1. Query user_roles for BOTH organization_id AND vertical_id (+ department_id for backward compat)
-2. If user has a vertical_id:
-   a. Query timesheet_thresholds WHERE organization_id = X AND vertical_id = user's vertical
-   b. If found, return those thresholds
-3. Fall back: query timesheet_thresholds WHERE organization_id = X AND vertical_id IS NULL
-4. Return result (or null if nothing found)
-```
-
-**Updated `fetchExtendedValidationContext`:**
-```text
-Same cascade for thresholds and working_days queries.
-For holidays: fetch BOTH org-wide (vertical_id IS NULL) AND vertical-specific, merge them.
-```
+| File | Changes |
+|------|---------|
+| `src/lib/dateUtils.ts` | Add `formatLocalDate()` function; fix 5 existing helpers to use it |
+| `src/pages/Dashboard.tsx` | Replace ~10 occurrences of `.toISOString().split("T")[0]` with `formatLocalDate()` |
+| `src/components/dashboard/EnhancedCompletionCard.tsx` | Replace 2 occurrences |
+| `src/pages/Timesheet.tsx` | Replace 5 occurrences |
 
 ### Why This Fixes the Issue
 
-The entry 17:00-18:30 was accepted because `fetchUserThresholds` returned `null` (no org-wide threshold existed -- it was set at the vertical level). After this fix, the function will find the vertical-level threshold (08:30-17:30, work_hours_enabled=true) and correctly block entries outside that window.
+After this change, a user in IST at midnight local time will get `formatLocalDate(startOfDay(today))` = "2026-02-26" (correct), not "2026-02-25" (UTC-shifted). The query will only fetch entries for the intended date range, producing the correct totals.
+
+### Impact on Other Users
+
+This fix is safe for all timezones:
+- UTC users: no change (local = UTC)
+- Users behind UTC (e.g., US timezones): were potentially getting the NEXT day's date shifted forward -- also fixed
+- Users ahead of UTC (IST, etc.): the reported bug -- fixed
 
