@@ -1,53 +1,59 @@
 
 
-## Plan: Fix Report Data Truncation Due to Query Row Limit
+## Plan: Fix Threshold Validation — Duplicate Rows + Wrong Vertical Lookup
 
-### Root Cause
+### Root Causes Found
 
-The database client has a **default limit of 1,000 rows per query**. The "All Verticals" department report queries all timesheet entries across all users for a date range. For February 2026, there are **7,366 entries** (5,171 for Feb 16-28 alone). The query silently returns only the first 1,000 rows, causing faculty whose entries fall beyond row 1,000 to be completely absent from the report.
+**Problem 1: Duplicate threshold rows cause silent failure**
+The database has **7 duplicate org-wide threshold rows** for the same organization (org `4be340a2-...`, all with `vertical_id IS NULL`). The query uses `.maybeSingle()` which **throws an error** when more than one row matches. This error is caught silently in the try/catch block (Timesheet.tsx line 343), and the fallback validation in the catch block uses the same hook logic which also fails for the same reason. Result: **all threshold validation is skipped entirely**.
 
-This explains:
-- Faculty like Manohar, Thara, and others having entries visible on the platform (individual queries for a single user return well under 1,000 rows) but missing from the downloaded "All Verticals" report
-- The "60 faculty showing nil" issue -- those faculty have entries in the database, but their entries were truncated by the 1,000-row cap
+**Problem 2: Wrong vertical used for threshold lookup**
+`fetchUserThresholds(userId)` reads the user's `vertical_id` from `user_roles`, but the user might be submitting an entry for a **different vertical** (selected in the entry form). For example, a user assigned to vertical A could submit for vertical B, and the system checks thresholds for A instead of B -- or finds no threshold at all.
 
-### Fix
+### Fix (3 parts)
 
-**File: `src/lib/reportQueries.ts`**
+**1. Database Migration — Clean up duplicates + add unique constraint**
 
-1. Add a **paginated fetch helper** that loops through results using `.range(offset, offset+pageSize)` until all rows are retrieved:
+Remove duplicate `timesheet_thresholds` rows, keeping only the most recently updated one per (organization_id, vertical_id) combination. Then add a unique constraint to prevent future duplicates:
 
-```text
-async function fetchAllEntries(query): Entry[] {
-  const PAGE_SIZE = 1000;
-  let allData = [];
-  let offset = 0;
-  while (true) {
-    const { data, error } = await query.range(offset, offset + PAGE_SIZE - 1);
-    if (error) throw error;
-    allData.push(...(data || []));
-    if (!data || data.length < PAGE_SIZE) break;
-    offset += PAGE_SIZE;
-  }
-  return allData;
-}
+```sql
+-- Delete duplicates, keeping the most recently updated row
+DELETE FROM timesheet_thresholds
+WHERE id NOT IN (
+  SELECT DISTINCT ON (organization_id, COALESCE(vertical_id, '00000000-0000-0000-0000-000000000000'))
+    id
+  FROM timesheet_thresholds
+  ORDER BY organization_id, COALESCE(vertical_id, '00000000-0000-0000-0000-000000000000'), updated_at DESC
+);
+
+-- Add unique constraint to prevent future duplicates
+CREATE UNIQUE INDEX idx_timesheet_thresholds_org_vertical
+  ON timesheet_thresholds (organization_id, COALESCE(vertical_id, '00000000-0000-0000-0000-000000000000'));
 ```
 
-2. Update `fetchVerticalReport` (line ~301-319) to use the paginated helper instead of a single query, ensuring all 7,000+ entries are fetched.
+**2. Update `src/lib/thresholdValidation.ts` — Make queries resilient + accept entry vertical**
 
-3. Update `fetchTimesheetEntries` (line ~74-95) with the same pagination pattern, as it's also used for report filtering and could hit the same limit.
+- Change `fetchUserThresholds` signature to accept an optional `entryVerticalId` parameter
+- Replace all `.maybeSingle()` calls with `.order('updated_at', { ascending: false }).limit(1)` and read `data[0]` — this returns the latest row even if duplicates exist, instead of throwing an error
+- When `entryVerticalId` is provided, use it to look up vertical-specific thresholds instead of the user's primary vertical from `user_roles`
+- Apply the same resilience fix to `fetchExtendedValidationContext`
 
-**File: `src/pages/Dashboard.tsx`**
+**3. Update `src/pages/Timesheet.tsx` — Pass selected vertical to threshold check**
 
-4. Review and fix the HOD/Admin dashboard queries that use `.in("user_id", teamUserIds)` with `.eq("status", "submitted")` -- these could also exceed 1,000 rows for large organizations. Add pagination or explicit higher limits where needed.
+- At line 305, change `fetchUserThresholds(userWithRole.user.id)` to `fetchUserThresholds(userWithRole.user.id, selectedVerticalId)` so the threshold for the entry's vertical is checked, not the user's primary vertical
 
-### Summary of Changes
+### Files to Change
 
 | File | Change |
 |------|--------|
-| `src/lib/reportQueries.ts` | Add `fetchAllEntries` paginated helper; update `fetchVerticalReport` and `fetchTimesheetEntries` to use it |
-| `src/pages/Dashboard.tsx` | Add pagination to HOD/Admin pending approvals and weekly entries queries that aggregate across many users |
+| Database migration | Remove duplicate threshold rows + add unique index |
+| `src/lib/thresholdValidation.ts` | Add `entryVerticalId` param to `fetchUserThresholds`; replace `.maybeSingle()` with `.order().limit(1)` for resilience |
+| `src/pages/Timesheet.tsx` | Pass `selectedVerticalId` to `fetchUserThresholds` call |
 
-### Why This Fixes the Issue
+### Why This Is a Permanent Fix
 
-After pagination, the report query will fetch all 7,366 entries (in ~8 pages of 1,000), ensuring every faculty member's data appears in the downloaded report. Individual user queries (Member View, personal dashboard) are unaffected since a single user rarely exceeds 1,000 entries in a month.
+1. The unique constraint prevents duplicates from ever being created again
+2. The `.limit(1)` pattern is resilient even if constraints are somehow bypassed
+3. Using the entry's selected vertical ensures the correct thresholds are always checked
+4. All existing functionality is preserved — the fallback from vertical-specific to org-wide thresholds still works
 
