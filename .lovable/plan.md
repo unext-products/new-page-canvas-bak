@@ -1,70 +1,53 @@
 
 
-## Plan: Fix Dashboard Calculation — Timezone Bug in Date Formatting
+## Plan: Fix Report Data Truncation Due to Query Row Limit
 
 ### Root Cause
 
-All date formatting across the app uses `date.toISOString().split("T")[0]`, which converts to **UTC** before extracting the date string. For users in timezones ahead of UTC (like IST, UTC+5:30), this shifts midnight back to the previous day in UTC, causing date queries to include entries from the wrong day.
+The database client has a **default limit of 1,000 rows per query**. The "All Verticals" department report queries all timesheet entries across all users for a date range. For February 2026, there are **7,366 entries** (5,171 for Feb 16-28 alone). The query silently returns only the first 1,000 rows, causing faculty whose entries fall beyond row 1,000 to be completely absent from the report.
 
-**Example with IST user (the reported bug):**
-- "Today" filter: `startOfDay(Feb 26)` = Feb 26 00:00 IST = Feb 25 18:30 UTC
-- `.toISOString().split("T")[0]` = **"2026-02-25"** (wrong day!)
-- Query fetches Feb 25 + Feb 26 entries = 465 + 460 = 925 min = **15.4h** instead of 7.67h
-- But `getWorkingDaysInRange` uses local Date objects correctly, counting only 1 day
-- So: Actual = 15.4h (doubled), Expected = 8.0h (correct), Avg/Day = 15.4h (doubled)
-
-This explains the exact numbers shown in the screenshot.
+This explains:
+- Faculty like Manohar, Thara, and others having entries visible on the platform (individual queries for a single user return well under 1,000 rows) but missing from the downloaded "All Verticals" report
+- The "60 faculty showing nil" issue -- those faculty have entries in the database, but their entries were truncated by the 1,000-row cap
 
 ### Fix
 
-Create a timezone-safe local date formatting utility and replace all occurrences of the buggy pattern.
+**File: `src/lib/reportQueries.ts`**
 
-**1. Update `src/lib/dateUtils.ts`** -- Add `formatLocalDate` function and fix existing helpers:
+1. Add a **paginated fetch helper** that loops through results using `.range(offset, offset+pageSize)` until all rows are retrieved:
 
-```typescript
-/** Format a Date to YYYY-MM-DD using LOCAL timezone (not UTC) */
-export function formatLocalDate(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
+```text
+async function fetchAllEntries(query): Entry[] {
+  const PAGE_SIZE = 1000;
+  let allData = [];
+  let offset = 0;
+  while (true) {
+    const { data, error } = await query.range(offset, offset + PAGE_SIZE - 1);
+    if (error) throw error;
+    allData.push(...(data || []));
+    if (!data || data.length < PAGE_SIZE) break;
+    offset += PAGE_SIZE;
+  }
+  return allData;
 }
 ```
 
-Also fix `getTodayISO`, `getWeekStartISO`, `getWeekEndISO`, `getMonthStartISO`, `getMonthEndISO` to use `formatLocalDate` internally instead of `toISOString()`.
+2. Update `fetchVerticalReport` (line ~301-319) to use the paginated helper instead of a single query, ensuring all 7,000+ entries are fetched.
 
-**2. Update `src/pages/Dashboard.tsx`** -- Replace all `toISOString().split("T")[0]` with `formatLocalDate()`:
-- Line 92: `const today = formatLocalDate(new Date());`
-- Lines 132-133: leave date range
-- Lines 179-180: month start/end
-- Lines 222, 226: week start/end for L1
-- Lines 316, 319, 323: today/week for HOD
-- Lines 540, 544: week for admin
+3. Update `fetchTimesheetEntries` (line ~74-95) with the same pagination pattern, as it's also used for report filtering and could hit the same limit.
 
-**3. Update `src/components/dashboard/EnhancedCompletionCard.tsx`** -- Lines 53-54:
-- Replace `dateRange.from.toISOString().split("T")[0]` with `formatLocalDate(dateRange.from)`
-- Replace `dateRange.to.toISOString().split("T")[0]` with `formatLocalDate(dateRange.to)`
+**File: `src/pages/Dashboard.tsx`**
 
-**4. Update `src/pages/Timesheet.tsx`** -- Lines 48, 73, 492, 770, 884:
-- Replace all `new Date().toISOString().split("T")[0]` with `formatLocalDate(new Date())`
+4. Review and fix the HOD/Admin dashboard queries that use `.in("user_id", teamUserIds)` with `.eq("status", "submitted")` -- these could also exceed 1,000 rows for large organizations. Add pagination or explicit higher limits where needed.
 
-### Files to Change
+### Summary of Changes
 
-| File | Changes |
-|------|---------|
-| `src/lib/dateUtils.ts` | Add `formatLocalDate()` function; fix 5 existing helpers to use it |
-| `src/pages/Dashboard.tsx` | Replace ~10 occurrences of `.toISOString().split("T")[0]` with `formatLocalDate()` |
-| `src/components/dashboard/EnhancedCompletionCard.tsx` | Replace 2 occurrences |
-| `src/pages/Timesheet.tsx` | Replace 5 occurrences |
+| File | Change |
+|------|--------|
+| `src/lib/reportQueries.ts` | Add `fetchAllEntries` paginated helper; update `fetchVerticalReport` and `fetchTimesheetEntries` to use it |
+| `src/pages/Dashboard.tsx` | Add pagination to HOD/Admin pending approvals and weekly entries queries that aggregate across many users |
 
 ### Why This Fixes the Issue
 
-After this change, a user in IST at midnight local time will get `formatLocalDate(startOfDay(today))` = "2026-02-26" (correct), not "2026-02-25" (UTC-shifted). The query will only fetch entries for the intended date range, producing the correct totals.
-
-### Impact on Other Users
-
-This fix is safe for all timezones:
-- UTC users: no change (local = UTC)
-- Users behind UTC (e.g., US timezones): were potentially getting the NEXT day's date shifted forward -- also fixed
-- Users ahead of UTC (IST, etc.): the reported bug -- fixed
+After pagination, the report query will fetch all 7,366 entries (in ~8 pages of 1,000), ensuring every faculty member's data appears in the downloaded report. Individual user queries (Member View, personal dashboard) are unaffected since a single user rarely exceeds 1,000 entries in a month.
 
