@@ -64,11 +64,12 @@ export function useThresholds(verticalId?: string | null) {
 
     try {
       // Get organization ID
-      const { data: userRole } = await supabase
+      const { data: userRoles } = await supabase
         .from("user_roles")
         .select("organization_id")
         .eq("user_id", userWithRole.user.id)
-        .single();
+        .limit(1);
+      const userRole = userRoles?.[0] || null;
 
       if (!userRole?.organization_id) {
         setLoading(false);
@@ -93,12 +94,14 @@ export function useThresholds(verticalId?: string | null) {
   const fetchThresholds = async (orgId: string) => {
     // First try vertical-specific thresholds
     if (verticalId) {
-      const { data: verticalThresholds } = await supabase
+      const { data: verticalThresholdsList } = await supabase
         .from("timesheet_thresholds")
         .select("*")
         .eq("organization_id", orgId)
         .eq("vertical_id", verticalId)
-        .maybeSingle();
+        .order("updated_at", { ascending: false })
+        .limit(1);
+      const verticalThresholds = verticalThresholdsList?.[0] || null;
 
       if (verticalThresholds) {
         setThresholds({
@@ -113,12 +116,14 @@ export function useThresholds(verticalId?: string | null) {
     }
 
     // Fall back to org-wide thresholds
-    const { data: orgThresholds } = await supabase
+    const { data: orgThresholdsList } = await supabase
       .from("timesheet_thresholds")
       .select("*")
       .eq("organization_id", orgId)
       .is("vertical_id", null)
-      .maybeSingle();
+      .order("updated_at", { ascending: false })
+      .limit(1);
+    const orgThresholds = orgThresholdsList?.[0] || null;
 
     if (orgThresholds) {
       setThresholds({
@@ -160,12 +165,14 @@ export function useThresholds(verticalId?: string | null) {
   const fetchWorkingDays = async (orgId: string) => {
     // First try vertical-specific working days
     if (verticalId) {
-      const { data: verticalConfig } = await supabase
+      const { data: verticalConfigList } = await supabase
         .from("working_days")
         .select("*")
         .eq("organization_id", orgId)
         .eq("vertical_id", verticalId)
-        .maybeSingle();
+        .order("updated_at", { ascending: false })
+        .limit(1);
+      const verticalConfig = verticalConfigList?.[0] || null;
 
       if (verticalConfig) {
         setWorkingDays({
@@ -182,12 +189,14 @@ export function useThresholds(verticalId?: string | null) {
     }
 
     // Fall back to org-wide working days
-    const { data: orgConfig } = await supabase
+    const { data: orgConfigList } = await supabase
       .from("working_days")
       .select("*")
       .eq("organization_id", orgId)
       .is("vertical_id", null)
-      .maybeSingle();
+      .order("updated_at", { ascending: false })
+      .limit(1);
+    const orgConfig = orgConfigList?.[0] || null;
 
     if (orgConfig) {
       setWorkingDays({
