@@ -61,52 +61,60 @@ const defaultWorkingDays: WorkingDaysConfig = {
 /**
  * Fetch thresholds for a user's organization
  */
-export async function fetchUserThresholds(userId: string): Promise<Thresholds | null> {
-  // Get user's organization AND vertical
+export async function fetchUserThresholds(userId: string, entryVerticalId?: string | null): Promise<Thresholds | null> {
+  // Get user's organization (and vertical as fallback)
   const { data: userRole } = await supabase
     .from("user_roles")
     .select("organization_id, vertical_id")
     .eq("user_id", userId)
-    .maybeSingle();
+    .limit(1);
 
-  if (!userRole?.organization_id) return null;
+  const role = userRole?.[0];
+  if (!role?.organization_id) return null;
 
-  // If user has a vertical, check vertical-specific thresholds first
-  if (userRole.vertical_id) {
+  // Use entry's vertical if provided, otherwise fall back to user's primary vertical
+  const verticalId = entryVerticalId || role.vertical_id;
+
+  // If we have a vertical, check vertical-specific thresholds first
+  if (verticalId) {
     const { data: verticalThresholds } = await supabase
       .from("timesheet_thresholds")
       .select("*")
-      .eq("organization_id", userRole.organization_id)
-      .eq("vertical_id", userRole.vertical_id)
-      .maybeSingle();
+      .eq("organization_id", role.organization_id)
+      .eq("vertical_id", verticalId)
+      .order("updated_at", { ascending: false })
+      .limit(1);
 
-    if (verticalThresholds) {
+    const vt = verticalThresholds?.[0];
+    if (vt) {
       return {
-        work_hours_enabled: verticalThresholds.work_hours_enabled,
-        work_start_time: verticalThresholds.work_start_time || "08:30:00",
-        work_end_time: verticalThresholds.work_end_time || "17:30:00",
-        max_hours_enabled: verticalThresholds.max_hours_enabled,
-        max_hours_minutes: verticalThresholds.max_hours_minutes || 480,
+        work_hours_enabled: vt.work_hours_enabled,
+        work_start_time: vt.work_start_time || "08:30:00",
+        work_end_time: vt.work_end_time || "17:30:00",
+        max_hours_enabled: vt.max_hours_enabled,
+        max_hours_minutes: vt.max_hours_minutes || 480,
       };
     }
   }
 
   // Fall back to org-wide thresholds
-  const { data: thresholds } = await supabase
+  const { data: orgThresholds } = await supabase
     .from("timesheet_thresholds")
     .select("*")
-    .eq("organization_id", userRole.organization_id)
+    .eq("organization_id", role.organization_id)
     .is("vertical_id", null)
-    .maybeSingle();
+    .order("updated_at", { ascending: false })
+    .limit(1);
 
-  if (!thresholds) return null;
+  const ot = orgThresholds?.[0];
+  if (!ot) return null;
 
   return {
-    work_hours_enabled: thresholds.work_hours_enabled,
-    work_start_time: thresholds.work_start_time || "08:30:00",
-    work_end_time: thresholds.work_end_time || "17:30:00",
-    max_hours_enabled: thresholds.max_hours_enabled,
-    max_hours_minutes: thresholds.max_hours_minutes || 480,
+    work_hours_enabled: ot.work_hours_enabled,
+    work_start_time: ot.work_start_time || "08:30:00",
+    work_end_time: ot.work_end_time || "17:30:00",
+    max_hours_enabled: ot.max_hours_enabled,
+    max_hours_minutes: ot.max_hours_minutes || 480,
   };
 }
 
@@ -119,16 +127,18 @@ export async function fetchOrgThresholds(organizationId: string): Promise<Thresh
     .select("*")
     .eq("organization_id", organizationId)
     .is("vertical_id", null)
-    .maybeSingle();
+    .order("updated_at", { ascending: false })
+    .limit(1);
 
-  if (!thresholds) return null;
+  const t = thresholds?.[0];
+  if (!t) return null;
 
   return {
-    work_hours_enabled: thresholds.work_hours_enabled,
-    work_start_time: thresholds.work_start_time || "08:30:00",
-    work_end_time: thresholds.work_end_time || "17:30:00",
-    max_hours_enabled: thresholds.max_hours_enabled,
-    max_hours_minutes: thresholds.max_hours_minutes || 480,
+    work_hours_enabled: t.work_hours_enabled,
+    work_start_time: t.work_start_time || "08:30:00",
+    work_end_time: t.work_end_time || "17:30:00",
+    max_hours_enabled: t.max_hours_enabled,
+    max_hours_minutes: t.max_hours_minutes || 480,
   };
 }
 
@@ -137,11 +147,12 @@ export async function fetchOrgThresholds(organizationId: string): Promise<Thresh
  */
 export async function fetchExtendedValidationContext(userId: string): Promise<ExtendedValidationContext> {
   // Get user's organization AND vertical
-  const { data: userRole } = await supabase
+  const { data: userRoles } = await supabase
     .from("user_roles")
     .select("organization_id, vertical_id")
     .eq("user_id", userId)
-    .maybeSingle();
+    .limit(1);
+  const userRole = userRoles?.[0] || null;
 
   const organizationId = userRole?.organization_id;
   const verticalId = userRole?.vertical_id;
@@ -161,7 +172,8 @@ export async function fetchExtendedValidationContext(userId: string): Promise<Ex
     .select("*")
     .eq("organization_id", organizationId)
     .is("vertical_id", null)
-    .maybeSingle();
+    .order("updated_at", { ascending: false })
+    .limit(1);
 
   const orgHolidaysQuery = supabase
     .from("holidays")
@@ -174,7 +186,8 @@ export async function fetchExtendedValidationContext(userId: string): Promise<Ex
     .select("*")
     .eq("organization_id", organizationId)
     .is("vertical_id", null)
-    .maybeSingle();
+    .order("updated_at", { ascending: false })
+    .limit(1);
 
   const activityCategoriesQuery = supabase
     .from("activity_categories")
@@ -191,18 +204,20 @@ export async function fetchExtendedValidationContext(userId: string): Promise<Ex
     orgWorkingDaysQuery,
     activityCategoriesQuery,
     verticalId
-      ? supabase.from("timesheet_thresholds").select("*").eq("organization_id", organizationId).eq("vertical_id", verticalId).maybeSingle()
+      ? supabase.from("timesheet_thresholds").select("*").eq("organization_id", organizationId).eq("vertical_id", verticalId).order("updated_at", { ascending: false }).limit(1)
       : Promise.resolve({ data: null }),
     verticalId
       ? supabase.from("holidays").select("holiday_date, name").eq("organization_id", organizationId).eq("vertical_id", verticalId)
       : Promise.resolve({ data: null }),
     verticalId
-      ? supabase.from("working_days").select("*").eq("organization_id", organizationId).eq("vertical_id", verticalId).maybeSingle()
+      ? supabase.from("working_days").select("*").eq("organization_id", organizationId).eq("vertical_id", verticalId).order("updated_at", { ascending: false }).limit(1)
       : Promise.resolve({ data: null }),
   ]);
 
   // Process thresholds: vertical-specific first, fall back to org-wide
-  const thresholdsData = verticalThresholdsRes?.data || orgThresholdsRes.data;
+  const vtData = Array.isArray(verticalThresholdsRes?.data) ? verticalThresholdsRes.data[0] : verticalThresholdsRes?.data;
+  const otData = Array.isArray(orgThresholdsRes.data) ? orgThresholdsRes.data[0] : orgThresholdsRes.data;
+  const thresholdsData = vtData || otData;
   const thresholds = thresholdsData ? {
     work_hours_enabled: thresholdsData.work_hours_enabled,
     work_start_time: thresholdsData.work_start_time || "08:30:00",
@@ -217,7 +232,9 @@ export async function fetchExtendedValidationContext(userId: string): Promise<Ex
   const holidays = [...orgHolidays, ...verticalHolidays];
 
   // Process working days: vertical-specific first, fall back to org-wide
-  const workingDaysData = verticalWorkingDaysRes?.data || orgWorkingDaysRes.data;
+  const vwData = Array.isArray(verticalWorkingDaysRes?.data) ? verticalWorkingDaysRes.data[0] : verticalWorkingDaysRes?.data;
+  const owData = Array.isArray(orgWorkingDaysRes.data) ? orgWorkingDaysRes.data[0] : orgWorkingDaysRes.data;
+  const workingDaysData = vwData || owData;
   const workingDays: WorkingDaysConfig = workingDaysData ? {
     monday: workingDaysData.monday,
     tuesday: workingDaysData.tuesday,

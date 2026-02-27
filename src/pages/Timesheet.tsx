@@ -302,7 +302,7 @@ export default function Timesheet() {
 
     // Validate against thresholds - fetch fresh from DB for strict enforcement
     try {
-      const freshThresholds = await fetchUserThresholds(userWithRole.user.id);
+      const freshThresholds = await fetchUserThresholds(userWithRole.user.id, selectedVerticalId);
       if (freshThresholds) {
         // Check work hour window
         const thresholdResult = validateAgainstThresholds(normalizedStart, normalizedEnd, freshThresholds);
