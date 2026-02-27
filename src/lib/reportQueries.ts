@@ -3,6 +3,27 @@ import { differenceInCalendarDays, eachDayOfInterval, format, isWeekend } from "
 import { calculateDurationMinutes } from "./timesheetUtils";
 import { calculateUserTotalDailyTargetMinutes } from "./targets";
 
+/**
+ * Paginated fetch helper to overcome the default 1,000-row limit.
+ * Accepts a Supabase query builder (before .range() is called) and
+ * fetches all matching rows in PAGE_SIZE batches.
+ */
+export async function fetchAllRows<T = any>(
+  queryBuilder: any,
+  pageSize = 1000
+): Promise<T[]> {
+  const allData: T[] = [];
+  let offset = 0;
+  while (true) {
+    const { data, error } = await queryBuilder.range(offset, offset + pageSize - 1);
+    if (error) throw error;
+    allData.push(...(data || []));
+    if (!data || data.length < pageSize) break;
+    offset += pageSize;
+  }
+  return allData;
+}
+
 export interface ReportFilters {
   dateFrom?: string;
   dateTo?: string;
@@ -93,7 +114,9 @@ export async function fetchTimesheetEntries(filters: ReportFilters) {
     query = query.eq("activity_type", filters.activityType as any);
   }
 
-  return query;
+  // Use paginated fetch to avoid 1,000-row truncation
+  const data = await fetchAllRows(query);
+  return { data, error: null };
 }
 
 export async function calculateSummaryStats(entries: any[]) {
@@ -313,10 +336,8 @@ export async function fetchVerticalReport(
       entriesQuery = entriesQuery.or(`vertical_code.eq.${verticalCode},department_code.eq.${verticalCode}`);
     }
 
-    const { data, error } = await entriesQuery;
-
-    if (error) throw error;
-    entries = data || [];
+    // Use paginated fetch to avoid 1,000-row truncation
+    entries = await fetchAllRows(entriesQuery);
   }
 
   const { data: vertical } = verticalId !== "all"

@@ -4,6 +4,7 @@ import { isRole } from "@/lib/roleMapping";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/lib/reportQueries";
 import { Button } from "@/components/ui/button";
 import {
   Plus,
@@ -357,20 +358,24 @@ export default function Dashboard() {
       .select("id, full_name, is_active")
       .in("id", teamUserIds.length > 0 ? teamUserIds : [hodUserId]);
 
-    // Fetch pending approvals - get entries from users in the department
-    const { data: pendingEntries } = await supabase
-      .from("timesheet_entries")
-      .select("id, start_time, end_time, user_id")
-      .in("user_id", teamUserIds.length > 0 ? teamUserIds : [hodUserId])
-      .eq("status", "submitted");
+    // Fetch pending approvals - get entries from users in the department (paginated)
+    const pendingEntries = await fetchAllRows(
+      supabase
+        .from("timesheet_entries")
+        .select("id, start_time, end_time, user_id")
+        .in("user_id", teamUserIds.length > 0 ? teamUserIds : [hodUserId])
+        .eq("status", "submitted")
+    );
 
-    // Fetch this week's entries for team members
-    const { data: weekEntries } = await supabase
-      .from("timesheet_entries")
-      .select("id, start_time, end_time, user_id, activity_type")
-      .in("user_id", teamUserIds.length > 0 ? teamUserIds : [hodUserId])
-      .gte("entry_date", weekStart)
-      .lte("entry_date", weekEnd);
+    // Fetch this week's entries for team members (paginated)
+    const weekEntries = await fetchAllRows(
+      supabase
+        .from("timesheet_entries")
+        .select("id, start_time, end_time, user_id, activity_type")
+        .in("user_id", teamUserIds.length > 0 ? teamUserIds : [hodUserId])
+        .gte("entry_date", weekStart)
+        .lte("entry_date", weekEnd)
+    );
 
     // Fetch today's leaves for team members
     const { data: todayLeavesRaw } = await supabase
@@ -389,14 +394,14 @@ export default function Dashboard() {
     const leaveProfileMap = new Map(leaveProfiles?.map((p) => [p.id, p.full_name]) || []);
 
     // Calculate weekly hours using start_time/end_time
-    const totalWeeklyMinutes = weekEntries?.reduce((sum, e) => sum + getEntryDuration(e), 0) || 0;
+    const totalWeeklyMinutes = weekEntries.reduce((sum, e) => sum + getEntryDuration(e), 0);
     const teamCount = teamUserIds.length;
     const expectedMinutes = teamCount * 5 * 480; // 5 days * 8 hours per team member
     const completionRate = expectedMinutes > 0 ? (totalWeeklyMinutes / expectedMinutes) * 100 : 0;
 
     // Activity breakdown
     const activityMap = new Map();
-    weekEntries?.forEach((entry) => {
+    weekEntries.forEach((entry) => {
       const type = entry.activity_type;
       if (!type) return;
       if (!activityMap.has(type)) {
@@ -429,7 +434,7 @@ export default function Dashboard() {
       });
     });
 
-    weekEntries?.forEach((entry) => {
+    weekEntries.forEach((entry) => {
       const userId = entry.user_id;
       if (memberStatsMap.has(userId)) {
         const current = memberStatsMap.get(userId);
@@ -470,7 +475,7 @@ export default function Dashboard() {
 
     setHodStats({
       teamMembers: teamCount,
-      pendingApprovals: pendingEntries?.length || 0,
+      pendingApprovals: pendingEntries.length,
       weeklyHours: totalWeeklyMinutes / 60,
       expectedWeeklyHours: expectedMinutes / 60,
       completionRate: Math.round(completionRate),
@@ -563,24 +568,28 @@ export default function Dashboard() {
     const vertNameMap = new Map<string, string>();
     verticals?.forEach((v) => vertNameMap.set(v.id, v.name));
 
-    // Fetch pending approvals org-wide
-    const { data: pendingEntries } = await supabase.from("timesheet_entries").select("id").eq("status", "submitted");
+    // Fetch pending approvals org-wide (paginated)
+    const pendingEntries = await fetchAllRows(
+      supabase.from("timesheet_entries").select("id").eq("status", "submitted")
+    );
 
-    // Fetch this week's entries
-    const { data: weekEntries } = await supabase
-      .from("timesheet_entries")
-      .select("id, start_time, end_time, user_id, activity_type")
-      .gte("entry_date", weekStart)
-      .lte("entry_date", weekEnd);
+    // Fetch this week's entries (paginated)
+    const weekEntries = await fetchAllRows(
+      supabase
+        .from("timesheet_entries")
+        .select("id, start_time, end_time, user_id, activity_type")
+        .gte("entry_date", weekStart)
+        .lte("entry_date", weekEnd)
+    );
 
     // Calculate weekly hours and activity breakdown
-    const totalWeeklyMinutes = weekEntries?.reduce((sum, e) => sum + getEntryDuration(e), 0) || 0;
+    const totalWeeklyMinutes = weekEntries.reduce((sum, e) => sum + getEntryDuration(e), 0);
     const expectedMinutes = (users?.length || 0) * 5 * 480; // 5 days * 8 hours
     const completionRate = expectedMinutes > 0 ? (totalWeeklyMinutes / expectedMinutes) * 100 : 0;
 
     // Activity breakdown
     const activityMap = new Map();
-    weekEntries?.forEach((entry) => {
+    weekEntries.forEach((entry) => {
       const type = entry.activity_type;
       if (!type) return; // Skip entries without activity type
       if (!activityMap.has(type)) {
@@ -603,7 +612,7 @@ export default function Dashboard() {
 
     // Vertical performance - get vertical from user_roles mapping
     const vertMap = new Map();
-    weekEntries?.forEach((entry) => {
+    weekEntries.forEach((entry) => {
       const vertId = userVertMap.get(entry.user_id);
       if (!vertId) return; // Skip if user has no vertical
       const vertName = vertNameMap.get(vertId) || "Unknown";
@@ -649,7 +658,7 @@ export default function Dashboard() {
     setAdminStats({
       totalUsers: users?.length || 0,
       totalDepartments: verticals?.length || 0,
-      pendingApprovals: pendingEntries?.length || 0,
+      pendingApprovals: pendingEntries.length,
       weeklyHours: totalWeeklyMinutes / 60,
       expectedWeeklyHours: expectedMinutes / 60,
       completionRate: Math.round(completionRate),
