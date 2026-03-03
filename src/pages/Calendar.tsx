@@ -4,6 +4,7 @@ import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -65,6 +66,8 @@ export default function CalendarPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [deleteLeaveDialogOpen, setDeleteLeaveDialogOpen] = useState(false);
+  const [leaveToDelete, setLeaveToDelete] = useState<LeaveEntry | null>(null);
   
   // Form state
   const [startTime, setStartTime] = useState("09:00");
@@ -257,11 +260,20 @@ export default function CalendarPage() {
     
     // Check if it's a leave day
     if (leavesByDate.has(dateKey)) {
-      toast({
-        title: "Leave Day",
-        description: "Cannot add timesheet entries on leave days",
-        variant: "destructive",
-      });
+      const leave = leavesByDate.get(dateKey)!;
+      const todayStr = format(new Date(), "yyyy-MM-dd");
+      if (dateKey >= todayStr) {
+        // Today or future: offer to delete
+        setLeaveToDelete(leave);
+        setDeleteLeaveDialogOpen(true);
+      } else {
+        // Past: just show toast
+        toast({
+          title: "Leave Day",
+          description: "Cannot modify past leave entries",
+          variant: "destructive",
+        });
+      }
       return;
     }
     
@@ -432,6 +444,23 @@ export default function CalendarPage() {
         });
       }
     }
+  };
+
+  const handleDeleteLeave = async () => {
+    if (!leaveToDelete) return;
+    const { error } = await supabase
+      .from('leave_days' as any)
+      .delete()
+      .eq('id', leaveToDelete.id);
+
+    if (error) {
+      toast({ title: "Error", description: "Failed to delete leave", variant: "destructive" });
+    } else {
+      toast({ title: "Success", description: "Leave deleted successfully" });
+      loadMonthData();
+    }
+    setDeleteLeaveDialogOpen(false);
+    setLeaveToDelete(null);
   };
 
   const resetForm = () => {
@@ -1039,6 +1068,28 @@ export default function CalendarPage() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Delete Leave Confirmation Dialog */}
+        <AlertDialog open={deleteLeaveDialogOpen} onOpenChange={setDeleteLeaveDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Leave?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {leaveToDelete && (
+                  <>
+                    Are you sure you want to delete your <strong>{leaveToDelete.leave_type.replace("_", " ")}</strong> leave on <strong>{formatDisplayDate(leaveToDelete.leave_date)}</strong>? This action cannot be undone.
+                  </>
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setLeaveToDelete(null)}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteLeave} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </Layout>
   );
