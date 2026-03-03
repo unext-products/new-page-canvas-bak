@@ -21,46 +21,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshUser = async () => {
     if (user) {
-      const userData = await getUserWithRole(user.id);
+      const userData = await getUserWithRole(user.id, user);
       setUserWithRole(userData);
     }
   };
 
   useEffect(() => {
-    // Set up auth state listener
+    let latestFetchId = 0;
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-        
+
         if (session?.user) {
-          setTimeout(async () => {
-            const userData = await getUserWithRole(session.user.id);
+          // On TOKEN_REFRESHED, only re-fetch if userWithRole is missing
+          if (event === 'TOKEN_REFRESHED' && userWithRole) {
+            setLoading(false);
+            return;
+          }
+
+          const fetchId = ++latestFetchId;
+
+          // Fetch with retry (up to 2 attempts)
+          let userData = await getUserWithRole(session.user.id, session.user);
+          if (!userData && fetchId === latestFetchId) {
+            await new Promise(r => setTimeout(r, 500));
+            userData = await getUserWithRole(session.user.id, session.user);
+          }
+          if (!userData && fetchId === latestFetchId) {
+            await new Promise(r => setTimeout(r, 1000));
+            userData = await getUserWithRole(session.user.id, session.user);
+          }
+
+          // Only update if this is still the latest fetch
+          if (fetchId === latestFetchId) {
             setUserWithRole(userData);
             setLoading(false);
-          }, 0);
+          }
         } else {
           setUserWithRole(null);
           setLoading(false);
         }
       }
     );
-
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        setTimeout(async () => {
-          const userData = await getUserWithRole(session.user.id);
-          setUserWithRole(userData);
-          setLoading(false);
-        }, 0);
-      } else {
-        setLoading(false);
-      }
-    });
 
     return () => subscription.unsubscribe();
   }, []);
