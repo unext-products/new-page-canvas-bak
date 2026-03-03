@@ -1,59 +1,69 @@
 
 
-## Plan: Fix Threshold Validation — Duplicate Rows + Wrong Vertical Lookup
+## Plan: Add Delete Option for Applied Leaves
 
-### Root Causes Found
+### What will change
 
-**Problem 1: Duplicate threshold rows cause silent failure**
-The database has **7 duplicate org-wide threshold rows** for the same organization (org `4be340a2-...`, all with `vertical_id IS NULL`). The query uses `.maybeSingle()` which **throws an error** when more than one row matches. This error is caught silently in the try/catch block (Timesheet.tsx line 343), and the fallback validation in the catch block uses the same hook logic which also fails for the same reason. Result: **all threshold validation is skipped entirely**.
+Users (L1, L2, L3) will be able to delete leaves they applied for **today or future dates only**. Past leaves remain locked and cannot be deleted.
 
-**Problem 2: Wrong vertical used for threshold lookup**
-`fetchUserThresholds(userId)` reads the user's `vertical_id` from `user_roles`, but the user might be submitting an entry for a **different vertical** (selected in the entry form). For example, a user assigned to vertical A could submit for vertical B, and the system checks thresholds for A instead of B -- or finds no threshold at all.
+### Changes
 
-### Fix (3 parts)
+**1. Timesheet Page (`src/pages/Timesheet.tsx`)**
 
-**1. Database Migration — Clean up duplicates + add unique constraint**
+- Add a `handleDeleteLeave` function that deletes from the `leave_days` table by ID, then refreshes leave data via `loadLeaveDays()` and entries via `loadEntries()`
+- In the leave entry rendering block (around line 1166-1183), add a delete button (Trash2 icon) that appears **only when the leave date is today or in the future**
+- The date check: `item.leave_date >= formatLocalDate(new Date())`
 
-Remove duplicate `timesheet_thresholds` rows, keeping only the most recently updated one per (organization_id, vertical_id) combination. Then add a unique constraint to prevent future duplicates:
+**2. Calendar Page (`src/pages/Calendar.tsx`)**
 
-```sql
--- Delete duplicates, keeping the most recently updated row
-DELETE FROM timesheet_thresholds
-WHERE id NOT IN (
-  SELECT DISTINCT ON (organization_id, COALESCE(vertical_id, '00000000-0000-0000-0000-000000000000'))
-    id
-  FROM timesheet_thresholds
-  ORDER BY organization_id, COALESCE(vertical_id, '00000000-0000-0000-0000-000000000000'), updated_at DESC
-);
+- Add state for a "delete leave" confirmation dialog (`deleteLeaveDialogOpen`, `leaveToDelete`)
+- Modify `handleDayClick` (line 231): when a user clicks on a leave day that is today or future, instead of just showing a toast saying "Cannot add entries on leave days", open a confirmation dialog asking "Delete this leave?" with the leave type and date shown
+- Past leave days still show the existing toast (no delete option)
+- Add a `handleDeleteLeave` function that deletes from `leave_days` and calls `loadMonthData()` to refresh
+- Add a simple AlertDialog for delete confirmation
 
--- Add unique constraint to prevent future duplicates
-CREATE UNIQUE INDEX idx_timesheet_thresholds_org_vertical
-  ON timesheet_thresholds (organization_id, COALESCE(vertical_id, '00000000-0000-0000-0000-000000000000'));
+### Technical Details
+
+**Delete function (shared logic in both pages):**
+```typescript
+const handleDeleteLeave = async (leaveId: string) => {
+  const { error } = await supabase
+    .from('leave_days' as any)
+    .delete()
+    .eq('id', leaveId);
+  
+  if (error) {
+    toast({ title: "Error", description: "Failed to delete leave", variant: "destructive" });
+  } else {
+    toast({ title: "Success", description: "Leave deleted successfully" });
+    // refresh data
+  }
+};
 ```
 
-**2. Update `src/lib/thresholdValidation.ts` — Make queries resilient + accept entry vertical**
+**Date guard (Timesheet page rendering):**
+```typescript
+// Show delete button only for today or future leaves
+const canDeleteLeave = item.leave_date >= formatLocalDate(new Date());
+```
 
-- Change `fetchUserThresholds` signature to accept an optional `entryVerticalId` parameter
-- Replace all `.maybeSingle()` calls with `.order('updated_at', { ascending: false }).limit(1)` and read `data[0]` — this returns the latest row even if duplicates exist, instead of throwing an error
-- When `entryVerticalId` is provided, use it to look up vertical-specific thresholds instead of the user's primary vertical from `user_roles`
-- Apply the same resilience fix to `fetchExtendedValidationContext`
+**Calendar month view click handler change:**
+- If leave day and date >= today: open delete confirmation dialog
+- If leave day and date < today: show "Leave Day - cannot modify past leaves" toast
+- All other existing click behavior unchanged
 
-**3. Update `src/pages/Timesheet.tsx` — Pass selected vertical to threshold check**
-
-- At line 305, change `fetchUserThresholds(userWithRole.user.id)` to `fetchUserThresholds(userWithRole.user.id, selectedVerticalId)` so the threshold for the entry's vertical is checked, not the user's primary vertical
-
-### Files to Change
+### Files to modify
 
 | File | Change |
 |------|--------|
-| Database migration | Remove duplicate threshold rows + add unique index |
-| `src/lib/thresholdValidation.ts` | Add `entryVerticalId` param to `fetchUserThresholds`; replace `.maybeSingle()` with `.order().limit(1)` for resilience |
-| `src/pages/Timesheet.tsx` | Pass `selectedVerticalId` to `fetchUserThresholds` call |
+| `src/pages/Timesheet.tsx` | Add `handleDeleteLeave`, add delete button on leave entries for today/future dates |
+| `src/pages/Calendar.tsx` | Add delete leave dialog state, modify leave day click to offer delete for today/future, add AlertDialog |
 
-### Why This Is a Permanent Fix
+### What stays the same
 
-1. The unique constraint prevents duplicates from ever being created again
-2. The `.limit(1)` pattern is resilient even if constraints are somehow bypassed
-3. Using the entry's selected vertical ensures the correct thresholds are always checked
-4. All existing functionality is preserved — the fallback from vertical-specific to org-wide thresholds still works
+- Leave application flow (Mark Leave dialog) -- unchanged
+- Timesheet entry CRUD -- unchanged
+- Past leave entries -- no delete option, fully locked
+- RLS policies -- `leave_days` already allows users to delete their own rows
+- All approval flows and syncing -- deleting from `leave_days` table is the single source of truth, so dashboards, reports, and approver views will automatically reflect the deletion
 
