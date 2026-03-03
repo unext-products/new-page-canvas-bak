@@ -18,7 +18,7 @@ export interface UserWithRole {
   } | null;
 }
 
-export async function getUserWithRole(userId: string): Promise<UserWithRole | null> {
+export async function getUserWithRole(userId: string, authUser?: User): Promise<UserWithRole | null> {
   try {
     const [roleData, profileData] = await Promise.all([
       supabase
@@ -33,7 +33,11 @@ export async function getUserWithRole(userId: string): Promise<UserWithRole | nu
         .maybeSingle(),
     ]);
 
-    const { data: { user } } = await supabase.auth.getUser();
+    let user = authUser;
+    if (!user) {
+      const { data: { user: fetchedUser } } = await supabase.auth.getUser();
+      user = fetchedUser ?? undefined;
+    }
     
     if (!user) return null;
 
