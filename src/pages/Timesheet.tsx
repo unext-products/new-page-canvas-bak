@@ -488,6 +488,33 @@ export default function Timesheet() {
     }
   };
 
+  const handleDeleteLeave = async (leaveId: string) => {
+    try {
+      const { error } = await supabase
+        .from('leave_days' as any)
+        .delete()
+        .eq('id', leaveId);
+
+      if (error) {
+        toast({
+          title: "Error",
+          description: "Failed to delete leave",
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: "Success", description: "Leave deleted successfully" });
+        loadLeaveDays();
+        loadEntries();
+      }
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "Failed to delete leave",
+        variant: "destructive",
+      });
+    }
+  };
+
   const resetForm = () => {
     setEntryDate(formatLocalDate(new Date()));
     setStartTime("09:00");
@@ -1164,22 +1191,34 @@ export default function Timesheet() {
                         )}
                       </>
                     ) : (
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-1">
-                          <p className="font-medium">
-                            {formatDisplayDate(item.leave_date)}
+                      <>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-1">
+                            <p className="font-medium">
+                              {formatDisplayDate(item.leave_date)}
+                            </p>
+                            <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                              Leave
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {formatLeaveType(item.leave_type)}
                           </p>
-                          <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-                            Leave
-                          </Badge>
+                          {item.comments && (
+                            <p className="text-sm text-muted-foreground mt-1">{item.comments}</p>
+                          )}
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                          {formatLeaveType(item.leave_type)}
-                        </p>
-                        {item.comments && (
-                          <p className="text-sm text-muted-foreground mt-1">{item.comments}</p>
+                        {item.leave_date >= formatLocalDate(new Date()) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteLeave(item.id)}
+                            title="Delete leave"
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
                         )}
-                      </div>
+                      </>
                     )}
                   </div>
                 ))}
