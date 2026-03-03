@@ -1,69 +1,96 @@
 
 
-## Plan: Add Delete Option for Applied Leaves
+## Plan: Fix Session/Reload User Data Loss
 
-### What will change
+### Root Causes
 
-Users (L1, L2, L3) will be able to delete leaves they applied for **today or future dates only**. Past leaves remain locked and cannot be deleted.
+1. **Duplicate data fetching race condition**: Both `onAuthStateChange` and `getSession()` fire on mount and independently call `getUserWithRole()`. They race against each other, and the loser can overwrite the winner's result with stale or null data.
 
-### Changes
+2. **No retry on failure**: If `getUserWithRole` fails (e.g., during token refresh), `userWithRole` stays permanently `null`, showing "Setup Required" and "User L1".
 
-**1. Timesheet Page (`src/pages/Timesheet.tsx`)**
+3. **`setTimeout(..., 0)` creates a render gap**: Between `user` being set and `userWithRole` being populated, components render with `user` present but no profile/role, causing fallback to "User" / "L1".
 
-- Add a `handleDeleteLeave` function that deletes from the `leave_days` table by ID, then refreshes leave data via `loadLeaveDays()` and entries via `loadEntries()`
-- In the leave entry rendering block (around line 1166-1183), add a delete button (Trash2 icon) that appears **only when the leave date is today or in the future**
-- The date check: `item.leave_date >= formatLocalDate(new Date())`
+4. **Idle/background tab token expiry**: When returning after idle, the auth state change fires but the role fetch can fail if the token hasn't fully refreshed yet.
 
-**2. Calendar Page (`src/pages/Calendar.tsx`)**
+### Fix
 
-- Add state for a "delete leave" confirmation dialog (`deleteLeaveDialogOpen`, `leaveToDelete`)
-- Modify `handleDayClick` (line 231): when a user clicks on a leave day that is today or future, instead of just showing a toast saying "Cannot add entries on leave days", open a confirmation dialog asking "Delete this leave?" with the leave type and date shown
-- Past leave days still show the existing toast (no delete option)
-- Add a `handleDeleteLeave` function that deletes from `leave_days` and calls `loadMonthData()` to refresh
-- Add a simple AlertDialog for delete confirmation
+**File: `src/contexts/AuthContext.tsx`** -- Rewrite the auth initialization logic:
+
+1. **Remove the duplicate `getSession` call**. Supabase's `onAuthStateChange` already fires an `INITIAL_SESSION` event on setup, so `getSession()` is redundant and causes the race.
+
+2. **Remove `setTimeout(..., 0)` wrappers**. Fetch role data synchronously within the auth state handler using `await`. This eliminates the render gap where `user` exists but `userWithRole` is null.
+
+3. **Add retry logic for `getUserWithRole`**. If the profile/role fetch fails (returns `null`), retry up to 2 times with a short delay (500ms). This handles transient failures during token refresh.
+
+4. **Add a `fetchId` guard** to prevent stale responses from overwriting fresh ones. Each auth state change increments a counter; when the async `getUserWithRole` call completes, it only updates state if its `fetchId` still matches the latest one.
+
+5. **Handle `TOKEN_REFRESHED` event properly**. On token refresh, re-fetch `userWithRole` to ensure fresh data, but only if `userWithRole` is currently null (avoids unnecessary refetches during normal refresh cycles).
+
+**File: `src/lib/supabase.ts`** -- Minor improvement to `getUserWithRole`:
+
+6. **Use the passed `userId` for the auth user instead of calling `getUser()` again**. The current code fetches role+profile in parallel, then separately calls `supabase.auth.getUser()`. This extra call can fail during token transitions. Since we already have the `User` object from the session in `AuthContext`, pass it directly instead of re-fetching.
+
+**File: `src/components/AppSidebar.tsx`** -- No changes needed. The sidebar already handles `userWithRole` being null by falling back to "User" / "member". Once the context fix ensures `userWithRole` is always populated before `loading` becomes `false`, this fallback will only show during genuine loading states.
 
 ### Technical Details
 
-**Delete function (shared logic in both pages):**
-```typescript
-const handleDeleteLeave = async (leaveId: string) => {
-  const { error } = await supabase
-    .from('leave_days' as any)
-    .delete()
-    .eq('id', leaveId);
-  
-  if (error) {
-    toast({ title: "Error", description: "Failed to delete leave", variant: "destructive" });
-  } else {
-    toast({ title: "Success", description: "Leave deleted successfully" });
-    // refresh data
-  }
-};
+**Updated AuthContext pattern:**
+
+```text
+useEffect(() => {
+  let latestFetchId = 0;
+
+  const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    async (event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+
+      if (session?.user) {
+        const fetchId = ++latestFetchId;
+        
+        // Fetch with retry
+        let userData = await getUserWithRole(session.user.id, session.user);
+        if (!userData) {
+          await delay(500);
+          userData = await getUserWithRole(session.user.id, session.user);
+        }
+        
+        // Only update if this is still the latest fetch
+        if (fetchId === latestFetchId) {
+          setUserWithRole(userData);
+          setLoading(false);
+        }
+      } else {
+        setUserWithRole(null);
+        setLoading(false);
+      }
+    }
+  );
+
+  return () => subscription.unsubscribe();
+}, []);
 ```
 
-**Date guard (Timesheet page rendering):**
-```typescript
-// Show delete button only for today or future leaves
-const canDeleteLeave = item.leave_date >= formatLocalDate(new Date());
+**Updated getUserWithRole signature:**
+
+```text
+// Accept optional User object to avoid re-fetching from auth
+async function getUserWithRole(userId: string, authUser?: User): Promise<UserWithRole | null>
 ```
 
-**Calendar month view click handler change:**
-- If leave day and date >= today: open delete confirmation dialog
-- If leave day and date < today: show "Leave Day - cannot modify past leaves" toast
-- All other existing click behavior unchanged
+This removes the `supabase.auth.getUser()` call inside `getUserWithRole` when the `User` object is already available from the session, eliminating a failure point during token transitions.
 
-### Files to modify
+### Files to Change
 
 | File | Change |
 |------|--------|
-| `src/pages/Timesheet.tsx` | Add `handleDeleteLeave`, add delete button on leave entries for today/future dates |
-| `src/pages/Calendar.tsx` | Add delete leave dialog state, modify leave day click to offer delete for today/future, add AlertDialog |
+| `src/contexts/AuthContext.tsx` | Remove duplicate `getSession`; remove `setTimeout`; add fetch ID guard and retry logic; pass `session.user` to `getUserWithRole` |
+| `src/lib/supabase.ts` | Add optional `authUser` parameter to `getUserWithRole` to skip redundant `getUser()` call |
 
-### What stays the same
+### What Stays the Same
 
-- Leave application flow (Mark Leave dialog) -- unchanged
-- Timesheet entry CRUD -- unchanged
-- Past leave entries -- no delete option, fully locked
-- RLS policies -- `leave_days` already allows users to delete their own rows
-- All approval flows and syncing -- deleting from `leave_days` table is the single source of truth, so dashboards, reports, and approver views will automatically reflect the deletion
+- All page components, sidebar, dashboard -- no changes
+- Sign in/sign out flows -- unchanged
+- RLS policies and database -- unchanged
+- All existing features continue working as-is
 
