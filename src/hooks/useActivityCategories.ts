@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -40,9 +40,11 @@ export function useActivityCategories(_departmentId?: string | null) {
   const [categories, setCategories] = useState<ActivityCategory[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const hasFetchedRef = useRef(false);
+
   useEffect(() => {
-    if (!userWithRole) return;
-    
+    if (!userWithRole || hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
     loadCategories();
   }, [userWithRole]);
 

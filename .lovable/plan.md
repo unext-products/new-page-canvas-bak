@@ -1,90 +1,96 @@
 
 
-## Root Cause Analysis: Intermittent Blank Dropdowns and Dead Submit Button
+## Plan: Fix Session/Reload User Data Loss
 
-### The Core Problem: Auth Token Refresh Destabilizes the Entire Page
+### Root Causes
 
-Every Supabase token refresh (happens automatically every ~60 minutes, or on tab focus) triggers `onAuthStateChange` → `getUserWithRole()` → `setUserWithRole(newObject)`. Even though the data is identical, React sees a **new object reference**, causing every component and hook that depends on `userWithRole` to re-execute.
+1. **Duplicate data fetching race condition**: Both `onAuthStateChange` and `getSession()` fire on mount and independently call `getUserWithRole()`. They race against each other, and the loser can overwrite the winner's result with stale or null data.
 
-This creates three cascading failures:
+2. **No retry on failure**: If `getUserWithRole` fails (e.g., during token refresh), `userWithRole` stays permanently `null`, showing "Setup Required" and "User L1".
 
-**Issue 1a — Activity dropdown goes blank:**
-`useActivityCategories` has `useEffect(() => { loadCategories() }, [userWithRole])`. On token refresh, this re-runs `loadCategories()` which calls `setLoading(true)`. During that brief window, `loading` is `true`. But more critically: the RLS policy for `activity_categories` calls `get_user_organization(auth.uid())`. If the query fires during the millisecond window between the old token being invalidated and the new one being applied, the RLS function can return `null`, making the query return **0 rows**. The code falls back to hardcoded defaults with codes like `"class"`, `"quiz"`. If the user previously selected a DB-derived code (e.g., `"teaching/lecture"` → `"teaching/lecture"`), the selected value no longer matches any option — dropdown appears blank.
+3. **`setTimeout(..., 0)` creates a render gap**: Between `user` being set and `userWithRole` being populated, components render with `user` present but no profile/role, causing fallback to "User" / "L1".
 
-**Issue 1c — Program dropdown goes blank:**
-`fetchUserPrograms()` at line 583 has the guard: `if (!userWithRole || !verticalId) { setPrograms([]); return; }`. If this function is called (or re-rendered) while `userWithRole` is momentarily `null` during token refresh, it **actively clears** the programs array. The dropdown goes blank. Since `programs` is local state (not re-fetched automatically), it stays blank until the user re-selects a vertical.
+4. **Idle/background tab token expiry**: When returning after idle, the auth state change fires but the role fetch can fail if the token hasn't fully refreshed yet.
 
-**Issue 1b — Submit button stops working:**
-`handleSubmit` at line 228 checks `if (!userWithRole?.user?.id)`. During token refresh, `userWithRole` can be `null` for a brief moment. If the user clicks Submit during that window, the function returns early with an error toast. But the toast can be missed if it appears and disappears quickly, making it seem like the button "does nothing."
+### Fix
 
-### Why It's Random
-Token refreshes happen based on token expiry timing (not user action). Different users have different login times, so their tokens expire at different times. Tab-focus events also trigger session checks. This explains "random users, random times."
+**File: `src/contexts/AuthContext.tsx`** -- Rewrite the auth initialization logic:
 
-### Fix Plan
+1. **Remove the duplicate `getSession` call**. Supabase's `onAuthStateChange` already fires an `INITIAL_SESSION` event on setup, so `getSession()` is redundant and causes the race.
 
-**File: `src/hooks/useActivityCategories.ts`**
+2. **Remove `setTimeout(..., 0)` wrappers**. Fetch role data synchronously within the auth state handler using `await`. This eliminates the render gap where `user` exists but `userWithRole` is null.
 
-Stop re-fetching on every `userWithRole` reference change. Instead:
-- Track whether initial load has completed with a ref
-- Only depend on `userWithRole` being truthy (not its reference)
-- Remove the re-fetch-on-every-change pattern
+3. **Add retry logic for `getUserWithRole`**. If the profile/role fetch fails (returns `null`), retry up to 2 times with a short delay (500ms). This handles transient failures during token refresh.
 
-```typescript
-// Change from:
+4. **Add a `fetchId` guard** to prevent stale responses from overwriting fresh ones. Each auth state change increments a counter; when the async `getUserWithRole` call completes, it only updates state if its `fetchId` still matches the latest one.
+
+5. **Handle `TOKEN_REFRESHED` event properly**. On token refresh, re-fetch `userWithRole` to ensure fresh data, but only if `userWithRole` is currently null (avoids unnecessary refetches during normal refresh cycles).
+
+**File: `src/lib/supabase.ts`** -- Minor improvement to `getUserWithRole`:
+
+6. **Use the passed `userId` for the auth user instead of calling `getUser()` again**. The current code fetches role+profile in parallel, then separately calls `supabase.auth.getUser()`. This extra call can fail during token transitions. Since we already have the `User` object from the session in `AuthContext`, pass it directly instead of re-fetching.
+
+**File: `src/components/AppSidebar.tsx`** -- No changes needed. The sidebar already handles `userWithRole` being null by falling back to "User" / "member". Once the context fix ensures `userWithRole` is always populated before `loading` becomes `false`, this fallback will only show during genuine loading states.
+
+### Technical Details
+
+**Updated AuthContext pattern:**
+
+```text
 useEffect(() => {
-  if (!userWithRole) return;
-  loadCategories();
-}, [userWithRole]);
+  let latestFetchId = 0;
 
-// Change to:
-const hasFetchedRef = useRef(false);
-useEffect(() => {
-  if (!userWithRole || hasFetchedRef.current) return;
-  hasFetchedRef.current = true;
-  loadCategories();
-}, [userWithRole]);
+  const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    async (event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+
+      if (session?.user) {
+        const fetchId = ++latestFetchId;
+        
+        // Fetch with retry
+        let userData = await getUserWithRole(session.user.id, session.user);
+        if (!userData) {
+          await delay(500);
+          userData = await getUserWithRole(session.user.id, session.user);
+        }
+        
+        // Only update if this is still the latest fetch
+        if (fetchId === latestFetchId) {
+          setUserWithRole(userData);
+          setLoading(false);
+        }
+      } else {
+        setUserWithRole(null);
+        setLoading(false);
+      }
+    }
+  );
+
+  return () => subscription.unsubscribe();
+}, []);
 ```
 
-**File: `src/pages/Timesheet.tsx`**
+**Updated getUserWithRole signature:**
 
-Three targeted fixes:
-
-1. **Stabilize `fetchUserPrograms` guard** — Use a ref for `userWithRole` so the function never sees a stale `null` during token refresh:
-```typescript
-const userRef = useRef(userWithRole);
-useEffect(() => { userRef.current = userWithRole; }, [userWithRole]);
-
-// In fetchUserPrograms:
-const currentUser = userRef.current;
-if (!currentUser || !verticalId) { ... }
+```text
+// Accept optional User object to avoid re-fetching from auth
+async function getUserWithRole(userId: string, authUser?: User): Promise<UserWithRole | null>
 ```
 
-2. **Stabilize `handleSubmit` guard** — Same ref pattern for the submit handler so it never reads a momentarily-null `userWithRole`.
-
-3. **Stabilize initial data load** — Change the `useEffect` that loads entries/verticals to use a "loaded" ref so it only runs once, not on every `userWithRole` reference change:
-```typescript
-const hasLoadedRef = useRef(false);
-useEffect(() => {
-  if (!userWithRole || hasLoadedRef.current) return;
-  // ... role check and navigate
-  hasLoadedRef.current = true;
-  loadEntries();
-  loadLeaveDays();
-  loadUserVerticals();
-}, [userWithRole]);
-```
+This removes the `supabase.auth.getUser()` call inside `getUserWithRole` when the `User` object is already available from the session, eliminating a failure point during token transitions.
 
 ### Files to Change
 
 | File | Change |
 |------|--------|
-| `src/hooks/useActivityCategories.ts` | Fetch once on auth ready, not on every reference change |
-| `src/pages/Timesheet.tsx` | Use refs for `userWithRole` in async handlers; load data once not on every re-render |
+| `src/contexts/AuthContext.tsx` | Remove duplicate `getSession`; remove `setTimeout`; add fetch ID guard and retry logic; pass `session.user` to `getUserWithRole` |
+| `src/lib/supabase.ts` | Add optional `authUser` parameter to `getUserWithRole` to skip redundant `getUser()` call |
 
 ### What Stays the Same
-- Auth flow, token refresh logic — unchanged
-- Database, RLS policies — unchanged
-- All other pages — unchanged
-- Bulk upload, approvals — unchanged
-- The `refetch` function on the hook remains available for manual refresh if needed
+
+- All page components, sidebar, dashboard -- no changes
+- Sign in/sign out flows -- unchanged
+- RLS policies and database -- unchanged
+- All existing features continue working as-is
 
