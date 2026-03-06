@@ -253,7 +253,7 @@ export async function validateMemberExcelRow(
     
     if (!programInfo) {
       errors.push(`You are not assigned to program '${row.program}'`);
-    } else if (deptId && programInfo.vertical_id !== deptId) {
+  } else if (programInfo.vertical_code && programInfo.vertical_code !== deptCodeUpper) {
       errors.push(`Program '${row.program}' does not belong to vertical '${row.department_code}'`);
     } else {
       programId = programInfo.id;
