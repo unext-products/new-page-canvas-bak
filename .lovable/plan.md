@@ -1,88 +1,96 @@
 
 
-## Plan: Fix Sign Out and Blank Page Issues
+## Plan: Fix Session/Reload User Data Loss
 
 ### Root Causes
 
-**Issue 1: Sign out does nothing**
-`supabase.auth.signOut()` (default `scope: 'global'`) makes a server call to revoke the token. If the token is already expired or the network request fails, `signOut()` returns an error. The current code only navigates on success — so nothing happens. The local session in localStorage is never cleared, and the user stays "logged in."
+1. **Duplicate data fetching race condition**: Both `onAuthStateChange` and `getSession()` fire on mount and independently call `getUserWithRole()`. They race against each other, and the loser can overwrite the winner's result with stale or null data.
 
-**Issue 2: Blank page on load with corrupted/expired session**
-When localStorage contains an expired session whose refresh token is also invalid, `onAuthStateChange` fires `INITIAL_SESSION` with the stale session object from localStorage. The code sets `user` (truthy), then `getUserWithRole` fails all 3 retry attempts (because the token is invalid for API calls). Meanwhile, `Index.tsx` sees `user` is set and redirects to `/dashboard`, which can't load any data. Result: blank page. Only clearing site data fixes it because that removes the corrupted localStorage session.
+2. **No retry on failure**: If `getUserWithRole` fails (e.g., during token refresh), `userWithRole` stays permanently `null`, showing "Setup Required" and "User L1".
 
-**Issue 3: Stale closure bug**
-Line 39 references `userWithRole` inside the `useEffect` callback, but the dependency array is `[]`. This means `userWithRole` is always the initial value (`null`), so the `TOKEN_REFRESHED` optimization (`if (event === 'TOKEN_REFRESHED' && userWithRole)`) never triggers. Not the primary bug, but it's a latent issue.
+3. **`setTimeout(..., 0)` creates a render gap**: Between `user` being set and `userWithRole` being populated, components render with `user` present but no profile/role, causing fallback to "User" / "L1".
+
+4. **Idle/background tab token expiry**: When returning after idle, the auth state change fires but the role fetch can fail if the token hasn't fully refreshed yet.
 
 ### Fix
 
-**1. `src/lib/supabase.ts` — Make sign out always clear local state**
+**File: `src/contexts/AuthContext.tsx`** -- Rewrite the auth initialization logic:
 
-Change `signOut()` to use `{ scope: 'local' }` as a fallback:
+1. **Remove the duplicate `getSession` call**. Supabase's `onAuthStateChange` already fires an `INITIAL_SESSION` event on setup, so `getSession()` is redundant and causes the race.
 
-```typescript
-export async function signOut() {
-  // Try global sign out first (revokes token server-side)
-  const { error } = await supabase.auth.signOut({ scope: 'global' });
-  if (error) {
-    // If server-side fails (expired token, network issue), clear local state
-    await supabase.auth.signOut({ scope: 'local' });
-  }
-  return { error: null }; // Always succeed from caller's perspective
-}
+2. **Remove `setTimeout(..., 0)` wrappers**. Fetch role data synchronously within the auth state handler using `await`. This eliminates the render gap where `user` exists but `userWithRole` is null.
+
+3. **Add retry logic for `getUserWithRole`**. If the profile/role fetch fails (returns `null`), retry up to 2 times with a short delay (500ms). This handles transient failures during token refresh.
+
+4. **Add a `fetchId` guard** to prevent stale responses from overwriting fresh ones. Each auth state change increments a counter; when the async `getUserWithRole` call completes, it only updates state if its `fetchId` still matches the latest one.
+
+5. **Handle `TOKEN_REFRESHED` event properly**. On token refresh, re-fetch `userWithRole` to ensure fresh data, but only if `userWithRole` is currently null (avoids unnecessary refetches during normal refresh cycles).
+
+**File: `src/lib/supabase.ts`** -- Minor improvement to `getUserWithRole`:
+
+6. **Use the passed `userId` for the auth user instead of calling `getUser()` again**. The current code fetches role+profile in parallel, then separately calls `supabase.auth.getUser()`. This extra call can fail during token transitions. Since we already have the `User` object from the session in `AuthContext`, pass it directly instead of re-fetching.
+
+**File: `src/components/AppSidebar.tsx`** -- No changes needed. The sidebar already handles `userWithRole` being null by falling back to "User" / "member". Once the context fix ensures `userWithRole` is always populated before `loading` becomes `false`, this fallback will only show during genuine loading states.
+
+### Technical Details
+
+**Updated AuthContext pattern:**
+
+```text
+useEffect(() => {
+  let latestFetchId = 0;
+
+  const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    async (event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+
+      if (session?.user) {
+        const fetchId = ++latestFetchId;
+        
+        // Fetch with retry
+        let userData = await getUserWithRole(session.user.id, session.user);
+        if (!userData) {
+          await delay(500);
+          userData = await getUserWithRole(session.user.id, session.user);
+        }
+        
+        // Only update if this is still the latest fetch
+        if (fetchId === latestFetchId) {
+          setUserWithRole(userData);
+          setLoading(false);
+        }
+      } else {
+        setUserWithRole(null);
+        setLoading(false);
+      }
+    }
+  );
+
+  return () => subscription.unsubscribe();
+}, []);
 ```
 
-This ensures local session is always cleared, even when the server rejects the revocation request.
+**Updated getUserWithRole signature:**
 
-**2. `src/contexts/AuthContext.tsx` — Validate session on failed profile fetch + fix stale closure**
-
-After all retry attempts fail for `getUserWithRole`, verify the session is actually valid by calling `supabase.auth.getUser()`. If that also fails, sign out locally to clear the corrupted session:
-
-```typescript
-// After all retries exhausted and userData is still null:
-if (!userData && fetchId === latestFetchId) {
-  // Session might be corrupted — verify it
-  const { error: verifyError } = await supabase.auth.getUser();
-  if (verifyError) {
-    // Token is invalid, clear corrupted session
-    await supabase.auth.signOut({ scope: 'local' });
-    return; // onAuthStateChange will fire again with null session
-  }
-}
+```text
+// Accept optional User object to avoid re-fetching from auth
+async function getUserWithRole(userId: string, authUser?: User): Promise<UserWithRole | null>
 ```
 
-Also fix the stale closure by using a ref for `userWithRole`:
-
-```typescript
-const userWithRoleRef = useRef<UserWithRole | null>(null);
-// Keep ref in sync
-useEffect(() => { userWithRoleRef.current = userWithRole; }, [userWithRole]);
-
-// In onAuthStateChange handler, use userWithRoleRef.current instead of userWithRole
-```
-
-**3. `src/components/AppSidebar.tsx` — Always navigate on sign out**
-
-Since `signOut()` will now always succeed, simplify the handler:
-
-```typescript
-const handleSignOut = async () => {
-  await signOut();
-  navigate("/");
-};
-```
+This removes the `supabase.auth.getUser()` call inside `getUserWithRole` when the `User` object is already available from the session, eliminating a failure point during token transitions.
 
 ### Files to Change
 
 | File | Change |
 |------|--------|
-| `src/lib/supabase.ts` | Fallback to `scope: 'local'` sign out if global fails; always return success |
-| `src/contexts/AuthContext.tsx` | Add session validation after failed retries; fix stale closure with ref |
-| `src/components/AppSidebar.tsx` | Simplify sign out handler (always navigate) |
+| `src/contexts/AuthContext.tsx` | Remove duplicate `getSession`; remove `setTimeout`; add fetch ID guard and retry logic; pass `session.user` to `getUserWithRole` |
+| `src/lib/supabase.ts` | Add optional `authUser` parameter to `getUserWithRole` to skip redundant `getUser()` call |
 
 ### What Stays the Same
 
-- All page components, data, database — no changes
-- Sign in flow — unchanged
-- RLS policies — unchanged
-- All existing features — unchanged
+- All page components, sidebar, dashboard -- no changes
+- Sign in/sign out flows -- unchanged
+- RLS policies and database -- unchanged
+- All existing features continue working as-is
 
