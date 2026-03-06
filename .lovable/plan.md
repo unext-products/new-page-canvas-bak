@@ -1,96 +1,81 @@
 
 
-## Plan: Fix Session/Reload User Data Loss
+## Analysis: System-Wide Instability Root Causes
 
-### Root Causes
+After deep investigation, I've identified **two systemic issues** that explain the widespread, intermittent failures across users and flows. These are data-layer problems that affect bulk upload, timesheet entries, and any flow that resolves vertical/department codes.
 
-1. **Duplicate data fetching race condition**: Both `onAuthStateChange` and `getSession()` fire on mount and independently call `getUserWithRole()`. They race against each other, and the loser can overwrite the winner's result with stale or null data.
+### Root Cause 1: `fetchDepartments()` fetches ALL organizations' data (no org scoping)
 
-2. **No retry on failure**: If `getUserWithRole` fails (e.g., during token refresh), `userWithRole` stays permanently `null`, showing "Setup Required" and "User L1".
+The `fetchDepartments()` function in `excelImportUtils.ts` (line 581) queries **all** verticals and departments across **every** organization without any org filter. The database has 55 verticals with **18 duplicate codes** across organizations (e.g., `CBI01-26` exists in both "Manipal Academy of Banking" and "MAB - Content Team").
 
-3. **`setTimeout(..., 0)` creates a render gap**: Between `user` being set and `userWithRole` being populated, components render with `user` present but no profile/role, causing fallback to "User" / "L1".
+Since the result is stored in a `Map<code, id>`, duplicate codes overwrite each other. Which UUID "wins" depends on the order Supabase returns rows -- which is non-deterministic. This explains:
+- "Was working, now broken" -- query order changed
+- "Random users, random times" -- different users hit different code paths depending on which UUID the map retained
+- Bulk upload validation failures with incorrect error messages
 
-4. **Idle/background tab token expiry**: When returning after idle, the auth state change fires but the role fetch can fail if the token hasn't fully refreshed yet.
+### Root Cause 2: Bulk upload drops `program_id` from insert data
 
-### Fix
+In `validateMemberExcelRow()`, the `programId` is resolved correctly (line 237-259) but is **never included** in the returned `data` object (line 471-491). The `program_id` field is simply missing from the insert payload. This means:
+- Bulk-uploaded entries have `program_id = null`
+- Dashboard/report calculations that join on `program_id` produce wrong results
+- Approval queries that filter by `program_id` may miss these entries
+- This discrepancy between manual entries (which have `program_id`) and bulk entries causes inconsistent behavior
 
-**File: `src/contexts/AuthContext.tsx`** -- Rewrite the auth initialization logic:
+### Fix Plan
 
-1. **Remove the duplicate `getSession` call**. Supabase's `onAuthStateChange` already fires an `INITIAL_SESSION` event on setup, so `getSession()` is redundant and causes the race.
+**File: `src/lib/excelImportUtils.ts`**
 
-2. **Remove `setTimeout(..., 0)` wrappers**. Fetch role data synchronously within the auth state handler using `await`. This eliminates the render gap where `user` exists but `userWithRole` is null.
+1. **Scope `fetchDepartments()` to the current user's organization** -- accept an `organizationId` parameter and filter both the `departments` and `verticals` queries by it. This eliminates cross-org code collisions.
 
-3. **Add retry logic for `getUserWithRole`**. If the profile/role fetch fails (returns `null`), retry up to 2 times with a short delay (500ms). This handles transient failures during token refresh.
+2. **Include `program_id` in the validated data output** -- add `program_id: programId` to the return object in `validateMemberExcelRow()` (line 475-491).
 
-4. **Add a `fetchId` guard** to prevent stale responses from overwriting fresh ones. Each auth state change increments a counter; when the async `getUserWithRole` call completes, it only updates state if its `fetchId` still matches the latest one.
+**File: `src/pages/BulkImport.tsx`**
 
-5. **Handle `TOKEN_REFRESHED` event properly**. On token refresh, re-fetch `userWithRole` to ensure fresh data, but only if `userWithRole` is currently null (avoids unnecessary refetches during normal refresh cycles).
+3. **Pass `organizationId` to `fetchDepartments()`** -- fetch the user's org ID and pass it to the scoped function.
 
-**File: `src/lib/supabase.ts`** -- Minor improvement to `getUserWithRole`:
-
-6. **Use the passed `userId` for the auth user instead of calling `getUser()` again**. The current code fetches role+profile in parallel, then separately calls `supabase.auth.getUser()`. This extra call can fail during token transitions. Since we already have the `User` object from the session in `AuthContext`, pass it directly instead of re-fetching.
-
-**File: `src/components/AppSidebar.tsx`** -- No changes needed. The sidebar already handles `userWithRole` being null by falling back to "User" / "member". Once the context fix ensures `userWithRole` is always populated before `loading` becomes `false`, this fallback will only show during genuine loading states.
-
-### Technical Details
-
-**Updated AuthContext pattern:**
-
-```text
-useEffect(() => {
-  let latestFetchId = 0;
-
-  const { data: { subscription } } = supabase.auth.onAuthStateChange(
-    async (event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-
-      if (session?.user) {
-        const fetchId = ++latestFetchId;
-        
-        // Fetch with retry
-        let userData = await getUserWithRole(session.user.id, session.user);
-        if (!userData) {
-          await delay(500);
-          userData = await getUserWithRole(session.user.id, session.user);
-        }
-        
-        // Only update if this is still the latest fetch
-        if (fetchId === latestFetchId) {
-          setUserWithRole(userData);
-          setLoading(false);
-        }
-      } else {
-        setUserWithRole(null);
-        setLoading(false);
-      }
-    }
-  );
-
-  return () => subscription.unsubscribe();
-}, []);
-```
-
-**Updated getUserWithRole signature:**
+### Technical Detail
 
 ```text
-// Accept optional User object to avoid re-fetching from auth
-async function getUserWithRole(userId: string, authUser?: User): Promise<UserWithRole | null>
-```
+// Fix 1: Scope fetchDepartments to organization
+export async function fetchDepartments(organizationId?: string): Promise<Map<string, string>> {
+  let deptsQuery = supabase.from('departments').select('id, code');
+  let vertsQuery = supabase.from('verticals').select('id, code');
+  
+  if (organizationId) {
+    deptsQuery = deptsQuery.eq('organization_id', organizationId);
+    vertsQuery = vertsQuery.eq('organization_id', organizationId);
+  }
+  
+  const [deptsRes, verticalsRes] = await Promise.all([deptsQuery, vertsQuery]);
+  // ... rest unchanged
+}
 
-This removes the `supabase.auth.getUser()` call inside `getUserWithRole` when the `User` object is already available from the session, eliminating a failure point during token transitions.
+// Fix 2: Add program_id to return data (line ~475)
+data: {
+  ...existing fields,
+  program_id: programId,   // <-- currently missing
+}
+```
 
 ### Files to Change
 
 | File | Change |
 |------|--------|
-| `src/contexts/AuthContext.tsx` | Remove duplicate `getSession`; remove `setTimeout`; add fetch ID guard and retry logic; pass `session.user` to `getUserWithRole` |
-| `src/lib/supabase.ts` | Add optional `authUser` parameter to `getUserWithRole` to skip redundant `getUser()` call |
+| `src/lib/excelImportUtils.ts` | Scope `fetchDepartments()` to org; add `program_id` to validated data output |
+| `src/pages/BulkImport.tsx` | Fetch user's org ID and pass to `fetchDepartments(orgId)` |
 
 ### What Stays the Same
 
-- All page components, sidebar, dashboard -- no changes
-- Sign in/sign out flows -- unchanged
-- RLS policies and database -- unchanged
-- All existing features continue working as-is
+- All database tables, RLS policies -- unchanged
+- Auth/login/logout flows -- unchanged
+- Manual timesheet entry -- unchanged (already works correctly)
+- All other pages and features -- unchanged
+
+### Impact
+
+These two fixes address the core data integrity issues. Once deployed:
+- Bulk upload validation will consistently use the correct org's verticals (no more false errors)
+- Bulk-uploaded entries will include `program_id`, matching manual entries
+- Dashboard, reports, and approvals that depend on `program_id` will work correctly for bulk-uploaded data
+- The "randomness" disappears because code-to-UUID resolution becomes deterministic within an organization
 
