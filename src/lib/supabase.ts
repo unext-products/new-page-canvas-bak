@@ -106,6 +106,11 @@ export async function signUp(
 }
 
 export async function signOut() {
-  const { error } = await supabase.auth.signOut();
-  return { error };
+  // Try global sign out first (revokes token server-side)
+  const { error } = await supabase.auth.signOut({ scope: 'global' });
+  if (error) {
+    // If server-side fails (expired token, network issue), clear local state
+    await supabase.auth.signOut({ scope: 'local' });
+  }
+  return { error: null }; // Always succeed from caller's perspective
 }

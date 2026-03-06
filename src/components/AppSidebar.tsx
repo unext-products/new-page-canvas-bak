@@ -71,16 +71,8 @@ export function AppSidebar() {
   }, [location.pathname, isMobile, setOpenMobile]);
 
   const handleSignOut = async () => {
-    const { error } = await signOut();
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to sign out",
-        variant: "destructive",
-      });
-    } else {
-      navigate("/");
-    }
+    await signOut();
+    navigate("/");
   };
 
   const getNavItems = () => {
