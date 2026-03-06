@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,13 @@ export default function Timesheet() {
   const { fireConfetti } = useConfetti();
   const { resetTour, hasSeen } = useOnboardingTour();
   const { categories, loading: categoriesLoading, parentCategories, getChildren, hasHierarchy, selectableActivities } = useActivityCategories(userWithRole?.verticalId || userWithRole?.departmentId);
+  
+  // Stable ref for userWithRole to prevent async handlers from seeing null during token refresh
+  const userRef = useRef(userWithRole);
+  useEffect(() => { userRef.current = userWithRole; }, [userWithRole]);
+  
+  const hasLoadedRef = useRef(false);
+  
   const [entries, setEntries] = useState<any[]>([]);
   const [leaveEntries, setLeaveEntries] = useState<any[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -85,13 +92,16 @@ export default function Timesheet() {
   });
 
   useEffect(() => {
+    if (!userWithRole) return;
     if (userWithRole && !isRole(userWithRole.role, "l1", "l2", "l3", "member", "manager", "program_manager", "faculty")) {
       navigate("/dashboard");
-    } else if (userWithRole) {
-      loadEntries();
-      loadLeaveDays();
-      loadUserVerticals();
+      return;
     }
+    if (hasLoadedRef.current) return;
+    hasLoadedRef.current = true;
+    loadEntries();
+    loadLeaveDays();
+    loadUserVerticals();
   }, [userWithRole, navigate]);
 
   const loadUserVerticals = async () => {
@@ -225,7 +235,8 @@ export default function Timesheet() {
   };
 
   const handleSubmit = async (status: "draft" | "submitted") => {
-    if (!userWithRole?.user?.id) {
+    const currentUser = userRef.current;
+    if (!currentUser?.user?.id) {
       toast({
         title: "Error",
         description: "You must be logged in to create timesheet entries",
@@ -302,7 +313,7 @@ export default function Timesheet() {
 
     // Validate against thresholds - fetch fresh from DB for strict enforcement
     try {
-      const freshThresholds = await fetchUserThresholds(userWithRole.user.id, selectedVerticalId);
+      const freshThresholds = await fetchUserThresholds(currentUser.user.id, selectedVerticalId);
       if (freshThresholds) {
         // Check work hour window
         const thresholdResult = validateAgainstThresholds(normalizedStart, normalizedEnd, freshThresholds);
@@ -423,7 +434,7 @@ export default function Timesheet() {
       } else {
         // Insert new entry
         const result = await supabase.from("timesheet_entries").insert({
-          user_id: userWithRole.user.id,
+          user_id: currentUser.user.id,
           ...entryData,
         });
         error = result.error;
@@ -580,7 +591,8 @@ export default function Timesheet() {
   
   // Fetch programs when vertical changes
   const fetchUserPrograms = async (verticalId: string) => {
-    if (!userWithRole || !verticalId) {
+    const currentUser = userRef.current;
+    if (!currentUser || !verticalId) {
       setPrograms([]);
       return;
     }
@@ -589,7 +601,7 @@ export default function Timesheet() {
     const { data: userProgs } = await supabase
       .from("user_programs")
       .select("program_id")
-      .eq("user_id", userWithRole.user.id);
+      .eq("user_id", currentUser.user.id);
     
     const userProgIds = userProgs?.map(p => p.program_id) || [];
     
