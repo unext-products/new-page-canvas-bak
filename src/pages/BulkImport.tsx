@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
 import { isRole } from "@/lib/roleMapping";
@@ -50,6 +50,10 @@ export default function BulkImport() {
   const [selectedMemberId, setSelectedMemberId] = useState<string>("self");
   const [departmentMembers, setDepartmentMembers] = useState<DepartmentMember[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
+
+  // Stable ref for userWithRole to prevent async handlers from seeing null during token refresh
+  const userRef = useRef(userWithRole);
+  useEffect(() => { userRef.current = userWithRole; }, [userWithRole]);
 
   const isMember = isRole(userWithRole?.role, "l1", "member");
   const isAdmin = isRole(userWithRole?.role, "admin", "org_admin");
@@ -224,21 +228,21 @@ export default function BulkImport() {
       if (isMember || isManager) {
         // Member or Manager mode: validate without email, use selected user
         // Fetch user's organization ID to scope department/vertical lookups
+        // Use stable ref to avoid null during token refresh
+        const currentUser = userRef.current;
         const { data: userRoleData } = await supabase
           .from("user_roles")
           .select("organization_id")
-          .eq("user_id", userWithRole?.user.id || "")
+          .eq("user_id", currentUser?.user.id || "")
           .maybeSingle();
         const orgId = userRoleData?.organization_id || undefined;
-        const deptsMap = await fetchDepartments(orgId);
 
         // For Manager, use selected member if not "self"
-        let targetUserId = userWithRole?.user.id;
-        let targetDepartmentId = userWithRole?.departmentId;
+        let targetUserId = currentUser?.user.id;
+        let targetDepartmentId = currentUser?.departmentId;
 
         if (isManager && selectedMemberId !== "self") {
           targetUserId = selectedMemberId;
-          // Department remains same as manager's department
         }
 
         if (!targetUserId) {
@@ -251,11 +255,26 @@ export default function BulkImport() {
           return;
         }
 
-        // Fetch user's departments AND verticals for validation
-        const [userDepsRes, userVertsRes] = await Promise.all([
+        // Parallelize independent queries (Batch 1: all independent of each other, only depend on orgId/targetUserId)
+        const [
+          deptsMap,
+          userDepsRes,
+          userVertsRes,
+          userProgsData,
+          validationContext,
+          userLeaveDays,
+          existingEntriesRes,
+        ] = await Promise.all([
+          fetchDepartments(orgId),
           supabase.from("user_departments").select("department_id").eq("user_id", targetUserId),
           supabase.from("user_verticals").select("vertical_id").eq("user_id", targetUserId),
+          supabase.from("user_programs").select("program_id").eq("user_id", targetUserId),
+          fetchExtendedValidationContext(targetUserId),
+          fetchUserLeaveDays(targetUserId),
+          supabase.from("timesheet_entries").select("entry_date, start_time, end_time").eq("user_id", targetUserId).neq("status", "rejected"),
         ]);
+
+        const existingEntries = existingEntriesRes.data || [];
 
         const deptIds = userDepsRes.data?.map((ud) => ud.department_id) || [];
         const vertIds = userVertsRes.data?.map((uv) => uv.vertical_id) || [];
@@ -267,70 +286,41 @@ export default function BulkImport() {
 
         let userDeptCodes = new Set<string>();
 
-        // Fetch codes from departments table
-        if (deptIds.length > 0) {
-          const { data: depts } = await supabase.from("departments").select("code").in("id", deptIds);
+        // Batch 2: queries that depend on Batch 1 results
+        const userProgIds = userProgsData.data?.map((up) => up.program_id) || [];
+        const [deptCodesRes, vertCodesRes, progsRes] = await Promise.all([
+          deptIds.length > 0 ? supabase.from("departments").select("code").in("id", deptIds) : Promise.resolve({ data: [] }),
+          vertIds.length > 0 ? supabase.from("verticals").select("code").in("id", vertIds) : Promise.resolve({ data: [] }),
+          userProgIds.length > 0 ? supabase.from("programs").select("id, code, name, vertical_id, verticals(code)").in("id", userProgIds) : Promise.resolve({ data: [] }),
+        ]);
 
-          depts?.forEach((d) => userDeptCodes.add(d.code.toUpperCase()));
-        }
+        (deptCodesRes.data as any[] || []).forEach((d: any) => userDeptCodes.add(d.code.toUpperCase()));
+        (vertCodesRes.data as any[] || []).forEach((v: any) => userDeptCodes.add(v.code.toUpperCase()));
 
-        // Fetch codes from verticals table
-        if (vertIds.length > 0) {
-          const { data: verts } = await supabase.from("verticals").select("code").in("id", vertIds);
-
-          verts?.forEach((v) => userDeptCodes.add(v.code.toUpperCase()));
-        }
-
-        // Fetch user's assigned programs with vertical_id for program validation
-        const { data: userProgsData } = await supabase
-          .from("user_programs")
-          .select("program_id")
-          .eq("user_id", targetUserId);
-
-        const userProgIds = userProgsData?.map((up) => up.program_id) || [];
-
-        // Fetch program details (code, name, and vertical_id)
+        // Build user programs map
         let userProgramsMap: Map<string, { id: string; vertical_id: string; vertical_code?: string; name?: string }> | null = null;
-        if (userProgIds.length > 0) {
-          const { data: progs } = await supabase
-            .from("programs")
-            .select("id, code, name, vertical_id, verticals(code)")
-            .in("id", userProgIds);
-
+        if ((progsRes.data as any[])?.length) {
+          const progs = progsRes.data as any[];
           userProgramsMap = new Map(
-            progs?.map((p) => {
-              const vertCode = (p.verticals as any)?.code?.toUpperCase() || "";
+            progs.map((p: any) => {
+              const vertCode = p.verticals?.code?.toUpperCase() || "";
               return [p.code.toUpperCase(), { id: p.id, vertical_id: p.vertical_id || "", vertical_code: vertCode, name: p.name }];
-            }) || [],
+            }),
           );
           
-          // Also add by name for lookup flexibility (user may enter program name instead of code)
-          progs?.forEach((p) => {
+          // Also add by name for lookup flexibility
+          progs.forEach((p: any) => {
             if (p.name && userProgramsMap) {
-              const vertCode = (p.verticals as any)?.code?.toUpperCase() || "";
+              const vertCode = p.verticals?.code?.toUpperCase() || "";
               userProgramsMap.set(p.name.toUpperCase(), { id: p.id, vertical_id: p.vertical_id || "", vertical_code: vertCode, name: p.name });
             }
           });
         }
 
-        // Fetch extended validation context (thresholds, holidays, working days, activity types)
-        const validationContext = await fetchExtendedValidationContext(targetUserId!);
-
-        // Fetch user's leave days
-        const userLeaveDays = await fetchUserLeaveDays(targetUserId!);
         const validationContextWithLeave = {
           ...validationContext,
           userLeaveDays,
         };
-
-        // Fetch existing entries for overlap checking
-        const { data: existingEntriesData } = await supabase
-          .from("timesheet_entries")
-          .select("entry_date, start_time, end_time")
-          .eq("user_id", targetUserId!)
-          .neq("status", "rejected");
-        
-        const existingEntries = existingEntriesData || [];
 
         results = await Promise.all(
           rows.map(async (row, index) => {

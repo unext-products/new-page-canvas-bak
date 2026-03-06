@@ -173,6 +173,13 @@ export async function validateMemberExcelRow(
 ): Promise<ValidationResult> {
   const errors: string[] = [];
 
+  // Trim all user-input fields to prevent whitespace mismatches
+  if (row.activity_type) row.activity_type = row.activity_type.trim();
+  if (row.department_code) row.department_code = row.department_code.trim();
+  if (row.program) row.program = row.program.trim();
+  if (row.batch) row.batch = row.batch.trim();
+  if (row.subject) row.subject = row.subject.trim();
+
   // Required fields
   if (!row.entry_date) errors.push("entry_date is required");
   if (!row.start_time) errors.push("start_time is required");
@@ -361,6 +368,14 @@ export async function validateAdminExcelRow(
   validationContext?: ExtendedValidationContext | null
 ): Promise<ValidationResult> {
   const errors: string[] = [];
+
+  // Trim all user-input fields to prevent whitespace mismatches
+  if (row.member_email) row.member_email = row.member_email.trim();
+  if (row.activity_type) row.activity_type = row.activity_type.trim();
+  if (row.department_code) row.department_code = row.department_code.trim();
+  if (row.program) row.program = row.program.trim();
+  if (row.batch) row.batch = row.batch.trim();
+  if (row.subject) row.subject = row.subject.trim();
 
   // Required fields (including email for admin)
   if (!row.member_email) errors.push("member_email is required");
