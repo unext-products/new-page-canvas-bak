@@ -223,7 +223,14 @@ export default function BulkImport() {
 
       if (isMember || isManager) {
         // Member or Manager mode: validate without email, use selected user
-        const deptsMap = await fetchDepartments();
+        // Fetch user's organization ID to scope department/vertical lookups
+        const { data: userRoleData } = await supabase
+          .from("user_roles")
+          .select("organization_id")
+          .eq("user_id", userWithRole?.user.id || "")
+          .maybeSingle();
+        const orgId = userRoleData?.organization_id || undefined;
+        const deptsMap = await fetchDepartments(orgId);
 
         // For Manager, use selected member if not "self"
         let targetUserId = userWithRole?.user.id;
