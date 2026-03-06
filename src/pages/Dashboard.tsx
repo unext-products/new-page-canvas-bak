@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { isRole } from "@/lib/roleMapping";
 import { Layout } from "@/components/Layout";
@@ -80,10 +80,20 @@ export default function Dashboard() {
     todayWorking: 0,
   });
   const [loading, setLoading] = useState(true);
+  const hasLoadedRef = useRef(false);
   
   const isSuperAdmin = isRole(userWithRole?.role, "super_admin");
 
+  // Reset load guard on sign-out so re-login works
   useEffect(() => {
+    if (!userWithRole) {
+      hasLoadedRef.current = false;
+    }
+  }, [userWithRole]);
+
+  useEffect(() => {
+    if (!userWithRole || hasLoadedRef.current) return;
+    hasLoadedRef.current = true;
     loadDashboardData();
   }, [userWithRole]);
 
