@@ -167,7 +167,7 @@ export async function validateMemberExcelRow(
   deptsMap: Map<string, string>,
   userDeptCodes?: Set<string>,
   validationContext?: ExtendedValidationContext | null,
-  userProgramsMap?: Map<string, { id: string; vertical_id: string; name?: string }> | null,
+  userProgramsMap?: Map<string, { id: string; vertical_id: string; vertical_code?: string; name?: string }> | null,
   programsInVertical?: Map<string, { id: string; code: string }> | null,
   existingEntries?: { entry_date: string; start_time: string; end_time: string }[] | null
 ): Promise<ValidationResult> {
@@ -253,7 +253,7 @@ export async function validateMemberExcelRow(
     
     if (!programInfo) {
       errors.push(`You are not assigned to program '${row.program}'`);
-    } else if (deptId && programInfo.vertical_id !== deptId) {
+  } else if (programInfo.vertical_code && programInfo.vertical_code !== deptCodeUpper) {
       errors.push(`Program '${row.program}' does not belong to vertical '${row.department_code}'`);
     } else {
       programId = programInfo.id;
