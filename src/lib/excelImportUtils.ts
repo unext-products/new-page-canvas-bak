@@ -483,7 +483,7 @@ export async function validateAdminExcelRow(
         department_code: row.department_code.toUpperCase(),
         vertical_code: row.department_code.toUpperCase(),
         vertical_id: deptId || null,
-        program_id: programId || null,
+        program_id: null,
         batch_name: row.batch || null,
         subject_code: row.subject || null,
         status: 'submitted',
