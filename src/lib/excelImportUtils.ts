@@ -167,7 +167,7 @@ export async function validateMemberExcelRow(
   deptsMap: Map<string, string>,
   userDeptCodes?: Set<string>,
   validationContext?: ExtendedValidationContext | null,
-  userProgramsMap?: Map<string, { id: string; vertical_id: string; name?: string }> | null,
+  userProgramsMap?: Map<string, { id: string; vertical_id: string; vertical_code?: string; name?: string }> | null,
   programsInVertical?: Map<string, { id: string; code: string }> | null,
   existingEntries?: { entry_date: string; start_time: string; end_time: string }[] | null
 ): Promise<ValidationResult> {
