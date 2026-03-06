@@ -1,86 +1,96 @@
 
 
-## Root Cause Analysis: Dashboard Freeze, Missing Name, and Sign-Out Failure
+## Plan: Fix Session/Reload User Data Loss
 
-### The Core Problem: Same Token-Refresh Instability Pattern
+### Root Causes
 
-All three issues stem from the same root cause identified in the timesheet fixes: auth token refreshes create a new `userWithRole` object reference, causing cascading re-execution of heavy effects.
+1. **Duplicate data fetching race condition**: Both `onAuthStateChange` and `getSession()` fire on mount and independently call `getUserWithRole()`. They race against each other, and the loser can overwrite the winner's result with stale or null data.
 
-### Issue 1 — Dashboard freezes after 3-4 minutes
+2. **No retry on failure**: If `getUserWithRole` fails (e.g., during token refresh), `userWithRole` stays permanently `null`, showing "Setup Required" and "User L1".
 
-`Dashboard.tsx` line 86-88:
-```typescript
+3. **`setTimeout(..., 0)` creates a render gap**: Between `user` being set and `userWithRole` being populated, components render with `user` present but no profile/role, causing fallback to "User" / "L1".
+
+4. **Idle/background tab token expiry**: When returning after idle, the auth state change fires but the role fetch can fail if the token hasn't fully refreshed yet.
+
+### Fix
+
+**File: `src/contexts/AuthContext.tsx`** -- Rewrite the auth initialization logic:
+
+1. **Remove the duplicate `getSession` call**. Supabase's `onAuthStateChange` already fires an `INITIAL_SESSION` event on setup, so `getSession()` is redundant and causes the race.
+
+2. **Remove `setTimeout(..., 0)` wrappers**. Fetch role data synchronously within the auth state handler using `await`. This eliminates the render gap where `user` exists but `userWithRole` is null.
+
+3. **Add retry logic for `getUserWithRole`**. If the profile/role fetch fails (returns `null`), retry up to 2 times with a short delay (500ms). This handles transient failures during token refresh.
+
+4. **Add a `fetchId` guard** to prevent stale responses from overwriting fresh ones. Each auth state change increments a counter; when the async `getUserWithRole` call completes, it only updates state if its `fetchId` still matches the latest one.
+
+5. **Handle `TOKEN_REFRESHED` event properly**. On token refresh, re-fetch `userWithRole` to ensure fresh data, but only if `userWithRole` is currently null (avoids unnecessary refetches during normal refresh cycles).
+
+**File: `src/lib/supabase.ts`** -- Minor improvement to `getUserWithRole`:
+
+6. **Use the passed `userId` for the auth user instead of calling `getUser()` again**. The current code fetches role+profile in parallel, then separately calls `supabase.auth.getUser()`. This extra call can fail during token transitions. Since we already have the `User` object from the session in `AuthContext`, pass it directly instead of re-fetching.
+
+**File: `src/components/AppSidebar.tsx`** -- No changes needed. The sidebar already handles `userWithRole` being null by falling back to "User" / "member". Once the context fix ensures `userWithRole` is always populated before `loading` becomes `false`, this fallback will only show during genuine loading states.
+
+### Technical Details
+
+**Updated AuthContext pattern:**
+
+```text
 useEffect(() => {
-  loadDashboardData();
-}, [userWithRole]);
+  let latestFetchId = 0;
+
+  const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    async (event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+
+      if (session?.user) {
+        const fetchId = ++latestFetchId;
+        
+        // Fetch with retry
+        let userData = await getUserWithRole(session.user.id, session.user);
+        if (!userData) {
+          await delay(500);
+          userData = await getUserWithRole(session.user.id, session.user);
+        }
+        
+        // Only update if this is still the latest fetch
+        if (fetchId === latestFetchId) {
+          setUserWithRole(userData);
+          setLoading(false);
+        }
+      } else {
+        setUserWithRole(null);
+        setLoading(false);
+      }
+    }
+  );
+
+  return () => subscription.unsubscribe();
+}, []);
 ```
 
-`loadDashboardData` makes **10-15 sequential database queries** (entries, leaves, departments, profiles, weekly stats, etc.). When a token refresh fires after ~3-4 minutes and produces a new `userWithRole` reference, this effect re-triggers the entire heavy load **while the previous one may still be running**. Multiple concurrent heavy loads saturate the browser's connection pool (browsers allow ~6 concurrent requests per origin), causing all Supabase requests to queue and the UI to freeze. The freeze also blocks sign-out clicks and navigation.
+**Updated getUserWithRole signature:**
 
-### Issue 2 — Faculty name shows "User" on refresh
-
-`AppSidebar.tsx` line 163: `const userName = userWithRole?.profile?.full_name || "User"`. During page refresh, `userWithRole` is `null` while `loading` is `true`. The Dashboard renders the Layout (which renders AppSidebar) immediately, showing "User" as the fallback. If `getUserWithRole` takes time (retries on failure), the name stays as "User" for several seconds. If it ultimately fails and returns `null`, it stays permanently.
-
-### Issue 3 — Sign-out doesn't work
-
-Two compounding causes:
-1. **UI frozen**: If the dashboard is in a query storm (issue 1), the event loop is saturated. The sign-out button click either doesn't register or the async `signOut()` can't execute because the connection pool is exhausted by dashboard queries.
-2. **Race condition**: After `signOut()` succeeds, `onAuthStateChange` fires with `null` session, setting `userWithRole` to `null`. But `handleSignOut` also calls `navigate("/")`. The Index page checks `if (!authLoading && user)` and redirects to `/dashboard`. If the auth state hasn't fully cleared by the time Index renders, it bounces back to the dashboard — appearing as if sign-out "didn't work."
-
-### Fix Plan
-
-**File: `src/pages/Dashboard.tsx`**
-
-1. **Add initialization guard** — Use a `hasLoadedRef` to ensure dashboard data loads only once on initial auth, not on every `userWithRole` reference change. Provide a manual refresh mechanism if needed.
-
-```typescript
-const hasLoadedRef = useRef(false);
-useEffect(() => {
-  if (!userWithRole || hasLoadedRef.current) return;
-  hasLoadedRef.current = true;
-  loadDashboardData();
-}, [userWithRole]);
+```text
+// Accept optional User object to avoid re-fetching from auth
+async function getUserWithRole(userId: string, authUser?: User): Promise<UserWithRole | null>
 ```
 
-**File: `src/components/AppSidebar.tsx`**
-
-2. **Guard sign-out against double-click and frozen state** — Add a `signingOut` ref to prevent multiple concurrent sign-out attempts, and use `window.location.href` as a hard redirect fallback if `navigate` fails to take effect.
-
-```typescript
-const signingOutRef = useRef(false);
-const handleSignOut = async () => {
-  if (signingOutRef.current) return;
-  signingOutRef.current = true;
-  await signOut();
-  navigate("/");
-};
-```
-
-3. **Show skeleton for user info while loading** — Instead of showing "User" as fallback while `userWithRole` is loading, show a subtle skeleton placeholder in the sidebar footer until auth data is available.
-
-**File: `src/pages/Index.tsx`**
-
-4. **Tighten the redirect guard** — Currently checks `!authLoading && user`. After sign-out, `user` becomes null before `session` is fully cleared. Add a check for `session` being present to prevent premature redirect back to dashboard.
-
-```typescript
-useEffect(() => {
-  if (!authLoading && user && session) {
-    navigate("/dashboard");
-  }
-}, [user, session, authLoading, navigate]);
-```
+This removes the `supabase.auth.getUser()` call inside `getUserWithRole` when the `User` object is already available from the session, eliminating a failure point during token transitions.
 
 ### Files to Change
 
 | File | Change |
 |------|--------|
-| `src/pages/Dashboard.tsx` | Add `hasLoadedRef` guard to prevent re-loading on token refresh |
-| `src/components/AppSidebar.tsx` | Add sign-out guard; show skeleton while `userWithRole` is loading |
-| `src/pages/Index.tsx` | Add `session` check to redirect guard to prevent post-signout bounce |
+| `src/contexts/AuthContext.tsx` | Remove duplicate `getSession`; remove `setTimeout`; add fetch ID guard and retry logic; pass `session.user` to `getUserWithRole` |
+| `src/lib/supabase.ts` | Add optional `authUser` parameter to `getUserWithRole` to skip redundant `getUser()` call |
 
 ### What Stays the Same
-- AuthContext, token refresh logic — unchanged
-- Database, RLS policies — unchanged
-- Timesheet, bulk upload, approvals — unchanged
-- All other pages — unchanged
+
+- All page components, sidebar, dashboard -- no changes
+- Sign in/sign out flows -- unchanged
+- RLS policies and database -- unchanged
+- All existing features continue working as-is
 

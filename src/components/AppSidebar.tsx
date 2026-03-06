@@ -26,7 +26,8 @@ import { useToast } from "@/hooks/use-toast";
 import { signOut } from "@/lib/supabase";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 import {
   Sidebar,
@@ -56,12 +57,13 @@ const roleColors: Record<string, string> = {
 };
 
 export function AppSidebar() {
-  const { userWithRole } = useAuth();
+  const { userWithRole, loading: authLoading } = useAuth();
   const { roleLabel, entityLabel } = useLabels();
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
   const { isMobile, setOpenMobile } = useSidebar();
+  const signingOutRef = useRef(false);
 
   // Close mobile sidebar on route change
   useEffect(() => {
@@ -70,9 +72,23 @@ export function AppSidebar() {
     }
   }, [location.pathname, isMobile, setOpenMobile]);
 
+  // Reset sign-out guard when user changes
+  useEffect(() => {
+    if (userWithRole) {
+      signingOutRef.current = false;
+    }
+  }, [userWithRole]);
+
   const handleSignOut = async () => {
-    await signOut();
-    navigate("/");
+    if (signingOutRef.current) return;
+    signingOutRef.current = true;
+    try {
+      await signOut();
+      navigate("/");
+    } catch {
+      // Hard fallback if navigate fails during frozen UI
+      window.location.href = "/";
+    }
   };
 
   const getNavItems = () => {
@@ -213,20 +229,30 @@ export function AppSidebar() {
       <SidebarSeparator />
 
       <SidebarFooter className="p-3">
-        <div className="flex items-center gap-3 p-2 rounded-lg bg-muted/30">
-          <Avatar className="h-9 w-9">
-            <AvatarImage src={userWithRole?.profile?.avatar_url || undefined} />
-            <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
-              {userInitials}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">{userName}</p>
-            <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 h-4 ${roleColors[userRole]}`}>
-              {roleLabel(userRole)}
-            </Badge>
+        {authLoading && !userWithRole ? (
+          <div className="flex items-center gap-3 p-2 rounded-lg bg-muted/30">
+            <Skeleton className="h-9 w-9 rounded-full" />
+            <div className="flex-1 min-w-0 space-y-1.5">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-3 w-16" />
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="flex items-center gap-3 p-2 rounded-lg bg-muted/30">
+            <Avatar className="h-9 w-9">
+              <AvatarImage src={userWithRole?.profile?.avatar_url || undefined} />
+              <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
+                {userInitials}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">{userName}</p>
+              <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 h-4 ${roleColors[userRole]}`}>
+                {roleLabel(userRole)}
+              </Badge>
+            </div>
+          </div>
+        )}
         <button
           onClick={handleSignOut}
           className="flex items-center gap-2 w-full px-3 py-2 mt-2 text-sm text-muted-foreground hover:bg-destructive/10 hover:text-destructive rounded-lg transition-colors"
