@@ -483,6 +483,7 @@ export async function validateAdminExcelRow(
         department_code: row.department_code.toUpperCase(),
         vertical_code: row.department_code.toUpperCase(),
         vertical_id: deptId || null,
+        program_id: programId || null,
         batch_name: row.batch || null,
         subject_code: row.subject || null,
         status: 'submitted',
@@ -578,12 +579,17 @@ export async function fetchUsersAndDepartments(): Promise<{
  * Fetch departments and verticals (for faculty mode)
  * Checks both departments and verticals tables since codes may exist in either
  */
-export async function fetchDepartments(): Promise<Map<string, string>> {
-  // Fetch from both departments and verticals tables
-  const [deptsRes, verticalsRes] = await Promise.all([
-    supabase.from('departments').select('id, code'),
-    supabase.from('verticals').select('id, code'),
-  ]);
+export async function fetchDepartments(organizationId?: string): Promise<Map<string, string>> {
+  // Fetch from both departments and verticals tables, scoped to organization
+  let deptsQuery = supabase.from('departments').select('id, code');
+  let vertsQuery = supabase.from('verticals').select('id, code');
+
+  if (organizationId) {
+    deptsQuery = deptsQuery.eq('organization_id', organizationId);
+    vertsQuery = vertsQuery.eq('organization_id', organizationId);
+  }
+
+  const [deptsRes, verticalsRes] = await Promise.all([deptsQuery, vertsQuery]);
   
   const deptsMap = new Map<string, string>();
   
