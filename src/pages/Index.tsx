@@ -61,8 +61,17 @@ export default function Index() {
   // Placeholder link for User Guide - replace with actual link
   const userGuideLink = "https://drive.google.com/file/d/1CkrO9DyGA2PDVfiuXOvVWTOm9rcZJSvj/view?usp=sharing";
 
+  // Show a branded loading state instead of blank page
   if (authLoading) {
-    return null;
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
+        <Logo to="/" variant="dark" size="lg" />
+        <div className="flex items-center gap-2 text-muted-foreground text-sm">
+          <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          Loading...
+        </div>
+      </div>
+    );
   }
 
   return (

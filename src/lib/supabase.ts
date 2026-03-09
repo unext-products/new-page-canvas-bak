@@ -20,7 +20,7 @@ export interface UserWithRole {
 
 export async function getUserWithRole(userId: string, authUser?: User): Promise<UserWithRole | null> {
   try {
-    const [roleData, profileData] = await Promise.all([
+    const [roleResult, profileResult] = await Promise.all([
       supabase
         .from("user_roles")
         .select("role, vertical_id, department_id")
@@ -33,6 +33,17 @@ export async function getUserWithRole(userId: string, authUser?: User): Promise<
         .maybeSingle(),
     ]);
 
+    // Treat query errors as failures (not as "no role assigned")
+    // This ensures transient auth/RLS/network errors trigger retry logic
+    if (roleResult.error) {
+      console.warn("[getUserWithRole] Role query error:", roleResult.error.message);
+      return null;
+    }
+    if (profileResult.error) {
+      console.warn("[getUserWithRole] Profile query error:", profileResult.error.message);
+      return null;
+    }
+
     let user = authUser;
     if (!user) {
       const { data: { user: fetchedUser } } = await supabase.auth.getUser();
@@ -41,14 +52,14 @@ export async function getUserWithRole(userId: string, authUser?: User): Promise<
     
     if (!user) return null;
 
-    const verticalId = roleData.data?.vertical_id || roleData.data?.department_id || null;
+    const verticalId = roleResult.data?.vertical_id || roleResult.data?.department_id || null;
 
     return {
       user,
-      role: toDisplayRole(roleData.data?.role as DbRole | null),
+      role: toDisplayRole(roleResult.data?.role as DbRole | null),
       verticalId,
       departmentId: verticalId, // backward compatibility
-      profile: profileData.data,
+      profile: profileResult.data,
     };
   } catch (error) {
     console.error("Error fetching user with role:", error);
@@ -106,11 +117,22 @@ export async function signUp(
 }
 
 export async function signOut() {
-  // Try global sign out first (revokes token server-side)
-  const { error } = await supabase.auth.signOut({ scope: 'global' });
-  if (error) {
-    // If server-side fails (expired token, network issue), clear local state
-    await supabase.auth.signOut({ scope: 'local' });
+  try {
+    // Try global sign out first (revokes token server-side)
+    const { error } = await supabase.auth.signOut({ scope: 'global' });
+    if (error) {
+      // If server-side fails, clear local state
+      await supabase.auth.signOut({ scope: 'local' });
+    }
+  } catch {
+    // Last resort: force local clear
+    try {
+      await supabase.auth.signOut({ scope: 'local' });
+    } catch {
+      // Even local failed — manually clear storage
+      const storageKey = `sb-${new URL(import.meta.env.VITE_SUPABASE_URL).hostname.split('.')[0]}-auth-token`;
+      localStorage.removeItem(storageKey);
+    }
   }
-  return { error: null }; // Always succeed from caller's perspective
+  return { error: null };
 }

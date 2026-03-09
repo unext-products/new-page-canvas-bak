@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LabelProvider } from "@/contexts/LabelContext";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
@@ -39,26 +40,30 @@ const App = () => (
           <AuthProvider>
             <LabelProvider>
               <Routes>
+                {/* Public routes */}
                 <Route path="/" element={<Index />} />
                 <Route path="/auth" element={<Auth />} />
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/timesheet" element={<Timesheet />} />
-                <Route path="/calendar" element={<CalendarPage />} />
-                <Route path="/approvals" element={<Approvals />} />
-                <Route path="/users" element={<Users />} />
-                <Route path="/organizations" element={<Organizations />} />
-                <Route path="/programs" element={<Programs />} />
-                <Route path="/departments" element={<Departments />} />
-                <Route path="/verticals" element={<Verticals />} />
-                <Route path="/batches" element={<Batches />} />
-                <Route path="/terms" element={<Terms />} />
-                <Route path="/subjects" element={<Subjects />} />
-                <Route path="/reports" element={<Reports />} />
-                <Route path="/bulk-import" element={<BulkImport />} />
                 <Route path="/pricing" element={<Pricing />} />
-                <Route path="/team" element={<Team />} />
-                <Route path="/settings" element={<Settings />} />
-                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+
+                {/* Protected routes */}
+                <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                <Route path="/timesheet" element={<ProtectedRoute><Timesheet /></ProtectedRoute>} />
+                <Route path="/calendar" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
+                <Route path="/approvals" element={<ProtectedRoute><Approvals /></ProtectedRoute>} />
+                <Route path="/users" element={<ProtectedRoute><Users /></ProtectedRoute>} />
+                <Route path="/organizations" element={<ProtectedRoute><Organizations /></ProtectedRoute>} />
+                <Route path="/programs" element={<ProtectedRoute><Programs /></ProtectedRoute>} />
+                <Route path="/departments" element={<ProtectedRoute><Departments /></ProtectedRoute>} />
+                <Route path="/verticals" element={<ProtectedRoute><Verticals /></ProtectedRoute>} />
+                <Route path="/batches" element={<ProtectedRoute><Batches /></ProtectedRoute>} />
+                <Route path="/terms" element={<ProtectedRoute><Terms /></ProtectedRoute>} />
+                <Route path="/subjects" element={<ProtectedRoute><Subjects /></ProtectedRoute>} />
+                <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+                <Route path="/bulk-import" element={<ProtectedRoute><BulkImport /></ProtectedRoute>} />
+                <Route path="/team" element={<ProtectedRoute><Team /></ProtectedRoute>} />
+                <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+
+                {/* Catch-all */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </LabelProvider>
