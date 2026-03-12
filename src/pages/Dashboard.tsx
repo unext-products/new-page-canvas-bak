@@ -366,14 +366,18 @@ export default function Dashboard() {
     const { data: teamProfiles } = await supabase
       .from("profiles")
       .select("id, full_name, is_active")
-      .in("id", teamUserIds.length > 0 ? teamUserIds : [hodUserId]);
+      .in("id", teamUserIds.length > 0 ? teamUserIds : [hodUserId])
+      .eq("is_active", true);
 
-    // Fetch pending approvals - get entries from users in the department (paginated)
+    // Use only active team member IDs for dashboard queries
+    const activeTeamUserIds = teamProfiles?.map(p => p.id) || [];
+
+    // Fetch pending approvals - get entries from active users in the department (paginated)
     const pendingEntries = await fetchAllRows(
       supabase
         .from("timesheet_entries")
         .select("id, start_time, end_time, user_id")
-        .in("user_id", teamUserIds.length > 0 ? teamUserIds : [hodUserId])
+        .in("user_id", activeTeamUserIds.length > 0 ? activeTeamUserIds : ["no-id"])
         .eq("status", "submitted")
     );
 
@@ -382,16 +386,16 @@ export default function Dashboard() {
       supabase
         .from("timesheet_entries")
         .select("id, start_time, end_time, user_id, activity_type")
-        .in("user_id", teamUserIds.length > 0 ? teamUserIds : [hodUserId])
+        .in("user_id", activeTeamUserIds.length > 0 ? activeTeamUserIds : ["no-id"])
         .gte("entry_date", weekStart)
         .lte("entry_date", weekEnd)
     );
 
-    // Fetch today's leaves for team members
+    // Fetch today's leaves for active team members
     const { data: todayLeavesRaw } = await supabase
       .from("leave_days")
       .select("*")
-      .in("user_id", teamUserIds.length > 0 ? teamUserIds : [hodUserId])
+      .in("user_id", activeTeamUserIds.length > 0 ? activeTeamUserIds : ["no-id"])
       .eq("leave_date", today);
 
     // Get profiles for leave users
@@ -405,7 +409,7 @@ export default function Dashboard() {
 
     // Calculate weekly hours using start_time/end_time
     const totalWeeklyMinutes = weekEntries.reduce((sum, e) => sum + getEntryDuration(e), 0);
-    const teamCount = teamUserIds.length;
+    const teamCount = activeTeamUserIds.length;
     const expectedMinutes = teamCount * 5 * 480; // 5 days * 8 hours per team member
     const completionRate = expectedMinutes > 0 ? (totalWeeklyMinutes / expectedMinutes) * 100 : 0;
 
@@ -475,7 +479,7 @@ export default function Dashboard() {
         profiles:user_id(full_name)
       `,
       )
-      .in("user_id", teamUserIds.length > 0 ? teamUserIds : ["no-id"])
+      .in("user_id", activeTeamUserIds.length > 0 ? activeTeamUserIds : ["no-id"])
       .order("created_at", { ascending: false })
       .limit(10);
 

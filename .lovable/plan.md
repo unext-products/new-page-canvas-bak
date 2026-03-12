@@ -1,89 +1,96 @@
 
 
-## Analysis: Workload Calculation for Exited Faculty and Reporting Gaps
+## Plan: Fix Session/Reload User Data Loss
 
-### Current System Behavior
+### Root Causes
 
-**How workload is currently calculated:**
+1. **Duplicate data fetching race condition**: Both `onAuthStateChange` and `getSession()` fire on mount and independently call `getUserWithRole()`. They race against each other, and the loser can overwrite the winner's result with stale or null data.
 
-1. **Individual faculty report** (`fetchFacultyReport`): Queries `timesheet_entries` by `user_id` + date range. This works correctly regardless of active/inactive status or vertical assignment — it finds all entries the user ever created. Expected hours = working days in full period × daily target. No adjustment for deactivation date.
+2. **No retry on failure**: If `getUserWithRole` fails (e.g., during token refresh), `userWithRole` stays permanently `null`, showing "Setup Required" and "User L1".
 
-2. **Vertical/Department report** (`fetchVerticalReport`): First queries `user_verticals` to get user IDs assigned to that vertical, then fetches entries for those users filtered by `vertical_code`. This is where the problem occurs.
+3. **`setTimeout(..., 0)` creates a render gap**: Between `user` being set and `userWithRole` being populated, components render with `user` present but no profile/role, causing fallback to "User" / "L1".
 
-### Issue 1: No Deactivation Date Tracking
+4. **Idle/background tab token expiry**: When returning after idle, the auth state change fires but the role fetch can fail if the token hasn't fully refreshed yet.
 
-**Gap:** The `profiles` table has `is_active` (boolean) but no `deactivated_at` timestamp. When calculating expected hours for Raghavendra (period Feb 16 – Mar 15):
+### Fix
 
-- The system counts all working days in the period (approximately 20 days)
-- It calculates expected = 20 × 8 hours = 160 hours
-- But Raghavendra's last working day was Feb 28, so his realistic expected should be ~9 working days × 8 = 72 hours
-- His completion rate appears artificially low because the denominator is inflated
+**File: `src/contexts/AuthContext.tsx`** -- Rewrite the auth initialization logic:
 
-**Impact:** Completion rates for exited faculty are misleadingly low, dragging down department-level metrics.
+1. **Remove the duplicate `getSession` call**. Supabase's `onAuthStateChange` already fires an `INITIAL_SESSION` event on setup, so `getSession()` is redundant and causes the race.
 
-### Issue 2: Vertical Report Loses Historical Data When Faculty is Moved
+2. **Remove `setTimeout(..., 0)` wrappers**. Fetch role data synchronously within the auth state handler using `await`. This eliminates the render gap where `user` exists but `userWithRole` is null.
 
-**The exact chain of events:**
+3. **Add retry logic for `getUserWithRole`**. If the profile/role fetch fails (returns `null`), retry up to 2 times with a short delay (500ms). This handles transient failures during token refresh.
 
-1. Faculty members left → marked inactive (`is_active = false`)
-2. They still appeared in L2's dashboard because dashboard queries `user_verticals` (which still had their original vertical)
-3. Admin tried removing the vertical but couldn't save (the system requires at least one vertical assignment)
-4. Workaround: moved them to a dummy vertical
-5. Now `fetchVerticalReport` for the original vertical queries `user_verticals` → doesn't find these users anymore → their entries are excluded from the department report
-6. Individual faculty report still works because it queries by `user_id` directly, not through `user_verticals`
+4. **Add a `fetchId` guard** to prevent stale responses from overwriting fresh ones. Each auth state change increments a counter; when the async `getUserWithRole` call completes, it only updates state if its `fetchId` still matches the latest one.
 
-**Root cause in code** (`fetchVerticalReport`, lines 292-298):
+5. **Handle `TOKEN_REFRESHED` event properly**. On token refresh, re-fetch `userWithRole` to ensure fresh data, but only if `userWithRole` is currently null (avoids unnecessary refetches during normal refresh cycles).
+
+**File: `src/lib/supabase.ts`** -- Minor improvement to `getUserWithRole`:
+
+6. **Use the passed `userId` for the auth user instead of calling `getUser()` again**. The current code fetches role+profile in parallel, then separately calls `supabase.auth.getUser()`. This extra call can fail during token transitions. Since we already have the `User` object from the session in `AuthContext`, pass it directly instead of re-fetching.
+
+**File: `src/components/AppSidebar.tsx`** -- No changes needed. The sidebar already handles `userWithRole` being null by falling back to "User" / "member". Once the context fix ensures `userWithRole` is always populated before `loading` becomes `false`, this fallback will only show during genuine loading states.
+
+### Technical Details
+
+**Updated AuthContext pattern:**
+
+```text
+useEffect(() => {
+  let latestFetchId = 0;
+
+  const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    async (event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+
+      if (session?.user) {
+        const fetchId = ++latestFetchId;
+        
+        // Fetch with retry
+        let userData = await getUserWithRole(session.user.id, session.user);
+        if (!userData) {
+          await delay(500);
+          userData = await getUserWithRole(session.user.id, session.user);
+        }
+        
+        // Only update if this is still the latest fetch
+        if (fetchId === latestFetchId) {
+          setUserWithRole(userData);
+          setLoading(false);
+        }
+      } else {
+        setUserWithRole(null);
+        setLoading(false);
+      }
+    }
+  );
+
+  return () => subscription.unsubscribe();
+}, []);
 ```
-const { data: vertUsers } = await supabase
-  .from("user_verticals")
-  .select("user_id")
-  .eq("vertical_id", verticalId);
-userIds = [...new Set(vertUsers?.map(u => u.user_id) || [])];
+
+**Updated getUserWithRole signature:**
+
+```text
+// Accept optional User object to avoid re-fetching from auth
+async function getUserWithRole(userId: string, authUser?: User): Promise<UserWithRole | null>
 ```
-This only finds users *currently* assigned to the vertical. Historical entries with matching `vertical_code` from reassigned users are silently dropped.
 
-### Proposed Fixes
-
-**A. Add `deactivated_at` timestamp to `profiles` table**
-
-- New column: `deactivated_at timestamptz NULL`
-- Auto-set via a trigger when `is_active` changes from `true` to `false`
-- Clear it when `is_active` changes back to `true`
-- Use this date in expected-hours calculations: for inactive users, cap the period end at `deactivated_at`
-
-**B. Fix vertical report to include historical entries from reassigned/inactive users**
-
-Currently the report finds users via `user_verticals` then fetches their entries. Instead, it should **also** include any entries with matching `vertical_code` regardless of current assignment. This means:
-
-- Keep the current `user_verticals` lookup for active user discovery
-- Additionally query `timesheet_entries` directly by `vertical_code` within the date range to catch entries from users who have since been reassigned
-- Merge the two sets of user IDs (current assignment + historical entries)
-
-**C. Fix dashboard/team visibility to respect `is_active` status**
-
-The L2 dashboard should filter out inactive users from the active team list. This would have prevented Ann Mary's issue without needing the dummy-vertical workaround:
-
-- Dashboard team queries should add `.eq("is_active", true)` when joining profiles
-- The "faculty list" shown to L2/L3 should exclude inactive profiles by default
-
-**D. Allow saving user edits with no vertical (for inactive users)**
-
-The admin edit form should allow removing all verticals from an inactive user. This eliminates the need for a dummy vertical workaround:
-
-- In the user edit dialog, skip the "at least one vertical required" validation when the user is inactive
+This removes the `supabase.auth.getUser()` call inside `getUserWithRole` when the `User` object is already available from the session, eliminating a failure point during token transitions.
 
 ### Files to Change
 
 | File | Change |
 |------|--------|
-| Database migration | Add `deactivated_at` column + trigger on `profiles` |
-| `src/lib/reportQueries.ts` | `fetchVerticalReport`: also discover users from historical entries by `vertical_code`; `fetchFacultyReport`: cap expected hours at `deactivated_at` for inactive users |
-| `src/pages/Dashboard.tsx` | Filter team member lists by `is_active = true` |
-| `src/pages/Users.tsx` | Allow saving with no vertical when user is inactive |
+| `src/contexts/AuthContext.tsx` | Remove duplicate `getSession`; remove `setTimeout`; add fetch ID guard and retry logic; pass `session.user` to `getUserWithRole` |
+| `src/lib/supabase.ts` | Add optional `authUser` parameter to `getUserWithRole` to skip redundant `getUser()` call |
 
 ### What Stays the Same
-- Individual faculty report accuracy — already correct
-- Timesheet entry creation/submission — unchanged
-- Approval workflows — unchanged
-- Auth/session fixes — unchanged
+
+- All page components, sidebar, dashboard -- no changes
+- Sign in/sign out flows -- unchanged
+- RLS policies and database -- unchanged
+- All existing features continue working as-is
 

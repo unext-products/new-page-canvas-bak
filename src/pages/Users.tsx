@@ -622,6 +622,12 @@ export default function Users() {
             .from("user_verticals")
             .delete()
             .eq("user_id", selectedUser.id);
+        } else if (vertIds.length === 0 && !formData.is_active) {
+          // Allow clearing all verticals for inactive users
+          await supabase
+            .from("user_verticals")
+            .delete()
+            .eq("user_id", selectedUser.id);
         }
 
         // Sync user_departments junction table (backward compatibility)
@@ -1648,8 +1654,8 @@ export default function Users() {
                     formData.password !== formData.confirmPassword ||
                     !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)
                   )) ||
-                  ((formData.role === "manager" || formData.role === "member" || formData.role === "program_manager") && formData.department_ids.length === 0 && !formData.department_id) ||
-                  (formData.role === "program_manager" && !formData.program_id)
+                  (formData.is_active && (formData.role === "manager" || formData.role === "member" || formData.role === "program_manager") && formData.department_ids.length === 0 && !formData.department_id) ||
+                  (formData.is_active && formData.role === "program_manager" && !formData.program_id)
                 }
               >
                 Save Changes
