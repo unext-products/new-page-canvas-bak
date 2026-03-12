@@ -386,16 +386,16 @@ export default function Dashboard() {
       supabase
         .from("timesheet_entries")
         .select("id, start_time, end_time, user_id, activity_type")
-        .in("user_id", teamUserIds.length > 0 ? teamUserIds : [hodUserId])
+        .in("user_id", activeTeamUserIds.length > 0 ? activeTeamUserIds : ["no-id"])
         .gte("entry_date", weekStart)
         .lte("entry_date", weekEnd)
     );
 
-    // Fetch today's leaves for team members
+    // Fetch today's leaves for active team members
     const { data: todayLeavesRaw } = await supabase
       .from("leave_days")
       .select("*")
-      .in("user_id", teamUserIds.length > 0 ? teamUserIds : [hodUserId])
+      .in("user_id", activeTeamUserIds.length > 0 ? activeTeamUserIds : ["no-id"])
       .eq("leave_date", today);
 
     // Get profiles for leave users
