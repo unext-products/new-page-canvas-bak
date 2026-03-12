@@ -479,7 +479,7 @@ export default function Dashboard() {
         profiles:user_id(full_name)
       `,
       )
-      .in("user_id", teamUserIds.length > 0 ? teamUserIds : ["no-id"])
+      .in("user_id", activeTeamUserIds.length > 0 ? activeTeamUserIds : ["no-id"])
       .order("created_at", { ascending: false })
       .limit(10);
 
