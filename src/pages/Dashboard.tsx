@@ -369,12 +369,15 @@ export default function Dashboard() {
       .in("id", teamUserIds.length > 0 ? teamUserIds : [hodUserId])
       .eq("is_active", true);
 
-    // Fetch pending approvals - get entries from users in the department (paginated)
+    // Use only active team member IDs for dashboard queries
+    const activeTeamUserIds = teamProfiles?.map(p => p.id) || [];
+
+    // Fetch pending approvals - get entries from active users in the department (paginated)
     const pendingEntries = await fetchAllRows(
       supabase
         .from("timesheet_entries")
         .select("id, start_time, end_time, user_id")
-        .in("user_id", teamUserIds.length > 0 ? teamUserIds : [hodUserId])
+        .in("user_id", activeTeamUserIds.length > 0 ? activeTeamUserIds : ["no-id"])
         .eq("status", "submitted")
     );
 
