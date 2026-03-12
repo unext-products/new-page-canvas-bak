@@ -622,6 +622,12 @@ export default function Users() {
             .from("user_verticals")
             .delete()
             .eq("user_id", selectedUser.id);
+        } else if (vertIds.length === 0 && !formData.is_active) {
+          // Allow clearing all verticals for inactive users
+          await supabase
+            .from("user_verticals")
+            .delete()
+            .eq("user_id", selectedUser.id);
         }
 
         // Sync user_departments junction table (backward compatibility)
