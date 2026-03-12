@@ -300,7 +300,7 @@ export async function fetchVerticalReport(
   }
 
   // Get users from user_verticals junction table (with fallback to user_departments)
-  let userIds: string[] = [];
+  let currentUserIds: string[] = [];
   
   if (verticalId !== "all") {
     const { data: vertUsers } = await supabase
@@ -308,31 +308,48 @@ export async function fetchVerticalReport(
       .select("user_id")
       .eq("vertical_id", verticalId);
     
-    userIds = [...new Set(vertUsers?.map(u => u.user_id) || [])];
+    currentUserIds = [...new Set(vertUsers?.map(u => u.user_id) || [])];
     
     // Fallback to user_departments if no user_verticals entries
-    if (userIds.length === 0) {
+    if (currentUserIds.length === 0) {
       const { data: deptUsers } = await supabase
         .from("user_departments")
         .select("user_id")
         .eq("department_id", verticalId);
-      userIds = [...new Set(deptUsers?.map(u => u.user_id) || [])];
+      currentUserIds = [...new Set(deptUsers?.map(u => u.user_id) || [])];
     }
   } else {
     // Get all users from user_verticals
     const { data: allVertUsers } = await supabase
       .from("user_verticals")
       .select("user_id");
-    userIds = [...new Set(allVertUsers?.map(u => u.user_id) || [])];
+    currentUserIds = [...new Set(allVertUsers?.map(u => u.user_id) || [])];
     
     // Also include users from user_departments for backward compatibility
-    if (userIds.length === 0) {
+    if (currentUserIds.length === 0) {
       const { data: allDeptUsers } = await supabase
         .from("user_departments")
         .select("user_id");
-      userIds = [...new Set(allDeptUsers?.map(u => u.user_id) || [])];
+      currentUserIds = [...new Set(allDeptUsers?.map(u => u.user_id) || [])];
     }
   }
+
+  // Also discover historical users from timesheet_entries with matching vertical_code
+  // This catches users who have been reassigned/moved to a dummy vertical
+  let historicalUserIds: string[] = [];
+  if (verticalCode) {
+    const historicalQuery = supabase
+      .from("timesheet_entries")
+      .select("user_id")
+      .or(`vertical_code.eq.${verticalCode},department_code.eq.${verticalCode}`)
+      .gte("entry_date", dateFrom)
+      .lte("entry_date", dateTo);
+    const historicalEntries = await fetchAllRows(historicalQuery);
+    historicalUserIds = [...new Set(historicalEntries.map(e => e.user_id))];
+  }
+
+  // Merge current + historical user IDs
+  const userIds = [...new Set([...currentUserIds, ...historicalUserIds])];
 
   let entries: any[] = [];
   if (userIds.length > 0) {
@@ -364,21 +381,35 @@ export async function fetchVerticalReport(
   const uniqueFacultyIds = Array.from(new Set(entries?.map(e => e.user_id) || []));
   const { data: profiles } = await supabase
     .from("profiles")
-    .select("id, full_name")
+    .select("id, full_name, is_active, deactivated_at")
     .in("id", uniqueFacultyIds.length > 0 ? uniqueFacultyIds : ["no-id"]);
 
   const profileMap = new Map(profiles?.map(p => [p.id, p.full_name]) || []);
+  const profileDataMap = new Map(profiles?.map(p => [p.id, p]) || []);
 
   const totalMinutes = entries?.reduce((sum, e) => sum + getEntryDuration(e), 0) || 0;
   const totalHours = totalMinutes / 60;
-  const expectedHours = calculateExpectedHours(period) * uniqueFacultyIds.length;
-  const completionRate = calculateCompletionRate(totalMinutes, expectedHours * 60);
-  const activityBreakdown = generateActivityBreakdown(entries || []);
-
+  
+  // Calculate expected hours per faculty, capping at deactivation date for inactive users
+  let totalExpectedHours = 0;
   const facultyBreakdown: FacultyBreakdown[] = uniqueFacultyIds.map(userId => {
     const userEntries = entries?.filter(e => e.user_id === userId) || [];
     const userMinutes = userEntries.reduce((sum, e) => sum + getEntryDuration(e), 0);
-    const userExpectedMinutes = calculateExpectedHours(period) * 60;
+    
+    // Cap period end at deactivation date for inactive users
+    const profileData = profileDataMap.get(userId);
+    let effectiveEnd = period.dateTo;
+    if (profileData && !profileData.is_active && profileData.deactivated_at) {
+      const deactivatedDate = new Date(profileData.deactivated_at);
+      if (deactivatedDate < effectiveEnd) {
+        effectiveEnd = deactivatedDate;
+      }
+    }
+    const userExpectedHours = effectiveEnd >= period.dateFrom 
+      ? calculateExpectedHours({ ...period, dateTo: effectiveEnd })
+      : 0;
+    const userExpectedMinutes = userExpectedHours * 60;
+    totalExpectedHours += userExpectedHours;
     
     return {
       userId,
@@ -391,6 +422,9 @@ export async function fetchVerticalReport(
     };
   });
 
+  const completionRate = calculateCompletionRate(totalMinutes, totalExpectedHours * 60);
+  const activityBreakdown = generateActivityBreakdown(entries || []);
+
   const workingDays = differenceInCalendarDays(period.dateTo, period.dateFrom) + 1;
   const averageDailyHours = workingDays > 0 ? totalHours / workingDays : 0;
 
@@ -399,7 +433,7 @@ export async function fetchVerticalReport(
     verticalName: vertical?.name || "Unknown",
     totalFaculty: uniqueFacultyIds.length,
     totalHours,
-    expectedHours,
+    expectedHours: totalExpectedHours,
     completionRate,
     activityBreakdown,
     facultyBreakdown,

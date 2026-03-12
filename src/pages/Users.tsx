@@ -1654,8 +1654,8 @@ export default function Users() {
                     formData.password !== formData.confirmPassword ||
                     !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)
                   )) ||
-                  ((formData.role === "manager" || formData.role === "member" || formData.role === "program_manager") && formData.department_ids.length === 0 && !formData.department_id) ||
-                  (formData.role === "program_manager" && !formData.program_id)
+                  (formData.is_active && (formData.role === "manager" || formData.role === "member" || formData.role === "program_manager") && formData.department_ids.length === 0 && !formData.department_id) ||
+                  (formData.is_active && formData.role === "program_manager" && !formData.program_id)
                 }
               >
                 Save Changes

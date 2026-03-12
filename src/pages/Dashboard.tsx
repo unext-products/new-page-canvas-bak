@@ -366,7 +366,8 @@ export default function Dashboard() {
     const { data: teamProfiles } = await supabase
       .from("profiles")
       .select("id, full_name, is_active")
-      .in("id", teamUserIds.length > 0 ? teamUserIds : [hodUserId]);
+      .in("id", teamUserIds.length > 0 ? teamUserIds : [hodUserId])
+      .eq("is_active", true);
 
     // Fetch pending approvals - get entries from users in the department (paginated)
     const pendingEntries = await fetchAllRows(
