@@ -15,25 +15,6 @@ export interface ActivityCategory {
   created_at: string;
 }
 
-// Helper to create a category with explicit code (for fallbacks matching DB enum)
-const createCategoryWithCode = (
-  id: string,
-  name: string,
-  code: string,
-  description: string | null,
-  parentId: string | null = null,
-  sortOrder: number = 0
-): ActivityCategory => ({
-  id,
-  name,
-  code,
-  description,
-  is_active: true,
-  organization_id: null,
-  parent_id: parentId,
-  sort_order: sortOrder,
-  created_at: new Date().toISOString(),
-});
 
 export function useActivityCategories(_departmentId?: string | null) {
   const { userWithRole } = useAuth();
