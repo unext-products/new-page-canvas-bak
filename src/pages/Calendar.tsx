@@ -261,6 +261,13 @@ export default function CalendarPage() {
     // Check if it's a leave day
     if (leavesByDate.has(dateKey)) {
       const leave = leavesByDate.get(dateKey)!;
+      const { isHalfDayLeave } = await import("@/lib/leaveUtils");
+      if (isHalfDayLeave(leave.leave_type)) {
+        // Half-day leave: allow clicking to add entry (validation handled in submit)
+        setSelectedDate(day);
+        setDialogOpen(true);
+        return;
+      }
       const todayStr = format(new Date(), "yyyy-MM-dd");
       if (dateKey >= todayStr) {
         // Today or future: offer to delete
