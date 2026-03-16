@@ -207,8 +207,9 @@ export async function fetchFacultyReport(
 
   if (entriesRes.error) throw entriesRes.error;
   const entries = entriesRes.data;
-  const leaveDates = new Set(leavesRes.data?.map(l => l.leave_date) || []);
-  const profile = profileRes.data;
+  const leaveMap = new Map<string, string>();
+  leavesRes.data?.forEach(l => leaveMap.set(l.leave_date, (l as any).leave_type || 'other'));
+  const leaveDates = new Set(leaveMap.keys());
 
   // Get ALL verticals for the user from user_verticals junction table
   const { data: userVerts } = await supabase
