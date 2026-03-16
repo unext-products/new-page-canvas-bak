@@ -192,9 +192,15 @@ export function DayHourlyView({ date, entries, leaveEntry, onSlotClick, readOnly
                       ))}
                       
                       {/* Empty slot indicator */}
-                      {slot.isEmpty && !isWeekend && !isFuture && !readOnly && (
+                      {slot.isEmpty && !isSlotBlocked && !isWeekend && !isFuture && !readOnly && (
                         <div className="absolute inset-0 flex items-center justify-center">
                           <span className="text-xs text-muted-foreground">+</span>
+                        </div>
+                      )}
+                      {/* Half-day leave blocked indicator */}
+                      {isSlotBlocked && slot.isEmpty && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-[10px] text-blue-500 dark:text-blue-400 font-medium">Leave</span>
                         </div>
                       )}
                     </div>
