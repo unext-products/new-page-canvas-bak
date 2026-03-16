@@ -747,12 +747,14 @@ export default function Timesheet() {
     return `${hours}h ${mins}m`;
   };
 
-  const formatLeaveType = (type: string) => {
+  const formatLeaveTypeFn = (type: string) => {
     const labels: Record<string, string> = {
       casual: "Casual Leave",
       sick: "Sick Leave",
       earned: "Earned Leave",
-      half_day: "Half Day",
+      half_day: "Half Day (Legacy)",
+      half_day_first: "Half Day - First Half",
+      half_day_second: "Half Day - Second Half",
       comp_off: "Compensatory Off",
       other: "Other Leave",
     };
