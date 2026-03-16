@@ -897,7 +897,8 @@ export default function Timesheet() {
                       <SelectItem value="casual">Casual Leave</SelectItem>
                       <SelectItem value="sick">Sick Leave</SelectItem>
                       <SelectItem value="earned">Earned Leave</SelectItem>
-                      <SelectItem value="half_day">Half Day</SelectItem>
+                      <SelectItem value="half_day_first">Half Day - First Half</SelectItem>
+                      <SelectItem value="half_day_second">Half Day - Second Half</SelectItem>
                       <SelectItem value="comp_off">Compensatory Off</SelectItem>
                       <SelectItem value="other">Other</SelectItem>
                     </SelectContent>
