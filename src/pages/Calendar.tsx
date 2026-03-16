@@ -838,10 +838,21 @@ export default function CalendarPage() {
                           <Badge variant="destructive" className="text-[10px]">
                             {holiday.name.length > 10 ? holiday.name.slice(0, 10) + "..." : holiday.name}
                           </Badge>
-                        ) : leave ? (
+                        ) : leave && !isHalfDay ? (
                           <Badge variant="secondary" className="text-[10px] bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
                             {formatLeaveType(leave.leave_type)}
                           </Badge>
+                        ) : leave && isHalfDay ? (
+                          <div className="space-y-1">
+                            <Badge variant="secondary" className="text-[10px] bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
+                              {formatLeaveType(leave.leave_type)}
+                            </Badge>
+                            {dayEntries.length > 0 && (
+                              <p className="text-xs text-muted-foreground">
+                                {hours}h {mins}m
+                              </p>
+                            )}
+                          </div>
                         ) : dayEntries.length > 0 ? (
                           <div className="space-y-1">
                             <p className="text-xs text-muted-foreground">
