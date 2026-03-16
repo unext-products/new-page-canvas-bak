@@ -36,17 +36,7 @@ interface DayHourlyViewProps {
 }
 
 export function DayHourlyView({ date, entries, leaveEntry, onSlotClick, readOnly = false, showTotals = false }: DayHourlyViewProps) {
-  const formatLeaveType = (type: string) => {
-    const labels: Record<string, string> = {
-      casual: "Casual Leave",
-      sick: "Sick Leave",
-      earned: "Earned Leave",
-      half_day: "Half Day",
-      comp_off: "Comp Off",
-      other: "Other Leave",
-    };
-    return labels[type] || type;
-  };
+  const halfDay = leaveEntry && isHalfDayLeave(leaveEntry.leave_type);
 
   // Calculate which entries cover which slots
   const slotData = useMemo(() => {
