@@ -253,7 +253,7 @@ export async function fetchFacultyReport(
   
   // Calculate working days excluding weekends and leave days, capped at deactivation
   const workingDays = effectivePeriodEnd >= period.dateFrom 
-    ? countWorkingDays(effectiveStart, effectivePeriodEnd, leaveDates)
+    ? countWorkingDays(effectiveStart, effectivePeriodEnd, leaveDates, leaveMap)
     : 0;
   
   // Use user's resolved daily target for expected hours calculation
