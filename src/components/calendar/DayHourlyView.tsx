@@ -7,6 +7,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { format } from "date-fns";
 import { Clock, CheckCircle } from "lucide-react";
 import { calculateDurationMinutes } from "@/lib/timesheetUtils";
+import { isHalfDayLeave, isTimeBlockedByHalfDayLeave, formatLeaveType, formatLeaveTypeShort } from "@/lib/leaveUtils";
 
 interface TimesheetEntry {
   id: string;
