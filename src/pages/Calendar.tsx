@@ -315,12 +315,27 @@ export default function CalendarPage() {
     }
     
     if (leavesByDate.has(dateKey)) {
-      toast({
-        title: "Leave Day",
-        description: "Cannot add timesheet entries on leave days",
-        variant: "destructive",
-      });
-      return;
+      const leave = leavesByDate.get(dateKey)!;
+      const { isHalfDayLeave, isTimeBlockedByHalfDayLeave } = await import("@/lib/leaveUtils");
+      if (isHalfDayLeave(leave.leave_type)) {
+        if (isTimeBlockedByHalfDayLeave(slotStartTime, slotEndTime, leave.leave_type)) {
+          const halfLabel = leave.leave_type === "half_day_second" ? "second half" : "first half";
+          toast({
+            title: "Blocked by Half-Day Leave",
+            description: `This slot falls in the ${halfLabel} leave period.`,
+            variant: "destructive",
+          });
+          return;
+        }
+        // Slot is in the free half — allow it
+      } else {
+        toast({
+          title: "Leave Day",
+          description: "Cannot add timesheet entries on leave days",
+          variant: "destructive",
+        });
+        return;
+      }
     }
     
     setSelectedDate(selectedDay);
