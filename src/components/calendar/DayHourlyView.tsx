@@ -208,7 +208,9 @@ export function DayHourlyView({ date, entries, leaveEntry, onSlotClick, readOnly
                   <TooltipContent>
                     <div className="text-sm">
                       <p className="font-medium">{slot.start} - {slot.end}</p>
-                      {slot.entries.length > 0 ? (
+                      {isSlotBlocked ? (
+                        <p className="text-blue-600">Blocked by {formatLeaveTypeShort(leaveEntry!.leave_type)} leave</p>
+                      ) : slot.entries.length > 0 ? (
                         slot.entries.map(entry => (
                           <div key={entry.id} className="mt-1">
                             <p className="capitalize">{entry.activity_type.replace(/_/g, " ")}</p>
@@ -225,7 +227,8 @@ export function DayHourlyView({ date, entries, leaveEntry, onSlotClick, readOnly
                     </div>
                   </TooltipContent>
                 </Tooltip>
-              ))}
+                );
+              })}
             </div>
 
             {/* Legend */}
