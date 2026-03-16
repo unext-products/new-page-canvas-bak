@@ -33,7 +33,7 @@ export interface ExtendedValidationContext {
   holidays: Holiday[];
   workingDays: WorkingDaysConfig;
   activityTypes: string[];
-  userLeaveDays?: Set<string>;
+  userLeaveDays?: Map<string, string>;
 }
 
 /**
