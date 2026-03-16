@@ -1,96 +1,91 @@
 
 
-## Plan: Fix Session/Reload User Data Loss
+## Root Cause Analysis
 
-### Root Causes
+### Issue 1: Cross-org category contamination
 
-1. **Duplicate data fetching race condition**: Both `onAuthStateChange` and `getSession()` fire on mount and independently call `getUserWithRole()`. They race against each other, and the loser can overwrite the winner's result with stale or null data.
+The RLS policy on `activity_categories` for org admins is:
 
-2. **No retry on failure**: If `getUserWithRole` fails (e.g., during token refresh), `userWithRole` stays permanently `null`, showing "Setup Required" and "User L1".
-
-3. **`setTimeout(..., 0)` creates a render gap**: Between `user` being set and `userWithRole` being populated, components render with `user` present but no profile/role, causing fallback to "User" / "L1".
-
-4. **Idle/background tab token expiry**: When returning after idle, the auth state change fires but the role fetch can fail if the token hasn't fully refreshed yet.
-
-### Fix
-
-**File: `src/contexts/AuthContext.tsx`** -- Rewrite the auth initialization logic:
-
-1. **Remove the duplicate `getSession` call**. Supabase's `onAuthStateChange` already fires an `INITIAL_SESSION` event on setup, so `getSession()` is redundant and causes the race.
-
-2. **Remove `setTimeout(..., 0)` wrappers**. Fetch role data synchronously within the auth state handler using `await`. This eliminates the render gap where `user` exists but `userWithRole` is null.
-
-3. **Add retry logic for `getUserWithRole`**. If the profile/role fetch fails (returns `null`), retry up to 2 times with a short delay (500ms). This handles transient failures during token refresh.
-
-4. **Add a `fetchId` guard** to prevent stale responses from overwriting fresh ones. Each auth state change increments a counter; when the async `getUserWithRole` call completes, it only updates state if its `fetchId` still matches the latest one.
-
-5. **Handle `TOKEN_REFRESHED` event properly**. On token refresh, re-fetch `userWithRole` to ensure fresh data, but only if `userWithRole` is currently null (avoids unnecessary refetches during normal refresh cycles).
-
-**File: `src/lib/supabase.ts`** -- Minor improvement to `getUserWithRole`:
-
-6. **Use the passed `userId` for the auth user instead of calling `getUser()` again**. The current code fetches role+profile in parallel, then separately calls `supabase.auth.getUser()`. This extra call can fail during token transitions. Since we already have the `User` object from the session in `AuthContext`, pass it directly instead of re-fetching.
-
-**File: `src/components/AppSidebar.tsx`** -- No changes needed. The sidebar already handles `userWithRole` being null by falling back to "User" / "member". Once the context fix ensures `userWithRole` is always populated before `loading` becomes `false`, this fallback will only show during genuine loading states.
-
-### Technical Details
-
-**Updated AuthContext pattern:**
-
-```text
-useEffect(() => {
-  let latestFetchId = 0;
-
-  const { data: { subscription } } = supabase.auth.onAuthStateChange(
-    async (event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-
-      if (session?.user) {
-        const fetchId = ++latestFetchId;
-        
-        // Fetch with retry
-        let userData = await getUserWithRole(session.user.id, session.user);
-        if (!userData) {
-          await delay(500);
-          userData = await getUserWithRole(session.user.id, session.user);
-        }
-        
-        // Only update if this is still the latest fetch
-        if (fetchId === latestFetchId) {
-          setUserWithRole(userData);
-          setLoading(false);
-        }
-      } else {
-        setUserWithRole(null);
-        setLoading(false);
-      }
-    }
-  );
-
-  return () => subscription.unsubscribe();
-}, []);
+```sql
+Policy: "Org admins can manage categories"
+Command: ALL
+USING: (get_user_role(auth.uid()) = 'org_admin'::app_role)
 ```
 
-**Updated getUserWithRole signature:**
+There is **no organization check**. This means any org admin can read, insert, update, and delete categories belonging to **any** organization. When the MAB-1 admin edited categories, they could see and modify MAB's categories too.
 
-```text
-// Accept optional User object to avoid re-fetching from auth
-async function getUserWithRole(userId: string, authUser?: User): Promise<UserWithRole | null>
+Additionally, `CategorySettings.fetchCategories()` (line 215-226) only filters by `organization_id` when the `organizationId` prop is passed (super admin flow). For regular org admins, no client-side org filter is applied — it fetches all categories the RLS allows, which is everything.
+
+### Issue 2: Timesheet shows default activities instead of admin-configured ones
+
+`useActivityCategories` (line 57-62) fetches categories with `.eq("is_active", true)` but applies **no organization filter**. For L1 users, RLS does filter by org (`organization_id = get_user_organization(...) OR organization_id IS NULL`), so they should see their org's categories.
+
+However, the hook has a **hardcoded fallback** (lines 76-94): when the query returns zero rows, it returns 5 default categories (Class, Quiz, Invigilation, Admin, Non-Academic). If the org's categories were corrupted or deleted due to the cross-org contamination from Issue 1, or if the query returns empty for any reason, L1 users see the hardcoded defaults instead of an empty state or error.
+
+The fallback masks the real problem and creates a false sense of working categories that don't match what the admin configured.
+
+## Fix Plan
+
+### A. Fix RLS policy on `activity_categories` (database migration)
+
+Replace the permissive org admin ALL policy with one that checks organization membership:
+
+```sql
+DROP POLICY "Org admins can manage categories" ON public.activity_categories;
+
+CREATE POLICY "Org admins can manage categories"
+ON public.activity_categories FOR ALL
+TO public
+USING (
+  (get_user_role(auth.uid()) = 'org_admin'::app_role)
+  AND (organization_id = get_user_organization(auth.uid()))
+);
 ```
 
-This removes the `supabase.auth.getUser()` call inside `getUserWithRole` when the `User` object is already available from the session, eliminating a failure point during token transitions.
+### B. Fix `CategorySettings.fetchCategories()` — add org filter for regular admins
 
-### Files to Change
+In `src/components/settings/CategorySettings.tsx`, when no `organizationId` prop is passed (regular org admin), fetch the user's org and filter by it:
+
+```typescript
+if (organizationId) {
+  query = query.eq("organization_id", organizationId);
+} else {
+  // Regular org admin - filter by their own org
+  const { data: orgId } = await supabase.rpc("get_user_organization", {
+    user_id: userWithRole?.user.id,
+  });
+  if (orgId) {
+    query = query.eq("organization_id", orgId);
+  }
+}
+```
+
+### C. Fix `useActivityCategories` — remove hardcoded fallback
+
+In `src/hooks/useActivityCategories.ts`:
+- Remove the hardcoded default categories fallback (lines 76-94)
+- When query returns empty, set categories to empty array (which is the truth)
+- This ensures L1 users see what the admin actually configured, not phantom defaults
+
+### D. Fix `useActivityCategories` — add org filter
+
+Add explicit organization filtering to the query so it doesn't rely solely on RLS:
+
+```typescript
+const { data: orgId } = await supabase.rpc("get_user_organization", {
+  user_id: userWithRole?.user.id,
+});
+let query = supabase.from("activity_categories").select("*").eq("is_active", true);
+if (orgId) {
+  query = query.eq("organization_id", orgId);
+}
+```
+
+### Files to change
 
 | File | Change |
 |------|--------|
-| `src/contexts/AuthContext.tsx` | Remove duplicate `getSession`; remove `setTimeout`; add fetch ID guard and retry logic; pass `session.user` to `getUserWithRole` |
-| `src/lib/supabase.ts` | Add optional `authUser` parameter to `getUserWithRole` to skip redundant `getUser()` call |
-
-### What Stays the Same
-
-- All page components, sidebar, dashboard -- no changes
-- Sign in/sign out flows -- unchanged
-- RLS policies and database -- unchanged
-- All existing features continue working as-is
+| Database migration | Fix RLS policy: add org check to org_admin ALL policy |
+| `src/components/settings/CategorySettings.tsx` | Add org filter for regular admin fetch |
+| `src/hooks/useActivityCategories.ts` | Remove hardcoded fallback defaults; add explicit org filter to query |
 
