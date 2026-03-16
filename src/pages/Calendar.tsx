@@ -799,7 +799,8 @@ export default function CalendarPage() {
                     const isFuture = day > new Date();
                     const isNonWorking = !isWorkingDayFlag;
                     const hasBulkUpload = dayEntries.some(e => e.source === "bulk_upload");
-                    const isBlocked = !!holiday || isNonWorking || !!leave || isFuture;
+                    const isHalfDay = leave && (leave.leave_type === 'half_day_first' || leave.leave_type === 'half_day_second' || leave.leave_type === 'half_day');
+                    const isBlocked = !!holiday || isNonWorking || (!!leave && !isHalfDay) || isFuture;
 
                     return (
                       <div
