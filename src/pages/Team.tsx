@@ -238,7 +238,7 @@ export default function Team() {
           .lte("leave_date", format(monthEnd, "yyyy-MM-dd")),
         supabase
           .from("leave_days")
-          .select("user_id, leave_date")
+          .select("user_id, leave_date, leave_type")
           .in("user_id", userIds)
           .gte("leave_date", format(weekStart, "yyyy-MM-dd"))
           .lte("leave_date", format(weekFriday, "yyyy-MM-dd")),
