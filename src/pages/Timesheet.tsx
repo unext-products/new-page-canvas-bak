@@ -747,7 +747,7 @@ export default function Timesheet() {
     return `${hours}h ${mins}m`;
   };
 
-  const formatLeaveTypeFn = (type: string) => {
+  const formatLeaveType = (type: string) => {
     const labels: Record<string, string> = {
       casual: "Casual Leave",
       sick: "Sick Leave",
