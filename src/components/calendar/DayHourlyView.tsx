@@ -149,19 +149,24 @@ export function DayHourlyView({ date, entries, leaveEntry, onSlotClick, readOnly
 
             {/* Slots grid */}
             <div className="flex gap-1 overflow-x-auto min-h-[60px]">
-              {slotData.map((slot, index) => (
+              {slotData.map((slot, index) => {
+                // Check if this slot is blocked by a half-day leave
+                const isSlotBlocked = halfDay && leaveEntry && isTimeBlockedByHalfDayLeave(slot.start, slot.end, leaveEntry.leave_type);
+                
+                return (
                 <Tooltip key={slot.start}>
                   <TooltipTrigger asChild>
                     <div
                       className={cn(
                         "flex-1 min-w-[80px] min-h-[60px] rounded-lg border-2 border-dashed transition-all relative overflow-hidden",
-                        slot.isEmpty && !isWeekend && !isFuture && !readOnly && "hover:border-primary hover:bg-primary/5 cursor-pointer",
-                        slot.isEmpty && "border-muted-foreground/20 bg-muted/30",
-                        !slot.isEmpty && "border-transparent",
-                        (isWeekend || isFuture || readOnly) && slot.isEmpty && "cursor-not-allowed opacity-60"
+                        isSlotBlocked && "bg-blue-100/50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 cursor-not-allowed",
+                        !isSlotBlocked && slot.isEmpty && !isWeekend && !isFuture && !readOnly && "hover:border-primary hover:bg-primary/5 cursor-pointer",
+                        !isSlotBlocked && slot.isEmpty && "border-muted-foreground/20 bg-muted/30",
+                        !isSlotBlocked && !slot.isEmpty && "border-transparent",
+                        (isWeekend || isFuture || readOnly) && slot.isEmpty && !isSlotBlocked && "cursor-not-allowed opacity-60"
                       )}
                       onClick={() => {
-                        if (!readOnly && !isWeekend && !isFuture && slot.isEmpty && onSlotClick) {
+                        if (!readOnly && !isWeekend && !isFuture && !isSlotBlocked && slot.isEmpty && onSlotClick) {
                           onSlotClick(slot.start, slot.end);
                         }
                       }}
