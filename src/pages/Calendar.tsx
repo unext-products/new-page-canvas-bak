@@ -317,7 +317,6 @@ export default function CalendarPage() {
     if (leavesByDate.has(dateKey)) {
       const leave = leavesByDate.get(dateKey)!;
       if (isHalfDayLeave(leave.leave_type)) {
-      if (isHalfDayLeave(leave.leave_type)) {
         if (isTimeBlockedByHalfDayLeave(slotStartTime, slotEndTime, leave.leave_type)) {
           const halfLabel = leave.leave_type === "half_day_second" ? "second half" : "first half";
           toast({
