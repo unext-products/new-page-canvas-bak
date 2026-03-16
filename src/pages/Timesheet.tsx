@@ -78,7 +78,7 @@ export default function Timesheet() {
   // Leave management state
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [leaveDate, setLeaveDate] = useState(formatLocalDate(new Date()));
-  const [leaveType, setLeaveType] = useState<"casual" | "sick" | "earned" | "half_day" | "comp_off" | "other">("casual");
+  const [leaveType, setLeaveType] = useState<"casual" | "sick" | "earned" | "half_day_first" | "half_day_second" | "comp_off" | "other">("casual");
   const [leaveComments, setLeaveComments] = useState("");
   const [userLeaveDays, setUserLeaveDays] = useState<Set<string>>(new Set());
   
@@ -265,14 +265,33 @@ export default function Timesheet() {
       return;
     }
 
-    // Check if the date is marked as leave
+    // Check if the date is marked as leave (half-day leaves allow entries in the free half)
     if (userLeaveDays.has(entryDate)) {
-      toast({
-        title: "Error",
-        description: "Cannot add timesheet entries on leave days",
-        variant: "destructive",
-      });
-      return;
+      const leaveForDate = leaveEntries.find((l: any) => l.leave_date === entryDate);
+      if (leaveForDate) {
+        const { isHalfDayLeave, isTimeBlockedByHalfDayLeave } = await import("@/lib/leaveUtils");
+        if (isHalfDayLeave(leaveForDate.leave_type)) {
+          // Only block if entry time falls in the blocked half
+          if (isTimeBlockedByHalfDayLeave(startTime, endTime, leaveForDate.leave_type)) {
+            const halfLabel = leaveForDate.leave_type === "half_day_second" ? "second half" : "first half";
+            toast({
+              title: "Blocked by Half-Day Leave",
+              description: `You have a ${halfLabel} leave on this day. You can only add entries in the other half.`,
+              variant: "destructive",
+            });
+            return;
+          }
+          // Entry is in the free half — allow it through
+        } else {
+          // Full-day leave — block entirely
+          toast({
+            title: "Error",
+            description: "Cannot add timesheet entries on leave days",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
     }
 
     // Validate future date - cannot create entries for future dates
@@ -733,7 +752,9 @@ export default function Timesheet() {
       casual: "Casual Leave",
       sick: "Sick Leave",
       earned: "Earned Leave",
-      half_day: "Half Day",
+      half_day: "Half Day (Legacy)",
+      half_day_first: "Half Day - First Half",
+      half_day_second: "Half Day - Second Half",
       comp_off: "Compensatory Off",
       other: "Other Leave",
     };
@@ -876,7 +897,8 @@ export default function Timesheet() {
                       <SelectItem value="casual">Casual Leave</SelectItem>
                       <SelectItem value="sick">Sick Leave</SelectItem>
                       <SelectItem value="earned">Earned Leave</SelectItem>
-                      <SelectItem value="half_day">Half Day</SelectItem>
+                      <SelectItem value="half_day_first">Half Day - First Half</SelectItem>
+                      <SelectItem value="half_day_second">Half Day - Second Half</SelectItem>
                       <SelectItem value="comp_off">Compensatory Off</SelectItem>
                       <SelectItem value="other">Other</SelectItem>
                     </SelectContent>

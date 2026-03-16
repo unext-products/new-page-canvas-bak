@@ -1146,6 +1146,8 @@ export type Database = {
         | "half_day"
         | "comp_off"
         | "other"
+        | "half_day_first"
+        | "half_day_second"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1285,7 +1287,16 @@ export const Constants = {
         "l1",
       ],
       entry_status: ["draft", "submitted", "approved", "rejected"],
-      leave_type: ["casual", "sick", "earned", "half_day", "comp_off", "other"],
+      leave_type: [
+        "casual",
+        "sick",
+        "earned",
+        "half_day",
+        "comp_off",
+        "other",
+        "half_day_first",
+        "half_day_second",
+      ],
     },
   },
 } as const

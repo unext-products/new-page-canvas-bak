@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
+import { isHalfDayLeave, isTimeBlockedByHalfDayLeave } from "@/lib/leaveUtils";
 import { useAuth } from "@/contexts/AuthContext";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -261,6 +262,12 @@ export default function CalendarPage() {
     // Check if it's a leave day
     if (leavesByDate.has(dateKey)) {
       const leave = leavesByDate.get(dateKey)!;
+      if (isHalfDayLeave(leave.leave_type)) {
+        // Half-day leave: allow clicking to add entry (validation handled in submit)
+        setSelectedDate(day);
+        setDialogOpen(true);
+        return;
+      }
       const todayStr = format(new Date(), "yyyy-MM-dd");
       if (dateKey >= todayStr) {
         // Today or future: offer to delete
@@ -308,12 +315,26 @@ export default function CalendarPage() {
     }
     
     if (leavesByDate.has(dateKey)) {
-      toast({
-        title: "Leave Day",
-        description: "Cannot add timesheet entries on leave days",
-        variant: "destructive",
-      });
-      return;
+      const leave = leavesByDate.get(dateKey)!;
+      if (isHalfDayLeave(leave.leave_type)) {
+        if (isTimeBlockedByHalfDayLeave(slotStartTime, slotEndTime, leave.leave_type)) {
+          const halfLabel = leave.leave_type === "half_day_second" ? "second half" : "first half";
+          toast({
+            title: "Blocked by Half-Day Leave",
+            description: `This slot falls in the ${halfLabel} leave period.`,
+            variant: "destructive",
+          });
+          return;
+        }
+        // Slot is in the free half — allow it
+      } else {
+        toast({
+          title: "Leave Day",
+          description: "Cannot add timesheet entries on leave days",
+          variant: "destructive",
+        });
+        return;
+      }
     }
     
     setSelectedDate(selectedDay);
@@ -616,6 +637,8 @@ export default function CalendarPage() {
       sick: "SL",
       earned: "EL",
       half_day: "HD",
+      half_day_first: "HD-1",
+      half_day_second: "HD-2",
       comp_off: "CO",
       other: "OL",
     };
@@ -775,7 +798,8 @@ export default function CalendarPage() {
                     const isFuture = day > new Date();
                     const isNonWorking = !isWorkingDayFlag;
                     const hasBulkUpload = dayEntries.some(e => e.source === "bulk_upload");
-                    const isBlocked = !!holiday || isNonWorking || !!leave || isFuture;
+                    const isHalfDay = leave && (leave.leave_type === 'half_day_first' || leave.leave_type === 'half_day_second' || leave.leave_type === 'half_day');
+                    const isBlocked = !!holiday || isNonWorking || (!!leave && !isHalfDay) || isFuture;
 
                     return (
                       <div
@@ -785,7 +809,8 @@ export default function CalendarPage() {
                           !isCurrentMonth && "opacity-50",
                           isTodayDate && "border-primary bg-primary/5",
                           holiday && "bg-destructive/10 border-destructive/30",
-                          leave && !holiday && "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800",
+                          leave && !isHalfDay && !holiday && "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800",
+                          leave && isHalfDay && !holiday && "bg-gradient-to-b from-blue-50 to-background dark:from-blue-900/20 dark:to-background border-blue-200/50 dark:border-blue-800/50",
                           isNonWorking && !leave && !holiday && "bg-muted/50",
                           isFuture && "opacity-50 cursor-not-allowed",
                           !isBlocked && "hover:bg-muted/50",
@@ -812,10 +837,21 @@ export default function CalendarPage() {
                           <Badge variant="destructive" className="text-[10px]">
                             {holiday.name.length > 10 ? holiday.name.slice(0, 10) + "..." : holiday.name}
                           </Badge>
-                        ) : leave ? (
+                        ) : leave && !isHalfDay ? (
                           <Badge variant="secondary" className="text-[10px] bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
                             {formatLeaveType(leave.leave_type)}
                           </Badge>
+                        ) : leave && isHalfDay ? (
+                          <div className="space-y-1">
+                            <Badge variant="secondary" className="text-[10px] bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
+                              {formatLeaveType(leave.leave_type)}
+                            </Badge>
+                            {dayEntries.length > 0 && (
+                              <p className="text-xs text-muted-foreground">
+                                {hours}h {mins}m
+                              </p>
+                            )}
+                          </div>
                         ) : dayEntries.length > 0 ? (
                           <div className="space-y-1">
                             <p className="text-xs text-muted-foreground">

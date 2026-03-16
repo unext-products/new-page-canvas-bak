@@ -7,6 +7,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { format } from "date-fns";
 import { Clock, CheckCircle } from "lucide-react";
 import { calculateDurationMinutes } from "@/lib/timesheetUtils";
+import { isHalfDayLeave, isTimeBlockedByHalfDayLeave, formatLeaveType, formatLeaveTypeShort } from "@/lib/leaveUtils";
 
 interface TimesheetEntry {
   id: string;
@@ -35,17 +36,7 @@ interface DayHourlyViewProps {
 }
 
 export function DayHourlyView({ date, entries, leaveEntry, onSlotClick, readOnly = false, showTotals = false }: DayHourlyViewProps) {
-  const formatLeaveType = (type: string) => {
-    const labels: Record<string, string> = {
-      casual: "Casual Leave",
-      sick: "Sick Leave",
-      earned: "Earned Leave",
-      half_day: "Half Day",
-      comp_off: "Comp Off",
-      other: "Other Leave",
-    };
-    return labels[type] || type;
-  };
+  const halfDay = leaveEntry && isHalfDayLeave(leaveEntry.leave_type);
 
   // Calculate which entries cover which slots
   const slotData = useMemo(() => {
@@ -94,7 +85,8 @@ export function DayHourlyView({ date, entries, leaveEntry, onSlotClick, readOnly
     return `${hours}h ${mins}m`;
   };
 
-  if (leaveEntry) {
+  // For full-day (non-half-day) leaves, show the full leave card
+  if (leaveEntry && !halfDay) {
     return (
       <Card className="border-blue-200 bg-blue-50/50 dark:bg-blue-900/20 dark:border-blue-800">
         <CardContent className="py-6">
@@ -114,6 +106,18 @@ export function DayHourlyView({ date, entries, leaveEntry, onSlotClick, readOnly
       <Card>
         <CardContent className="py-4">
           <div className="flex flex-col gap-3">
+            {/* Half-day leave banner */}
+            {halfDay && leaveEntry && (
+              <div className="flex items-center justify-center gap-3 pb-3 border-b bg-blue-50/50 dark:bg-blue-900/10 rounded-lg p-3">
+                <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
+                  {formatLeaveType(leaveEntry.leave_type)}
+                </Badge>
+                <span className="text-sm text-muted-foreground">
+                  Entries allowed in the {leaveEntry.leave_type === "half_day_second" || leaveEntry.leave_type === "half_day" ? "first" : "second"} half
+                </span>
+              </div>
+            )}
+            
             {/* Total Hours Summary */}
             {showTotals && entries.length > 0 && (
               <div className="flex items-center justify-center gap-6 pb-3 border-b">
@@ -145,19 +149,24 @@ export function DayHourlyView({ date, entries, leaveEntry, onSlotClick, readOnly
 
             {/* Slots grid */}
             <div className="flex gap-1 overflow-x-auto min-h-[60px]">
-              {slotData.map((slot, index) => (
+              {slotData.map((slot, index) => {
+                // Check if this slot is blocked by a half-day leave
+                const isSlotBlocked = halfDay && leaveEntry && isTimeBlockedByHalfDayLeave(slot.start, slot.end, leaveEntry.leave_type);
+                
+                return (
                 <Tooltip key={slot.start}>
                   <TooltipTrigger asChild>
                     <div
                       className={cn(
                         "flex-1 min-w-[80px] min-h-[60px] rounded-lg border-2 border-dashed transition-all relative overflow-hidden",
-                        slot.isEmpty && !isWeekend && !isFuture && !readOnly && "hover:border-primary hover:bg-primary/5 cursor-pointer",
-                        slot.isEmpty && "border-muted-foreground/20 bg-muted/30",
-                        !slot.isEmpty && "border-transparent",
-                        (isWeekend || isFuture || readOnly) && slot.isEmpty && "cursor-not-allowed opacity-60"
+                        isSlotBlocked && "bg-blue-100/50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 cursor-not-allowed",
+                        !isSlotBlocked && slot.isEmpty && !isWeekend && !isFuture && !readOnly && "hover:border-primary hover:bg-primary/5 cursor-pointer",
+                        !isSlotBlocked && slot.isEmpty && "border-muted-foreground/20 bg-muted/30",
+                        !isSlotBlocked && !slot.isEmpty && "border-transparent",
+                        (isWeekend || isFuture || readOnly) && slot.isEmpty && !isSlotBlocked && "cursor-not-allowed opacity-60"
                       )}
                       onClick={() => {
-                        if (!readOnly && !isWeekend && !isFuture && slot.isEmpty && onSlotClick) {
+                        if (!readOnly && !isWeekend && !isFuture && !isSlotBlocked && slot.isEmpty && onSlotClick) {
                           onSlotClick(slot.start, slot.end);
                         }
                       }}
@@ -183,9 +192,15 @@ export function DayHourlyView({ date, entries, leaveEntry, onSlotClick, readOnly
                       ))}
                       
                       {/* Empty slot indicator */}
-                      {slot.isEmpty && !isWeekend && !isFuture && !readOnly && (
+                      {slot.isEmpty && !isSlotBlocked && !isWeekend && !isFuture && !readOnly && (
                         <div className="absolute inset-0 flex items-center justify-center">
                           <span className="text-xs text-muted-foreground">+</span>
+                        </div>
+                      )}
+                      {/* Half-day leave blocked indicator */}
+                      {isSlotBlocked && slot.isEmpty && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-[10px] text-blue-500 dark:text-blue-400 font-medium">Leave</span>
                         </div>
                       )}
                     </div>
@@ -193,7 +208,9 @@ export function DayHourlyView({ date, entries, leaveEntry, onSlotClick, readOnly
                   <TooltipContent>
                     <div className="text-sm">
                       <p className="font-medium">{slot.start} - {slot.end}</p>
-                      {slot.entries.length > 0 ? (
+                      {isSlotBlocked ? (
+                        <p className="text-blue-600">Blocked by {formatLeaveTypeShort(leaveEntry!.leave_type)} leave</p>
+                      ) : slot.entries.length > 0 ? (
                         slot.entries.map(entry => (
                           <div key={entry.id} className="mt-1">
                             <p className="capitalize">{entry.activity_type.replace(/_/g, " ")}</p>
@@ -210,7 +227,8 @@ export function DayHourlyView({ date, entries, leaveEntry, onSlotClick, readOnly
                     </div>
                   </TooltipContent>
                 </Tooltip>
-              ))}
+                );
+              })}
             </div>
 
             {/* Legend */}

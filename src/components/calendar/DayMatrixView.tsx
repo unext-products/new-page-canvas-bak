@@ -74,6 +74,8 @@ export function DayMatrixView({
       sick: "SL",
       earned: "EL",
       half_day: "HD",
+      half_day_first: "HD-1",
+      half_day_second: "HD-2",
       comp_off: "CO",
       other: "OL",
     };

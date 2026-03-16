@@ -194,7 +194,7 @@ export async function fetchFacultyReport(
       .order("entry_date", { ascending: false }),
     supabase
       .from("leave_days")
-      .select("leave_date")
+      .select("leave_date, leave_type")
       .eq("user_id", userId)
       .gte("leave_date", dateFrom)
       .lte("leave_date", dateTo),
@@ -207,8 +207,9 @@ export async function fetchFacultyReport(
 
   if (entriesRes.error) throw entriesRes.error;
   const entries = entriesRes.data;
-  const leaveDates = new Set(leavesRes.data?.map(l => l.leave_date) || []);
-  const profile = profileRes.data;
+  const leaveMap = new Map<string, string>();
+  leavesRes.data?.forEach(l => leaveMap.set(l.leave_date, (l as any).leave_type || 'other'));
+  const leaveDates = new Set(leaveMap.keys());
 
   // Get ALL verticals for the user from user_verticals junction table
   const { data: userVerts } = await supabase
@@ -252,7 +253,7 @@ export async function fetchFacultyReport(
   
   // Calculate working days excluding weekends and leave days, capped at deactivation
   const workingDays = effectivePeriodEnd >= period.dateFrom 
-    ? countWorkingDays(effectiveStart, effectivePeriodEnd, leaveDates)
+    ? countWorkingDays(effectiveStart, effectivePeriodEnd, leaveDates, leaveMap)
     : 0;
   
   // Use user's resolved daily target for expected hours calculation
@@ -444,15 +445,30 @@ export async function fetchVerticalReport(
 /** @deprecated Use fetchVerticalReport instead */
 export const fetchDepartmentReport = fetchVerticalReport;
 
-// Helper to count working days (excluding weekends and leave days)
-export function countWorkingDays(dateFrom: Date, dateTo: Date, leaveDates: Set<string> = new Set()): number {
+// Helper to count working days (excluding weekends and leave days, with half-day support)
+export function countWorkingDays(
+  dateFrom: Date, 
+  dateTo: Date, 
+  leaveDates: Set<string> = new Set(),
+  leaveTypeMap?: Map<string, string>
+): number {
+  const { getLeaveWeight } = require("@/lib/leaveUtils");
   const allDays = eachDayOfInterval({ start: dateFrom, end: dateTo });
-  return allDays.filter(day => {
-    if (isWeekend(day)) return false;
+  let count = 0;
+  for (const day of allDays) {
+    if (isWeekend(day)) continue;
     const dateStr = format(day, "yyyy-MM-dd");
-    if (leaveDates.has(dateStr)) return false;
-    return true;
-  }).length;
+    if (leaveDates.has(dateStr)) {
+      if (leaveTypeMap) {
+        const leaveType = leaveTypeMap.get(dateStr) || "other";
+        count += 1 - getLeaveWeight(leaveType); // half-day = +0.5, full-day = +0
+      }
+      // If no leaveTypeMap, treat as full-day leave (skip entirely)
+      continue;
+    }
+    count += 1;
+  }
+  return count;
 }
 
 export function calculateExpectedHours(period: ReportPeriod, dailyTargetMinutes: number = 480): number {
