@@ -461,6 +461,9 @@ export default function Approvals() {
       vacation: "Vacation",
       personal: "Personal Leave",
       compensatory: "Compensatory Off",
+      half_day: "Half Day (Legacy)",
+      half_day_first: "Half Day - First Half",
+      half_day_second: "Half Day - Second Half",
       other: "Other Leave",
     };
     return labels[type] || type;

@@ -39,13 +39,15 @@ export interface ExtendedValidationContext {
 /**
  * Fetch leave days for a user
  */
-export async function fetchUserLeaveDays(userId: string): Promise<Set<string>> {
+export async function fetchUserLeaveDays(userId: string): Promise<Map<string, string>> {
   const { data } = await supabase
     .from('leave_days')
-    .select('leave_date')
+    .select('leave_date, leave_type')
     .eq('user_id', userId);
   
-  return new Set(data?.map(d => d.leave_date) || []);
+  const map = new Map<string, string>();
+  data?.forEach(d => map.set(d.leave_date, (d as any).leave_type || 'other'));
+  return map;
 }
 
 const defaultWorkingDays: WorkingDaysConfig = {

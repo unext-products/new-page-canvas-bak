@@ -445,15 +445,30 @@ export async function fetchVerticalReport(
 /** @deprecated Use fetchVerticalReport instead */
 export const fetchDepartmentReport = fetchVerticalReport;
 
-// Helper to count working days (excluding weekends and leave days)
-export function countWorkingDays(dateFrom: Date, dateTo: Date, leaveDates: Set<string> = new Set()): number {
+// Helper to count working days (excluding weekends and leave days, with half-day support)
+export function countWorkingDays(
+  dateFrom: Date, 
+  dateTo: Date, 
+  leaveDates: Set<string> = new Set(),
+  leaveTypeMap?: Map<string, string>
+): number {
+  const { getLeaveWeight } = require("@/lib/leaveUtils");
   const allDays = eachDayOfInterval({ start: dateFrom, end: dateTo });
-  return allDays.filter(day => {
-    if (isWeekend(day)) return false;
+  let count = 0;
+  for (const day of allDays) {
+    if (isWeekend(day)) continue;
     const dateStr = format(day, "yyyy-MM-dd");
-    if (leaveDates.has(dateStr)) return false;
-    return true;
-  }).length;
+    if (leaveDates.has(dateStr)) {
+      if (leaveTypeMap) {
+        const leaveType = leaveTypeMap.get(dateStr) || "other";
+        count += 1 - getLeaveWeight(leaveType); // half-day = +0.5, full-day = +0
+      }
+      // If no leaveTypeMap, treat as full-day leave (skip entirely)
+      continue;
+    }
+    count += 1;
+  }
+  return count;
 }
 
 export function calculateExpectedHours(period: ReportPeriod, dailyTargetMinutes: number = 480): number {

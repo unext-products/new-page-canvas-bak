@@ -139,12 +139,13 @@ export default function Dashboard() {
       // Fetch leave days for current week
       const { data: weekLeaves } = await supabase
         .from("leave_days")
-        .select("leave_date")
+        .select("leave_date, leave_type")
         .eq("user_id", userWithRole.user.id)
         .gte("leave_date", formatLocalDate(weekStartDate))
         .lte("leave_date", formatLocalDate(weekEndDate));
       
-      const leaveDaysThisWeek = weekLeaves?.length || 0;
+      const { getLeaveWeight } = await import("@/lib/leaveUtils");
+      const leaveDaysThisWeek = weekLeaves?.reduce((sum, l) => sum + getLeaveWeight((l as any).leave_type || 'other'), 0) || 0;
       const workingDaysThisWeek = Math.max(0, 5 - leaveDaysThisWeek);
       const expectedWeeklyMinutes = resolvedDailyTargetMinutes * workingDaysThisWeek;
 

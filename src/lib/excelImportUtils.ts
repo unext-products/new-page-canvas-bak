@@ -467,10 +467,19 @@ export async function validateAdminExcelRow(
     }
   }
 
-  // Validate against leave days (for admin mode, we can't check individual user's leave days without additional context)
-  // This validation is primarily for member mode where we have the specific user's leave days
-  if (errors.length === 0 && validationContext?.userLeaveDays?.has(normalizedDate)) {
-    errors.push(`Cannot create entries on leave days (${normalizedDate})`);
+  // Validate against leave days (for admin mode)
+  if (errors.length === 0 && validationContext?.userLeaveDays) {
+    const leaveType = validationContext.userLeaveDays.get(normalizedDate);
+    if (leaveType) {
+      const { isHalfDayLeave, isTimeBlockedByHalfDayLeave } = await import("@/lib/leaveUtils");
+      if (isHalfDayLeave(leaveType)) {
+        if (isTimeBlockedByHalfDayLeave(row.start_time, row.end_time, leaveType)) {
+          errors.push(`Time ${row.start_time}-${row.end_time} falls in the blocked half of a half-day leave on ${normalizedDate}`);
+        }
+      } else {
+        errors.push(`Cannot create entries on leave days (${normalizedDate})`);
+      }
+    }
   }
 
   // Validate against holidays and working days
