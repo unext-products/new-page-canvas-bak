@@ -194,7 +194,7 @@ export async function fetchFacultyReport(
       .order("entry_date", { ascending: false }),
     supabase
       .from("leave_days")
-      .select("leave_date")
+      .select("leave_date, leave_type")
       .eq("user_id", userId)
       .gte("leave_date", dateFrom)
       .lte("leave_date", dateTo),
