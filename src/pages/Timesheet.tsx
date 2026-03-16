@@ -78,7 +78,7 @@ export default function Timesheet() {
   // Leave management state
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [leaveDate, setLeaveDate] = useState(formatLocalDate(new Date()));
-  const [leaveType, setLeaveType] = useState<"casual" | "sick" | "earned" | "half_day" | "comp_off" | "other">("casual");
+  const [leaveType, setLeaveType] = useState<"casual" | "sick" | "earned" | "half_day_first" | "half_day_second" | "comp_off" | "other">("casual");
   const [leaveComments, setLeaveComments] = useState("");
   const [userLeaveDays, setUserLeaveDays] = useState<Set<string>>(new Set());
   
