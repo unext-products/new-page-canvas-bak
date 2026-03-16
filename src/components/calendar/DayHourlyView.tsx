@@ -85,7 +85,8 @@ export function DayHourlyView({ date, entries, leaveEntry, onSlotClick, readOnly
     return `${hours}h ${mins}m`;
   };
 
-  if (leaveEntry) {
+  // For full-day (non-half-day) leaves, show the full leave card
+  if (leaveEntry && !halfDay) {
     return (
       <Card className="border-blue-200 bg-blue-50/50 dark:bg-blue-900/20 dark:border-blue-800">
         <CardContent className="py-6">
