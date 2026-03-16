@@ -218,9 +218,17 @@ export default function CategorySettings({ organizationId }: CategorySettingsPro
         .order("sort_order", { ascending: true })
         .order("name", { ascending: true });
       
-      // If organizationId is provided (Super Admin context), filter by it
+      // Filter by organization
       if (organizationId) {
         query = query.eq("organization_id", organizationId);
+      } else {
+        // Regular org admin - filter by their own org
+        const { data: orgId } = await supabase.rpc("get_user_organization", {
+          user_id: userWithRole?.user.id,
+        });
+        if (orgId) {
+          query = query.eq("organization_id", orgId);
+        }
       }
 
       const { data, error } = await query;
