@@ -265,14 +265,33 @@ export default function Timesheet() {
       return;
     }
 
-    // Check if the date is marked as leave
+    // Check if the date is marked as leave (half-day leaves allow entries in the free half)
     if (userLeaveDays.has(entryDate)) {
-      toast({
-        title: "Error",
-        description: "Cannot add timesheet entries on leave days",
-        variant: "destructive",
-      });
-      return;
+      const leaveForDate = leaveEntries.find((l: any) => l.leave_date === entryDate);
+      if (leaveForDate) {
+        const { isHalfDayLeave, isTimeBlockedByHalfDayLeave } = await import("@/lib/leaveUtils");
+        if (isHalfDayLeave(leaveForDate.leave_type)) {
+          // Only block if entry time falls in the blocked half
+          if (isTimeBlockedByHalfDayLeave(startTime, endTime, leaveForDate.leave_type)) {
+            const halfLabel = leaveForDate.leave_type === "half_day_second" ? "second half" : "first half";
+            toast({
+              title: "Blocked by Half-Day Leave",
+              description: `You have a ${halfLabel} leave on this day. You can only add entries in the other half.`,
+              variant: "destructive",
+            });
+            return;
+          }
+          // Entry is in the free half — allow it through
+        } else {
+          // Full-day leave — block entirely
+          toast({
+            title: "Error",
+            description: "Cannot add timesheet entries on leave days",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
     }
 
     // Validate future date - cannot create entries for future dates
