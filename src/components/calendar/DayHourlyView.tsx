@@ -106,6 +106,18 @@ export function DayHourlyView({ date, entries, leaveEntry, onSlotClick, readOnly
       <Card>
         <CardContent className="py-4">
           <div className="flex flex-col gap-3">
+            {/* Half-day leave banner */}
+            {halfDay && leaveEntry && (
+              <div className="flex items-center justify-center gap-3 pb-3 border-b bg-blue-50/50 dark:bg-blue-900/10 rounded-lg p-3">
+                <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
+                  {formatLeaveType(leaveEntry.leave_type)}
+                </Badge>
+                <span className="text-sm text-muted-foreground">
+                  Entries allowed in the {leaveEntry.leave_type === "half_day_second" || leaveEntry.leave_type === "half_day" ? "first" : "second"} half
+                </span>
+              </div>
+            )}
+            
             {/* Total Hours Summary */}
             {showTotals && entries.length > 0 && (
               <div className="flex items-center justify-center gap-6 pb-3 border-b">
