@@ -295,9 +295,19 @@ export async function validateMemberExcelRow(
     }
   }
 
-  // Validate against leave days
-  if (errors.length === 0 && validationContext?.userLeaveDays?.has(normalizedDate)) {
-    errors.push(`Cannot create entries on leave days (${normalizedDate})`);
+  // Validate against leave days (half-day leaves allow entries in the free half)
+  if (errors.length === 0 && validationContext?.userLeaveDays) {
+    const leaveType = validationContext.userLeaveDays.get(normalizedDate);
+    if (leaveType) {
+      const { isHalfDayLeave, isTimeBlockedByHalfDayLeave } = await import("@/lib/leaveUtils");
+      if (isHalfDayLeave(leaveType)) {
+        if (isTimeBlockedByHalfDayLeave(row.start_time, row.end_time, leaveType)) {
+          errors.push(`Time ${row.start_time}-${row.end_time} falls in the blocked half of a half-day leave on ${normalizedDate}`);
+        }
+      } else {
+        errors.push(`Cannot create entries on leave days (${normalizedDate})`);
+      }
+    }
   }
 
   // Validate against holidays and working days
