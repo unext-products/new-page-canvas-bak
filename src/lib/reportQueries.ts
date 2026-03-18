@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { differenceInCalendarDays, eachDayOfInterval, format, isWeekend } from "date-fns";
 import { calculateDurationMinutes } from "./timesheetUtils";
 import { calculateUserTotalDailyTargetMinutes } from "./targets";
+import { getLeaveWeight } from "./leaveUtils";
 
 /**
  * Paginated fetch helper to overcome the default 1,000-row limit.
