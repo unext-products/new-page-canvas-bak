@@ -1,96 +1,35 @@
 
 
-## Plan: Fix Session/Reload User Data Loss
+## Root Cause Analysis & Fix Plan
 
-### Root Causes
+### Issue 1: Dashboard Completion Rate ignores leave days
 
-1. **Duplicate data fetching race condition**: Both `onAuthStateChange` and `getSession()` fire on mount and independently call `getUserWithRole()`. They race against each other, and the loser can overwrite the winner's result with stale or null data.
+**Root Cause**: `EnhancedCompletionCard.tsx` line 68-69 calculates working days using `getWorkingDaysInRange()` which only excludes weekends. It never fetches leave days, so for the week of Mar 9-13 with 2 leave days, it counts 5 working days (expected = 40h) instead of 3 (expected = 24h).
 
-2. **No retry on failure**: If `getUserWithRole` fails (e.g., during token refresh), `userWithRole` stays permanently `null`, showing "Setup Required" and "User L1".
+**Fix**: In `fetchCompletionData()`, fetch leave days for the date range, compute leave weight (0.5 for half-day, 1.0 for full-day), and subtract from working days count. Also use the user's resolved daily target instead of hardcoded 480 minutes.
 
-3. **`setTimeout(..., 0)` creates a render gap**: Between `user` being set and `userWithRole` being populated, components render with `user` present but no profile/role, causing fallback to "User" / "L1".
+**File**: `src/components/dashboard/EnhancedCompletionCard.tsx`
 
-4. **Idle/background tab token expiry**: When returning after idle, the auth state change fires but the role fetch can fail if the token hasn't fully refreshed yet.
+---
 
-### Fix
+### Issue 2: Member Report fails to generate (error toast)
 
-**File: `src/contexts/AuthContext.tsx`** -- Rewrite the auth initialization logic:
+**Root Cause**: `countWorkingDays()` in `reportQueries.ts` line 456 uses `require("@/lib/leaveUtils")` — a CommonJS call inside an ESM/Vite project. This crashes at runtime in the browser, causing `fetchFacultyReport()` to throw, which surfaces as the "Failed to complete generate report" error.
 
-1. **Remove the duplicate `getSession` call**. Supabase's `onAuthStateChange` already fires an `INITIAL_SESSION` event on setup, so `getSession()` is redundant and causes the race.
-
-2. **Remove `setTimeout(..., 0)` wrappers**. Fetch role data synchronously within the auth state handler using `await`. This eliminates the render gap where `user` exists but `userWithRole` is null.
-
-3. **Add retry logic for `getUserWithRole`**. If the profile/role fetch fails (returns `null`), retry up to 2 times with a short delay (500ms). This handles transient failures during token refresh.
-
-4. **Add a `fetchId` guard** to prevent stale responses from overwriting fresh ones. Each auth state change increments a counter; when the async `getUserWithRole` call completes, it only updates state if its `fetchId` still matches the latest one.
-
-5. **Handle `TOKEN_REFRESHED` event properly**. On token refresh, re-fetch `userWithRole` to ensure fresh data, but only if `userWithRole` is currently null (avoids unnecessary refetches during normal refresh cycles).
-
-**File: `src/lib/supabase.ts`** -- Minor improvement to `getUserWithRole`:
-
-6. **Use the passed `userId` for the auth user instead of calling `getUser()` again**. The current code fetches role+profile in parallel, then separately calls `supabase.auth.getUser()`. This extra call can fail during token transitions. Since we already have the `User` object from the session in `AuthContext`, pass it directly instead of re-fetching.
-
-**File: `src/components/AppSidebar.tsx`** -- No changes needed. The sidebar already handles `userWithRole` being null by falling back to "User" / "member". Once the context fix ensures `userWithRole` is always populated before `loading` becomes `false`, this fallback will only show during genuine loading states.
-
-### Technical Details
-
-**Updated AuthContext pattern:**
-
-```text
-useEffect(() => {
-  let latestFetchId = 0;
-
-  const { data: { subscription } } = supabase.auth.onAuthStateChange(
-    async (event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-
-      if (session?.user) {
-        const fetchId = ++latestFetchId;
-        
-        // Fetch with retry
-        let userData = await getUserWithRole(session.user.id, session.user);
-        if (!userData) {
-          await delay(500);
-          userData = await getUserWithRole(session.user.id, session.user);
-        }
-        
-        // Only update if this is still the latest fetch
-        if (fetchId === latestFetchId) {
-          setUserWithRole(userData);
-          setLoading(false);
-        }
-      } else {
-        setUserWithRole(null);
-        setLoading(false);
-      }
-    }
-  );
-
-  return () => subscription.unsubscribe();
-}, []);
+**Fix**: Replace `require()` with a static ES module `import` at the top of `reportQueries.ts`:
+```typescript
+import { getLeaveWeight } from "@/lib/leaveUtils";
 ```
+Remove the `require()` call from inside `countWorkingDays()`.
 
-**Updated getUserWithRole signature:**
+**File**: `src/lib/reportQueries.ts` (2 lines changed)
 
-```text
-// Accept optional User object to avoid re-fetching from auth
-async function getUserWithRole(userId: string, authUser?: User): Promise<UserWithRole | null>
-```
+---
 
-This removes the `supabase.auth.getUser()` call inside `getUserWithRole` when the `User` object is already available from the session, eliminating a failure point during token transitions.
-
-### Files to Change
+### Files to change
 
 | File | Change |
 |------|--------|
-| `src/contexts/AuthContext.tsx` | Remove duplicate `getSession`; remove `setTimeout`; add fetch ID guard and retry logic; pass `session.user` to `getUserWithRole` |
-| `src/lib/supabase.ts` | Add optional `authUser` parameter to `getUserWithRole` to skip redundant `getUser()` call |
-
-### What Stays the Same
-
-- All page components, sidebar, dashboard -- no changes
-- Sign in/sign out flows -- unchanged
-- RLS policies and database -- unchanged
-- All existing features continue working as-is
+| `src/lib/reportQueries.ts` | Add static import of `getLeaveWeight`; remove `require()` inside `countWorkingDays` |
+| `src/components/dashboard/EnhancedCompletionCard.tsx` | Fetch leave days in date range, subtract leave weights from working days, use user's resolved daily target |
 
