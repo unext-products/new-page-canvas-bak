@@ -5,9 +5,11 @@ import { CheckCircle2, AlertCircle, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { DateRangeFilter, DateFilterType, DateRange } from "@/components/DateRangeFilter";
-import { startOfDay, endOfDay, startOfWeek, endOfWeek, differenceInBusinessDays, isWeekend } from "date-fns";
+import { startOfWeek, endOfWeek, isWeekend, format, eachDayOfInterval } from "date-fns";
 import { calculateDurationMinutes } from "@/lib/timesheetUtils";
 import { formatLocalDate } from "@/lib/dateUtils";
+import { getLeaveWeight } from "@/lib/leaveUtils";
+import { calculateUserTotalDailyTargetMinutes } from "@/lib/targets";
 
 interface EnhancedCompletionCardProps {
   userId: string;
@@ -37,36 +39,55 @@ export function EnhancedCompletionCard({ userId }: EnhancedCompletionCardProps) 
     }
   }, [dateRange, userId]);
 
-  const getWorkingDaysInRange = (from: Date, to: Date): number => {
-    let count = 0;
-    const current = new Date(from);
-    while (current <= to) {
-      if (!isWeekend(current)) {
-        count++;
-      }
-      current.setDate(current.getDate() + 1);
-    }
-    return count;
-  };
-
   const fetchCompletionData = async () => {
     setLoading(true);
     const fromDate = formatLocalDate(dateRange.from);
     const toDate = formatLocalDate(dateRange.to);
 
-    const { data: entries } = await supabase
-      .from("timesheet_entries")
-      .select("start_time, end_time, entry_date, status")
-      .eq("user_id", userId)
-      .gte("entry_date", fromDate)
-      .lte("entry_date", toDate);
+    // Fetch entries, leave days, and daily target in parallel
+    const [entriesRes, leavesRes, targetBreakdown] = await Promise.all([
+      supabase
+        .from("timesheet_entries")
+        .select("start_time, end_time, entry_date, status")
+        .eq("user_id", userId)
+        .gte("entry_date", fromDate)
+        .lte("entry_date", toDate),
+      supabase
+        .from("leave_days")
+        .select("leave_date, leave_type")
+        .eq("user_id", userId)
+        .gte("leave_date", fromDate)
+        .lte("leave_date", toDate),
+      calculateUserTotalDailyTargetMinutes(userId),
+    ]);
+
+    const entries = entriesRes.data;
+    const leaves = leavesRes.data || [];
 
     const actualMinutes = entries
       ?.filter((e) => e.status === "approved" || e.status === "submitted")
       .reduce((sum, e) => sum + calculateDurationMinutes(e.start_time, e.end_time), 0) || 0;
 
-    const workingDays = getWorkingDaysInRange(dateRange.from, dateRange.to);
-    const expectedMinutes = workingDays * 480; // 8 hours per day
+    // Build leave map and compute total leave weight
+    const leaveMap = new Map<string, string>();
+    leaves.forEach((l) => leaveMap.set(l.leave_date, l.leave_type));
+
+    // Count working days excluding weekends AND leave days (half-day = 0.5 deduction)
+    const allDays = eachDayOfInterval({ start: dateRange.from, end: dateRange.to });
+    let workingDays = 0;
+    for (const day of allDays) {
+      if (isWeekend(day)) continue;
+      const dateStr = format(day, "yyyy-MM-dd");
+      if (leaveMap.has(dateStr)) {
+        const leaveType = leaveMap.get(dateStr)!;
+        workingDays += 1 - getLeaveWeight(leaveType); // half-day = +0.5, full-day = +0
+      } else {
+        workingDays += 1;
+      }
+    }
+
+    const dailyTargetMinutes = targetBreakdown.totalDailyTargetMinutes;
+    const expectedMinutes = workingDays * dailyTargetMinutes;
     const completionRate = expectedMinutes > 0 ? (actualMinutes / expectedMinutes) * 100 : 0;
     const averageHoursPerDay = workingDays > 0 ? actualMinutes / 60 / workingDays : 0;
 
