@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { differenceInCalendarDays, eachDayOfInterval, format, isWeekend } from "date-fns";
 import { calculateDurationMinutes } from "./timesheetUtils";
 import { calculateUserTotalDailyTargetMinutes } from "./targets";
+import { getLeaveWeight } from "./leaveUtils";
 
 /**
  * Paginated fetch helper to overcome the default 1,000-row limit.
@@ -453,7 +454,7 @@ export function countWorkingDays(
   leaveDates: Set<string> = new Set(),
   leaveTypeMap?: Map<string, string>
 ): number {
-  const { getLeaveWeight } = require("@/lib/leaveUtils");
+  // getLeaveWeight is imported at the top of the file
   const allDays = eachDayOfInterval({ start: dateFrom, end: dateTo });
   let count = 0;
   for (const day of allDays) {
