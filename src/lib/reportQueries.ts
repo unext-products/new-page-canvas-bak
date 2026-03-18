@@ -454,7 +454,7 @@ export function countWorkingDays(
   leaveDates: Set<string> = new Set(),
   leaveTypeMap?: Map<string, string>
 ): number {
-  const { getLeaveWeight } = require("@/lib/leaveUtils");
+  // getLeaveWeight is imported at the top of the file
   const allDays = eachDayOfInterval({ start: dateFrom, end: dateTo });
   let count = 0;
   for (const day of allDays) {
