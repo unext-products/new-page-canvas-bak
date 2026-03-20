@@ -265,6 +265,7 @@ export default function Team() {
       const todayLeaves = leavesRes.data || [];
       const monthLeaves = monthLeavesRes.data || [];
       const weekLeaves = weekLeavesRes.data || [];
+      const holidayCountThisWeek = weekHolidaysRes.data?.length || 0;
 
       // Build team member data with per-user targets
       const memberPromises = profiles
@@ -277,11 +278,11 @@ export default function Team() {
           // Fetch user's actual daily target
           const targetBreakdown = await calculateUserTotalDailyTargetMinutes(profile.id);
           
-          // Calculate working days minus leave days (with half-day support)
+          // Calculate working days minus holidays and leave days (with half-day support)
           const { getLeaveWeight } = await import("@/lib/leaveUtils");
           const memberWeekLeaveDays = weekLeaves.filter((l) => l.user_id === profile.id)
             .reduce((sum, l) => sum + getLeaveWeight((l as any).leave_type || 'other'), 0);
-          const workingDaysThisWeek = Math.max(0, 5 - memberWeekLeaveDays);
+          const workingDaysThisWeek = Math.max(0, 5 - holidayCountThisWeek - memberWeekLeaveDays);
           const weeklyTargetHours = (targetBreakdown.totalDailyTargetMinutes / 60) * workingDaysThisWeek;
           
           const completionRate = weeklyTargetHours > 0 
