@@ -306,6 +306,27 @@ export default function Timesheet() {
       return;
     }
 
+    // Check if entry date is a holiday
+    const holiday = isHoliday(entryDate);
+    if (holiday) {
+      toast({
+        title: "Holiday",
+        description: `Cannot create entries on holidays (${holiday.name})`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if entry date is a working day
+    if (!isWorkingDay(new Date(entryDate))) {
+      toast({
+        title: "Non-Working Day",
+        description: "Cannot create entries on non-working days",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Normalize time format for overlap check
     const normalizeTimeFormat = (time: string): string => {
       const parts = time.split(":");
