@@ -504,12 +504,14 @@ export default function Dashboard() {
       }
     });
 
+    const hodExpectedHoursPerMember = hodWorkingDaysThisWeek * 8;
+    const hodExpectedMinutesPerMember = hodWorkingDaysThisWeek * 480;
     const teamPerformance = Array.from(memberStatsMap.values())
       .map((member) => ({
         ...member,
         hours: member.minutes / 60,
-        expectedHours: 40, // 5 days * 8 hours
-        completionRate: (member.minutes / 2400) * 100, // 40 hours = 2400 minutes
+        expectedHours: hodExpectedHoursPerMember,
+        completionRate: hodExpectedMinutesPerMember > 0 ? (member.minutes / hodExpectedMinutesPerMember) * 100 : 0,
       }))
       .sort((a, b) => b.completionRate - a.completionRate);
 
