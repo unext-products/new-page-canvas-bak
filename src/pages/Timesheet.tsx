@@ -63,7 +63,7 @@ export default function Timesheet() {
   const [userVerticals, setUserVerticals] = useState<{ id: string; name: string; code: string }[]>([]);
   
   // Threshold validation
-  const { validateEntry, thresholds } = useThresholds(selectedVerticalId);
+  const { validateEntry, thresholds, isHoliday, isWorkingDay } = useThresholds(selectedVerticalId);
   
   // Hierarchy form state
   const [programId, setProgramId] = useState("");
@@ -301,6 +301,27 @@ export default function Timesheet() {
       toast({
         title: "Future Date Not Allowed",
         description: "Cannot create timesheet entries for future dates",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if entry date is a holiday
+    const holiday = isHoliday(entryDate);
+    if (holiday) {
+      toast({
+        title: "Holiday",
+        description: `Cannot create entries on holidays (${holiday.name})`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if entry date is a working day
+    if (!isWorkingDay(new Date(entryDate))) {
+      toast({
+        title: "Non-Working Day",
+        description: "Cannot create entries on non-working days",
         variant: "destructive",
       });
       return;
