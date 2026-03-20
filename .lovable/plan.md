@@ -2,25 +2,120 @@
 
 ## Root Cause Analysis
 
-The Timesheet page's `handleSubmit` was refactored to use "fresh thresholds" fetched directly from the database (line 333-371). This new code path only validates work-hour windows and max daily hours. It **skips holiday and working-day checks entirely**.
+**All working-day calculations across the app use `isWeekend()` to exclude non-working days but never query the `holidays` table.** Holidays (like March 19) are invisible to these calculations, so the system counts them as full working days.
 
-The hook-based `validateEntry` (which does check holidays and working days) is only called in the `catch` block (line 373-384) as a fallback when the fresh fetch fails. So under normal conditions, holidays are never checked.
+Affected locations:
+1. **`EnhancedCompletionCard.tsx` line 79** — `isWeekend(day)` only
+2. **`reportQueries.ts` `countWorkingDays()` line 461** — `isWeekend(day)` only
+3. **`Dashboard.tsx` line 149** — hardcoded `5` base working days per week
+4. **`Team.tsx` line 268** — hardcoded `5` base working days per week
 
-The Calendar page is unaffected because it still uses `validateEntry` from the hook directly.
+The `useThresholds` hook already fetches holidays and exposes `isHoliday()`, but none of these calculation paths use it.
 
-## Fix
+## Fix Plan
 
-**File: `src/pages/Timesheet.tsx`**
+### Step 1: Make `countWorkingDays` holiday-aware (central fix)
 
-Add holiday and working-day validation in `handleSubmit`, right after the future-date check (around line 307) and before the fresh thresholds block. This uses the same `useThresholds` hook data already available:
+**File: `src/lib/reportQueries.ts`**
 
-1. Import `getDay` from `date-fns` (if not already imported)
-2. Destructure `isHoliday` and `isWorkingDay` from `useThresholds` (line 66 currently only destructures `validateEntry` and `thresholds`)
-3. After the future-date check (line 307), add:
-   - Holiday check: call `isHoliday(entryDate)` — if truthy, block with error toast
-   - Working day check: call `isWorkingDay(new Date(entryDate))` — if false, block with error toast
+Add a `holidayDates` parameter (a `Set<string>`) to `countWorkingDays()`. Inside the loop, after the `isWeekend` check, skip days that are in `holidayDates`:
 
-This mirrors the same checks already in `validateEntry` within `useThresholds.ts` (lines 240-256) and in Calendar's flow.
+```typescript
+export function countWorkingDays(
+  dateFrom: Date, dateTo: Date,
+  leaveDates: Set<string> = new Set(),
+  leaveTypeMap?: Map<string, string>,
+  holidayDates: Set<string> = new Set()  // NEW
+): number {
+  ...
+  for (const day of allDays) {
+    if (isWeekend(day)) continue;
+    const dateStr = format(day, "yyyy-MM-dd");
+    if (holidayDates.has(dateStr)) continue;  // NEW — skip holidays
+    // ... existing leave logic
+  }
+}
+```
 
-**No other files need changes.** Calendar and Bulk Upload already validate holidays through their respective paths.
+Also update `calculateExpectedHours()` similarly to accept and use holiday dates.
+
+### Step 2: Pass holidays into report calculations
+
+**File: `src/lib/reportQueries.ts`**
+
+In `fetchFacultyReport()`, fetch holidays for the user's org and pass them to `countWorkingDays()`:
+
+```typescript
+// Fetch holidays for the user's org
+const { data: holidays } = await supabase
+  .from("holidays")
+  .select("holiday_date")
+  .eq("organization_id", orgId);
+const holidayDates = new Set(holidays?.map(h => h.holiday_date) || []);
+
+// Pass to countWorkingDays
+countWorkingDays(start, end, leaveDates, leaveMap, holidayDates);
+```
+
+### Step 3: Fix `EnhancedCompletionCard.tsx`
+
+**File: `src/components/dashboard/EnhancedCompletionCard.tsx`**
+
+Fetch holidays for the user's org in parallel with entries/leaves/target. Add a holiday check in the working-days loop:
+
+```typescript
+// In fetchCompletionData, add holidays fetch
+const [entriesRes, leavesRes, targetBreakdown, holidaysRes] = await Promise.all([
+  ...existing...,
+  supabase
+    .from("holidays")
+    .select("holiday_date")
+    .eq("organization_id", userOrgId)  // need to resolve user's org
+]);
+
+const holidayDates = new Set(holidaysRes.data?.map(h => h.holiday_date) || []);
+
+// In the loop:
+if (isWeekend(day)) continue;
+if (holidayDates.has(dateStr)) continue;  // NEW
+```
+
+Will also need to fetch the user's `organization_id` from `user_roles`.
+
+### Step 4: Fix Dashboard weekly target
+
+**File: `src/pages/Dashboard.tsx`**
+
+Replace hardcoded `5` with actual count. Fetch holidays for the current week and subtract them:
+
+```typescript
+const { data: weekHolidays } = await supabase
+  .from("holidays")
+  .select("holiday_date")
+  .eq("organization_id", orgId)
+  .gte("holiday_date", weekStartStr)
+  .lte("holiday_date", weekEndStr);
+
+const holidayCount = weekHolidays?.length || 0;
+const workingDaysThisWeek = Math.max(0, 5 - holidayCount - leaveDaysThisWeek);
+```
+
+### Step 5: Fix Team page weekly target
+
+**File: `src/pages/Team.tsx`**
+
+Same pattern as Dashboard — fetch holidays for the week and subtract:
+
+```typescript
+const workingDaysThisWeek = Math.max(0, 5 - holidayCount - memberWeekLeaveDays);
+```
+
+### Files to change
+
+| File | Change |
+|------|--------|
+| `src/lib/reportQueries.ts` | Add `holidayDates` param to `countWorkingDays` and `calculateExpectedHours`; fetch holidays in `fetchFacultyReport` |
+| `src/components/dashboard/EnhancedCompletionCard.tsx` | Fetch user's org holidays; skip holiday dates in working-days loop |
+| `src/pages/Dashboard.tsx` | Fetch week's holidays; subtract from base working days |
+| `src/pages/Team.tsx` | Fetch week's holidays; subtract from base working days |
 
