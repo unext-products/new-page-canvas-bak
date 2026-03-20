@@ -135,18 +135,40 @@ export default function Dashboard() {
       weekStartDate.setDate(weekStartDate.getDate() - weekStartDate.getDay() + 1); // Monday
       const weekEndDate = new Date(weekStartDate);
       weekEndDate.setDate(weekEndDate.getDate() + 4); // Friday (working days only)
-      
-      // Fetch leave days for current week
-      const { data: weekLeaves } = await supabase
-        .from("leave_days")
-        .select("leave_date, leave_type")
+
+      // Fetch user's org for holiday lookup
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("organization_id")
         .eq("user_id", userWithRole.user.id)
-        .gte("leave_date", formatLocalDate(weekStartDate))
-        .lte("leave_date", formatLocalDate(weekEndDate));
+        .single();
+      const userOrgId = roleData?.organization_id;
+      
+      // Fetch leave days and holidays for current week in parallel
+      const [weekLeavesRes, weekHolidaysRes] = await Promise.all([
+        supabase
+          .from("leave_days")
+          .select("leave_date, leave_type")
+          .eq("user_id", userWithRole.user.id)
+          .gte("leave_date", formatLocalDate(weekStartDate))
+          .lte("leave_date", formatLocalDate(weekEndDate)),
+        userOrgId
+          ? supabase
+              .from("holidays")
+              .select("holiday_date")
+              .eq("organization_id", userOrgId)
+              .gte("holiday_date", formatLocalDate(weekStartDate))
+              .lte("holiday_date", formatLocalDate(weekEndDate))
+          : Promise.resolve({ data: [] }),
+      ]);
+
+      const weekLeaves = weekLeavesRes.data;
+      const weekHolidays = weekHolidaysRes.data;
       
       const { getLeaveWeight } = await import("@/lib/leaveUtils");
       const leaveDaysThisWeek = weekLeaves?.reduce((sum, l) => sum + getLeaveWeight((l as any).leave_type || 'other'), 0) || 0;
-      const workingDaysThisWeek = Math.max(0, 5 - leaveDaysThisWeek);
+      const holidayCountThisWeek = weekHolidays?.length || 0;
+      const workingDaysThisWeek = Math.max(0, 5 - holidayCountThisWeek - leaveDaysThisWeek);
       const expectedWeeklyMinutes = resolvedDailyTargetMinutes * workingDaysThisWeek;
 
       // Fetch user's departments from BOTH user_departments AND user_verticals tables

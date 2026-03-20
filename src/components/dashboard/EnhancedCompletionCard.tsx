@@ -44,8 +44,17 @@ export function EnhancedCompletionCard({ userId }: EnhancedCompletionCardProps) 
     const fromDate = formatLocalDate(dateRange.from);
     const toDate = formatLocalDate(dateRange.to);
 
-    // Fetch entries, leave days, and daily target in parallel
-    const [entriesRes, leavesRes, targetBreakdown] = await Promise.all([
+    // Fetch user's org first
+    const { data: roleData } = await supabase
+      .from("user_roles")
+      .select("organization_id")
+      .eq("user_id", userId)
+      .single();
+
+    const orgId = roleData?.organization_id;
+
+    // Fetch entries, leave days, daily target, and holidays in parallel
+    const [entriesRes, leavesRes, targetBreakdown, holidaysRes] = await Promise.all([
       supabase
         .from("timesheet_entries")
         .select("start_time, end_time, entry_date, status")
@@ -59,10 +68,19 @@ export function EnhancedCompletionCard({ userId }: EnhancedCompletionCardProps) 
         .gte("leave_date", fromDate)
         .lte("leave_date", toDate),
       calculateUserTotalDailyTargetMinutes(userId),
+      orgId
+        ? supabase
+            .from("holidays")
+            .select("holiday_date")
+            .eq("organization_id", orgId)
+            .gte("holiday_date", fromDate)
+            .lte("holiday_date", toDate)
+        : Promise.resolve({ data: [] }),
     ]);
 
     const entries = entriesRes.data;
     const leaves = leavesRes.data || [];
+    const holidayDates = new Set(holidaysRes.data?.map(h => h.holiday_date) || []);
 
     const actualMinutes = entries
       ?.filter((e) => e.status === "approved" || e.status === "submitted")
@@ -72,12 +90,13 @@ export function EnhancedCompletionCard({ userId }: EnhancedCompletionCardProps) 
     const leaveMap = new Map<string, string>();
     leaves.forEach((l) => leaveMap.set(l.leave_date, l.leave_type));
 
-    // Count working days excluding weekends AND leave days (half-day = 0.5 deduction)
+    // Count working days excluding weekends, holidays, AND leave days
     const allDays = eachDayOfInterval({ start: dateRange.from, end: dateRange.to });
     let workingDays = 0;
     for (const day of allDays) {
       if (isWeekend(day)) continue;
       const dateStr = format(day, "yyyy-MM-dd");
+      if (holidayDates.has(dateStr)) continue; // skip holidays
       if (leaveMap.has(dateStr)) {
         const leaveType = leaveMap.get(dateStr)!;
         workingDays += 1 - getLeaveWeight(leaveType); // half-day = +0.5, full-day = +0

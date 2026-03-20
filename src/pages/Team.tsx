@@ -213,8 +213,16 @@ export default function Team() {
       const weekFriday = new Date(weekStart);
       weekFriday.setDate(weekFriday.getDate() + 4); // Friday
 
-      // Fetch profiles, entries, today's leaves, month's leaves, and this week's leaves in parallel
-      const [profilesRes, entriesRes, leavesRes, monthLeavesRes, weekLeavesRes] = await Promise.all([
+      // Get org ID for holiday lookup
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("organization_id")
+        .eq("user_id", userWithRole.user.id)
+        .single();
+      const userOrgId = roleData?.organization_id;
+
+      // Fetch profiles, entries, today's leaves, month's leaves, this week's leaves, and holidays in parallel
+      const [profilesRes, entriesRes, leavesRes, monthLeavesRes, weekLeavesRes, weekHolidaysRes] = await Promise.all([
         supabase
           .from("profiles")
           .select("id, full_name, avatar_url, is_active")
@@ -242,6 +250,14 @@ export default function Team() {
           .in("user_id", userIds)
           .gte("leave_date", format(weekStart, "yyyy-MM-dd"))
           .lte("leave_date", format(weekFriday, "yyyy-MM-dd")),
+        userOrgId
+          ? supabase
+              .from("holidays")
+              .select("holiday_date")
+              .eq("organization_id", userOrgId)
+              .gte("holiday_date", format(weekStart, "yyyy-MM-dd"))
+              .lte("holiday_date", format(weekFriday, "yyyy-MM-dd"))
+          : Promise.resolve({ data: [] }),
       ]);
 
       const profiles = profilesRes.data || [];
