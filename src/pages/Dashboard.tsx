@@ -453,7 +453,7 @@ export default function Dashboard() {
     // Calculate weekly hours using start_time/end_time
     const totalWeeklyMinutes = weekEntries.reduce((sum, e) => sum + getEntryDuration(e), 0);
     const teamCount = activeTeamUserIds.length;
-    const expectedMinutes = teamCount * workingDaysThisWeek * 480; // working days * 8 hours per team member
+    const expectedMinutes = teamCount * hodWorkingDaysThisWeek * 480; // working days * 8 hours per team member
     const completionRate = expectedMinutes > 0 ? (totalWeeklyMinutes / expectedMinutes) * 100 : 0;
 
     // Activity breakdown
