@@ -63,7 +63,7 @@ export default function Timesheet() {
   const [userVerticals, setUserVerticals] = useState<{ id: string; name: string; code: string }[]>([]);
   
   // Threshold validation
-  const { validateEntry, thresholds } = useThresholds(selectedVerticalId);
+  const { validateEntry, thresholds, isHoliday, isWorkingDay } = useThresholds(selectedVerticalId);
   
   // Hierarchy form state
   const [programId, setProgramId] = useState("");
