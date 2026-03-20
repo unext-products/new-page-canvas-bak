@@ -357,6 +357,26 @@ export default function Dashboard() {
     endOfWeek.setDate(endOfWeek.getDate() + 6);
     const weekEnd = formatLocalDate(endOfWeek);
 
+    // Fetch week's holidays for the HOD's org
+    const { data: hodRoleData } = await supabase
+      .from("user_roles")
+      .select("organization_id")
+      .eq("user_id", hodUserId)
+      .single();
+    const hodOrgId = hodRoleData?.organization_id;
+    const weekFriday = new Date(startOfWeek);
+    weekFriday.setDate(weekFriday.getDate() + 4);
+    const { data: hodWeekHolidays } = hodOrgId
+      ? await supabase
+          .from("holidays")
+          .select("holiday_date")
+          .eq("organization_id", hodOrgId)
+          .gte("holiday_date", weekStart)
+          .lte("holiday_date", formatLocalDate(weekFriday))
+      : { data: [] };
+    const hodHolidayCount = hodWeekHolidays?.length || 0;
+    const hodWorkingDaysThisWeek = Math.max(0, 5 - hodHolidayCount);
+
     // Fetch all users in HOD's verticals from user_verticals (primary)
     let allVertUserIds: string[] = [];
     const { data: vertUsers } = await supabase
