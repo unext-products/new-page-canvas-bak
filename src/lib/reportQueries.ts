@@ -184,8 +184,8 @@ export async function fetchFacultyReport(
   const targetBreakdown = await calculateUserTotalDailyTargetMinutes(userId);
   const userDailyTargetMinutes = targetBreakdown.totalDailyTargetMinutes;
 
-  // Fetch entries, leave days, and profile (including deactivation date) in parallel
-  const [entriesRes, leavesRes, profileRes] = await Promise.all([
+  // Fetch entries, leave days, profile, and org holidays in parallel
+  const [entriesRes, leavesRes, profileRes, orgIdRes] = await Promise.all([
     supabase
       .from("timesheet_entries")
       .select("*")
@@ -204,6 +204,11 @@ export async function fetchFacultyReport(
       .select("full_name, is_active, deactivated_at")
       .eq("id", userId)
       .single(),
+    supabase
+      .from("user_roles")
+      .select("organization_id")
+      .eq("user_id", userId)
+      .single(),
   ]);
 
   if (entriesRes.error) throw entriesRes.error;
@@ -212,6 +217,19 @@ export async function fetchFacultyReport(
   leavesRes.data?.forEach(l => leaveMap.set(l.leave_date, (l as any).leave_type || 'other'));
   const leaveDates = new Set(leaveMap.keys());
   const profile = profileRes.data;
+
+  // Fetch holidays for user's org
+  const orgId = orgIdRes.data?.organization_id;
+  let holidayDates = new Set<string>();
+  if (orgId) {
+    const { data: holidays } = await supabase
+      .from("holidays")
+      .select("holiday_date")
+      .eq("organization_id", orgId)
+      .gte("holiday_date", dateFrom)
+      .lte("holiday_date", dateTo);
+    holidayDates = new Set(holidays?.map(h => h.holiday_date) || []);
+  }
 
   // Get ALL verticals for the user from user_verticals junction table
   const { data: userVerts } = await supabase
@@ -253,9 +271,9 @@ export async function fetchFacultyReport(
   // If effective end is before period start, no working days expected
   const effectiveStart = period.dateFrom > effectivePeriodEnd ? effectivePeriodEnd : period.dateFrom;
   
-  // Calculate working days excluding weekends and leave days, capped at deactivation
+  // Calculate working days excluding weekends, holidays, and leave days
   const workingDays = effectivePeriodEnd >= period.dateFrom 
-    ? countWorkingDays(effectiveStart, effectivePeriodEnd, leaveDates, leaveMap)
+    ? countWorkingDays(effectiveStart, effectivePeriodEnd, leaveDates, leaveMap, holidayDates)
     : 0;
   
   // Use user's resolved daily target for expected hours calculation
@@ -447,12 +465,13 @@ export async function fetchVerticalReport(
 /** @deprecated Use fetchVerticalReport instead */
 export const fetchDepartmentReport = fetchVerticalReport;
 
-// Helper to count working days (excluding weekends and leave days, with half-day support)
+// Helper to count working days (excluding weekends, holidays, and leave days, with half-day support)
 export function countWorkingDays(
   dateFrom: Date, 
   dateTo: Date, 
   leaveDates: Set<string> = new Set(),
-  leaveTypeMap?: Map<string, string>
+  leaveTypeMap?: Map<string, string>,
+  holidayDates: Set<string> = new Set()
 ): number {
   // getLeaveWeight is imported at the top of the file
   const allDays = eachDayOfInterval({ start: dateFrom, end: dateTo });
@@ -460,6 +479,7 @@ export function countWorkingDays(
   for (const day of allDays) {
     if (isWeekend(day)) continue;
     const dateStr = format(day, "yyyy-MM-dd");
+    if (holidayDates.has(dateStr)) continue; // skip holidays
     if (leaveDates.has(dateStr)) {
       if (leaveTypeMap) {
         const leaveType = leaveTypeMap.get(dateStr) || "other";
@@ -473,11 +493,15 @@ export function countWorkingDays(
   return count;
 }
 
-export function calculateExpectedHours(period: ReportPeriod, dailyTargetMinutes: number = 480): number {
+export function calculateExpectedHours(period: ReportPeriod, dailyTargetMinutes: number = 480, holidayDates: Set<string> = new Set()): number {
   // This function is now mainly used for department reports where we don't have per-user leave data
   // For faculty reports, we calculate expected hours directly using countWorkingDays
   const allDays = eachDayOfInterval({ start: period.dateFrom, end: period.dateTo });
-  const workingDays = allDays.filter(day => !isWeekend(day)).length;
+  const workingDays = allDays.filter(day => {
+    if (isWeekend(day)) return false;
+    if (holidayDates.has(format(day, "yyyy-MM-dd"))) return false;
+    return true;
+  }).length;
   return (workingDays * dailyTargetMinutes) / 60;
 }
 

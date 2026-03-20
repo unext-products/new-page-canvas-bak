@@ -213,8 +213,16 @@ export default function Team() {
       const weekFriday = new Date(weekStart);
       weekFriday.setDate(weekFriday.getDate() + 4); // Friday
 
-      // Fetch profiles, entries, today's leaves, month's leaves, and this week's leaves in parallel
-      const [profilesRes, entriesRes, leavesRes, monthLeavesRes, weekLeavesRes] = await Promise.all([
+      // Get org ID for holiday lookup
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("organization_id")
+        .eq("user_id", userWithRole.user.id)
+        .single();
+      const userOrgId = roleData?.organization_id;
+
+      // Fetch profiles, entries, today's leaves, month's leaves, this week's leaves, and holidays in parallel
+      const [profilesRes, entriesRes, leavesRes, monthLeavesRes, weekLeavesRes, weekHolidaysRes] = await Promise.all([
         supabase
           .from("profiles")
           .select("id, full_name, avatar_url, is_active")
@@ -242,6 +250,14 @@ export default function Team() {
           .in("user_id", userIds)
           .gte("leave_date", format(weekStart, "yyyy-MM-dd"))
           .lte("leave_date", format(weekFriday, "yyyy-MM-dd")),
+        userOrgId
+          ? supabase
+              .from("holidays")
+              .select("holiday_date")
+              .eq("organization_id", userOrgId)
+              .gte("holiday_date", format(weekStart, "yyyy-MM-dd"))
+              .lte("holiday_date", format(weekFriday, "yyyy-MM-dd"))
+          : Promise.resolve({ data: [] }),
       ]);
 
       const profiles = profilesRes.data || [];
@@ -249,6 +265,7 @@ export default function Team() {
       const todayLeaves = leavesRes.data || [];
       const monthLeaves = monthLeavesRes.data || [];
       const weekLeaves = weekLeavesRes.data || [];
+      const holidayCountThisWeek = weekHolidaysRes.data?.length || 0;
 
       // Build team member data with per-user targets
       const memberPromises = profiles
@@ -261,11 +278,11 @@ export default function Team() {
           // Fetch user's actual daily target
           const targetBreakdown = await calculateUserTotalDailyTargetMinutes(profile.id);
           
-          // Calculate working days minus leave days (with half-day support)
+          // Calculate working days minus holidays and leave days (with half-day support)
           const { getLeaveWeight } = await import("@/lib/leaveUtils");
           const memberWeekLeaveDays = weekLeaves.filter((l) => l.user_id === profile.id)
             .reduce((sum, l) => sum + getLeaveWeight((l as any).leave_type || 'other'), 0);
-          const workingDaysThisWeek = Math.max(0, 5 - memberWeekLeaveDays);
+          const workingDaysThisWeek = Math.max(0, 5 - holidayCountThisWeek - memberWeekLeaveDays);
           const weeklyTargetHours = (targetBreakdown.totalDailyTargetMinutes / 60) * workingDaysThisWeek;
           
           const completionRate = weeklyTargetHours > 0 

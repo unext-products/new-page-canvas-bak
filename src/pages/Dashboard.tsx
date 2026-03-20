@@ -135,18 +135,40 @@ export default function Dashboard() {
       weekStartDate.setDate(weekStartDate.getDate() - weekStartDate.getDay() + 1); // Monday
       const weekEndDate = new Date(weekStartDate);
       weekEndDate.setDate(weekEndDate.getDate() + 4); // Friday (working days only)
-      
-      // Fetch leave days for current week
-      const { data: weekLeaves } = await supabase
-        .from("leave_days")
-        .select("leave_date, leave_type")
+
+      // Fetch user's org for holiday lookup
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("organization_id")
         .eq("user_id", userWithRole.user.id)
-        .gte("leave_date", formatLocalDate(weekStartDate))
-        .lte("leave_date", formatLocalDate(weekEndDate));
+        .single();
+      const userOrgId = roleData?.organization_id;
+      
+      // Fetch leave days and holidays for current week in parallel
+      const [weekLeavesRes, weekHolidaysRes] = await Promise.all([
+        supabase
+          .from("leave_days")
+          .select("leave_date, leave_type")
+          .eq("user_id", userWithRole.user.id)
+          .gte("leave_date", formatLocalDate(weekStartDate))
+          .lte("leave_date", formatLocalDate(weekEndDate)),
+        userOrgId
+          ? supabase
+              .from("holidays")
+              .select("holiday_date")
+              .eq("organization_id", userOrgId)
+              .gte("holiday_date", formatLocalDate(weekStartDate))
+              .lte("holiday_date", formatLocalDate(weekEndDate))
+          : Promise.resolve({ data: [] }),
+      ]);
+
+      const weekLeaves = weekLeavesRes.data;
+      const weekHolidays = weekHolidaysRes.data;
       
       const { getLeaveWeight } = await import("@/lib/leaveUtils");
       const leaveDaysThisWeek = weekLeaves?.reduce((sum, l) => sum + getLeaveWeight((l as any).leave_type || 'other'), 0) || 0;
-      const workingDaysThisWeek = Math.max(0, 5 - leaveDaysThisWeek);
+      const holidayCountThisWeek = weekHolidays?.length || 0;
+      const workingDaysThisWeek = Math.max(0, 5 - holidayCountThisWeek - leaveDaysThisWeek);
       const expectedWeeklyMinutes = resolvedDailyTargetMinutes * workingDaysThisWeek;
 
       // Fetch user's departments from BOTH user_departments AND user_verticals tables
@@ -335,6 +357,26 @@ export default function Dashboard() {
     endOfWeek.setDate(endOfWeek.getDate() + 6);
     const weekEnd = formatLocalDate(endOfWeek);
 
+    // Fetch week's holidays for the HOD's org
+    const { data: hodRoleData } = await supabase
+      .from("user_roles")
+      .select("organization_id")
+      .eq("user_id", hodUserId)
+      .single();
+    const hodOrgId = hodRoleData?.organization_id;
+    const weekFriday = new Date(startOfWeek);
+    weekFriday.setDate(weekFriday.getDate() + 4);
+    const { data: hodWeekHolidays } = hodOrgId
+      ? await supabase
+          .from("holidays")
+          .select("holiday_date")
+          .eq("organization_id", hodOrgId)
+          .gte("holiday_date", weekStart)
+          .lte("holiday_date", formatLocalDate(weekFriday))
+      : { data: [] };
+    const hodHolidayCount = hodWeekHolidays?.length || 0;
+    const hodWorkingDaysThisWeek = Math.max(0, 5 - hodHolidayCount);
+
     // Fetch all users in HOD's verticals from user_verticals (primary)
     let allVertUserIds: string[] = [];
     const { data: vertUsers } = await supabase
@@ -411,7 +453,7 @@ export default function Dashboard() {
     // Calculate weekly hours using start_time/end_time
     const totalWeeklyMinutes = weekEntries.reduce((sum, e) => sum + getEntryDuration(e), 0);
     const teamCount = activeTeamUserIds.length;
-    const expectedMinutes = teamCount * 5 * 480; // 5 days * 8 hours per team member
+    const expectedMinutes = teamCount * hodWorkingDaysThisWeek * 480; // working days * 8 hours per team member
     const completionRate = expectedMinutes > 0 ? (totalWeeklyMinutes / expectedMinutes) * 100 : 0;
 
     // Activity breakdown
@@ -462,12 +504,14 @@ export default function Dashboard() {
       }
     });
 
+    const hodExpectedHoursPerMember = hodWorkingDaysThisWeek * 8;
+    const hodExpectedMinutesPerMember = hodWorkingDaysThisWeek * 480;
     const teamPerformance = Array.from(memberStatsMap.values())
       .map((member) => ({
         ...member,
         hours: member.minutes / 60,
-        expectedHours: 40, // 5 days * 8 hours
-        completionRate: (member.minutes / 2400) * 100, // 40 hours = 2400 minutes
+        expectedHours: hodExpectedHoursPerMember,
+        completionRate: hodExpectedMinutesPerMember > 0 ? (member.minutes / hodExpectedMinutesPerMember) * 100 : 0,
       }))
       .sort((a, b) => b.completionRate - a.completionRate);
 
