@@ -1222,13 +1222,15 @@ export default function Approvals() {
                           selectedEntries.has(item.id) && "border-primary bg-primary/5 shadow-md"
                         )}
                       >
-                        <div className="absolute top-4 left-4 z-10">
-                          <Checkbox
-                            checked={selectedEntries.has(item.id)}
-                            onCheckedChange={() => toggleEntrySelection(item.id)}
-                          />
-                        </div>
-                        <CardHeader className="pl-12">
+                        {item.status === "submitted" && (
+                          <div className="absolute top-4 left-4 z-10">
+                            <Checkbox
+                              checked={selectedEntries.has(item.id)}
+                              onCheckedChange={() => toggleEntrySelection(item.id)}
+                            />
+                          </div>
+                        )}
+                        <CardHeader className={cn(item.status === "submitted" ? "pl-12" : "")}>
                           <div className="flex items-start justify-between">
                             <div className="flex items-center gap-3">
                               <Avatar>
