@@ -10,7 +10,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-import { CheckCircle, XCircle, Clock, Calendar, User, Filter, X, ClipboardCheck, CalendarDays, List, ZoomIn } from "lucide-react";
+import { CheckCircle, XCircle, Clock, Calendar, User, Filter, X, ClipboardCheck, CalendarDays, List, ZoomIn, Trash2 } from "lucide-react";
+import { isRole } from "@/lib/roleMapping";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { formatLocalDate } from "@/lib/dateUtils";
 import { format } from "date-fns";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -101,6 +104,10 @@ export default function Approvals() {
   const [bulkAction, setBulkAction] = useState<"approve" | "reject" | null>(null);
   const [bulkComment, setBulkComment] = useState("");
   const [bulkSubmitting, setBulkSubmitting] = useState(false);
+  
+  // Leave delete state
+  const [deleteLeaveDialogOpen, setDeleteLeaveDialogOpen] = useState(false);
+  const [leaveToDelete, setLeaveToDelete] = useState<LeaveEntry | null>(null);
   
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -467,6 +474,39 @@ export default function Approvals() {
       other: "Other Leave",
     };
     return labels[type] || type;
+  };
+
+  // Check if current user can delete a given leave entry
+  const canDeleteLeave = useCallback((leave: LeaveEntry) => {
+    if (!userWithRole?.role) return false;
+    const todayStr = formatLocalDate(new Date());
+    
+    // Admin/super_admin can delete any leave (including past)
+    if (isRole(userWithRole.role, "admin", "org_admin", "super_admin")) return true;
+    
+    // L1/L2 can only delete their own future/today leaves (handled in their own Timesheet page, not here)
+    return false;
+  }, [userWithRole?.role]);
+
+  const handleDeleteLeave = async () => {
+    if (!leaveToDelete) return;
+    try {
+      const { error } = await supabase
+        .from('leave_days' as any)
+        .delete()
+        .eq('id', leaveToDelete.id);
+
+      if (error) {
+        toast({ title: "Error", description: "Failed to delete leave entry", variant: "destructive" });
+      } else {
+        toast({ title: "Success", description: "Leave entry deleted successfully" });
+        setLeaveEntries(prev => prev.filter(l => l.id !== leaveToDelete.id));
+      }
+    } catch {
+      toast({ title: "Error", description: "Failed to delete leave entry", variant: "destructive" });
+    }
+    setDeleteLeaveDialogOpen(false);
+    setLeaveToDelete(null);
   };
 
   // Combine timesheet entries and leave entries for display
@@ -1276,8 +1316,24 @@ export default function Approvals() {
                             </div>
                           )}
 
-                          <div className="text-sm text-muted-foreground italic pt-2">
-                            Leave entries do not require approval
+                          <div className="flex items-center justify-between pt-2">
+                            <div className="text-sm text-muted-foreground italic">
+                              Leave entries do not require approval
+                            </div>
+                            {canDeleteLeave(item) && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                onClick={() => {
+                                  setLeaveToDelete(item);
+                                  setDeleteLeaveDialogOpen(true);
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4 mr-1" />
+                                Delete
+                              </Button>
+                            )}
                           </div>
                         </CardContent>
                       </Card>
@@ -1470,6 +1526,28 @@ export default function Approvals() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Leave Confirmation Dialog */}
+      <AlertDialog open={deleteLeaveDialogOpen} onOpenChange={setDeleteLeaveDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Leave Entry?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {leaveToDelete && (
+                <>
+                  Are you sure you want to delete the <strong>{formatLeaveType(leaveToDelete.leave_type)}</strong> leave for <strong>{leaveToDelete.profiles.full_name}</strong> on <strong>{format(new Date(leaveToDelete.leave_date), "MMM d, yyyy")}</strong>? This action cannot be undone.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setLeaveToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteLeave} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 }
