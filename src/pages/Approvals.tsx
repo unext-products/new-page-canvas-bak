@@ -1526,6 +1526,28 @@ export default function Approvals() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Leave Confirmation Dialog */}
+      <AlertDialog open={deleteLeaveDialogOpen} onOpenChange={setDeleteLeaveDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Leave Entry?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {leaveToDelete && (
+                <>
+                  Are you sure you want to delete the <strong>{formatLeaveType(leaveToDelete.leave_type)}</strong> leave for <strong>{leaveToDelete.profiles.full_name}</strong> on <strong>{format(new Date(leaveToDelete.leave_date), "MMM d, yyyy")}</strong>? This action cannot be undone.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setLeaveToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteLeave} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 }
