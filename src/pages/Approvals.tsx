@@ -1313,24 +1313,26 @@ export default function Approvals() {
                             </div>
                           )}
 
-                          <div className="flex gap-2 pt-2">
-                            <Button
-                              onClick={() => handleAction(item, "approve")}
-                              className="flex-1"
-                              variant="default"
-                            >
-                              <CheckCircle className="h-4 w-4 mr-2" />
-                              Approve
-                            </Button>
-                            <Button
-                              onClick={() => handleAction(item, "reject")}
-                              className="flex-1"
-                              variant="destructive"
-                            >
-                              <XCircle className="h-4 w-4 mr-2" />
-                              Reject
-                            </Button>
-                          </div>
+                          {item.status === "submitted" && (
+                            <div className="flex gap-2 pt-2">
+                              <Button
+                                onClick={() => handleAction(item, "approve")}
+                                className="flex-1"
+                                variant="default"
+                              >
+                                <CheckCircle className="h-4 w-4 mr-2" />
+                                Approve
+                              </Button>
+                              <Button
+                                onClick={() => handleAction(item, "reject")}
+                                className="flex-1"
+                                variant="destructive"
+                              >
+                                <XCircle className="h-4 w-4 mr-2" />
+                                Reject
+                              </Button>
+                            </div>
+                          )}
                         </CardContent>
                       </Card>
                     ) : (
