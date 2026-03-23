@@ -1197,14 +1197,14 @@ export default function Approvals() {
                 slotInterval={slotInterval}
               />
             ) : (
-              /* List View - Always shows only pending entries */
+              /* List View */
               listViewCombinedEntries.length === 0 ? (
                 <Card>
                   <CardContent className="flex flex-col items-center justify-center py-12">
                     <Filter className="h-12 w-12 text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">No pending entries found</h3>
+                    <h3 className="text-lg font-semibold mb-2">No entries found</h3>
                     <p className="text-muted-foreground text-center mb-4">
-                      No pending entries match the selected filters.
+                      No entries match the selected filters.
                     </p>
                     <Button variant="outline" onClick={clearFilters}>
                       Clear Filters
