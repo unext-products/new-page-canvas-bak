@@ -440,6 +440,8 @@ export default function Reports() {
                             <TableHeader>
                               <TableRow>
                                 <TableHead>Date</TableHead>
+                                <TableHead>Program</TableHead>
+                                <TableHead>Vertical</TableHead>
                                 <TableHead>Activity</TableHead>
                                 <TableHead>Time</TableHead>
                                 <TableHead>Duration</TableHead>
@@ -451,6 +453,8 @@ export default function Reports() {
                               {facultyReport.entries.map((entry) => (
                                 <TableRow key={entry.id}>
                                   <TableCell>{format(new Date(entry.entry_date), "MMM dd, yyyy")}</TableCell>
+                                  <TableCell className="text-sm">{entry._programName || "N/A"}</TableCell>
+                                  <TableCell className="text-sm">{entry._verticalName || "N/A"}</TableCell>
                                   <TableCell>
                                     <div>
                                       <div className="font-medium capitalize">{entry.activity_type}</div>
