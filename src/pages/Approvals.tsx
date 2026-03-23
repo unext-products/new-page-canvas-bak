@@ -306,16 +306,16 @@ export default function Approvals() {
         entriesData = data || [];
       }
 
-      // Fetch profiles for all users from timesheet entries
+      // Fetch profiles for all approvable users (not just those with timesheet entries)
       const userIds = [...new Set(entriesData?.map(e => e.user_id) || [])];
       
-      // Fetch leave entries for the same users
+      // Fetch leave entries for ALL approvable users (not just those with timesheet entries)
       let leaveData: any[] = [];
-      if (userIds.length > 0) {
+      if (allUserIds.length > 0) {
         const { data: leaves } = await supabase
           .from('leave_days' as any)
           .select('*')
-          .in('user_id', userIds)
+          .in('user_id', allUserIds)
           .order('leave_date', { ascending: false });
         leaveData = leaves || [];
       }
