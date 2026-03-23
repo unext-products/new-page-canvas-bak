@@ -89,6 +89,7 @@ export default function Approvals() {
   const [filterFaculty, setFilterFaculty] = useState<string | null>(null);
   const [filterActivity, setFilterActivity] = useState<string | null>(null);
   const [filterDate, setFilterDate] = useState<Date | null>(null);
+  const [filterLeavesOnly, setFilterLeavesOnly] = useState(false);
   
   // View mode state - default to day view
   const [viewMode, setViewMode] = useState<"list" | "day">("day");
