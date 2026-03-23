@@ -427,7 +427,7 @@ export default function Approvals() {
     }
   };
 
-  // Get unique faculty list from entries
+  // Get unique faculty list from entries AND leave entries
   const facultyList = useMemo(() => {
     const uniqueFaculty = new Map<string, { name: string; count: number; avatarUrl: string | null }>();
     entries.forEach(entry => {
@@ -442,11 +442,24 @@ export default function Approvals() {
         });
       }
     });
+    // Also include users who only have leave entries
+    leaveEntries.forEach(leave => {
+      const existing = uniqueFaculty.get(leave.user_id);
+      if (existing) {
+        existing.count++;
+      } else {
+        uniqueFaculty.set(leave.user_id, {
+          name: leave.profiles.full_name,
+          count: 1,
+          avatarUrl: leave.profiles.avatar_url
+        });
+      }
+    });
     return Array.from(uniqueFaculty.entries()).map(([userId, data]) => ({
       userId,
       ...data
     }));
-  }, [entries]);
+  }, [entries, leaveEntries]);
 
   // Get unique activity types from entries
   const activityTypes = useMemo(() => {
