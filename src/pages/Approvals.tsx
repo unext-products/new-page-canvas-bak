@@ -1245,9 +1245,19 @@ export default function Approvals() {
                                 </div>
                               </div>
                             </div>
-                            <Badge variant="outline" className="bg-warning/10 text-warning-foreground border-warning/20">
-                              Pending Review
-                            </Badge>
+                            {item.status === "submitted" ? (
+                              <Badge variant="outline" className="bg-warning/10 text-warning-foreground border-warning/20">
+                                Pending Review
+                              </Badge>
+                            ) : item.status === "approved" ? (
+                              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800">
+                                Approved
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">
+                                Rejected
+                              </Badge>
+                            )}
                           </div>
                         </CardHeader>
                         <CardContent className="space-y-4 pl-12">
