@@ -976,7 +976,20 @@ export default function Approvals() {
                       </PopoverContent>
                     </Popover>
                     
-                    {(filterFaculty || filterActivity || filterDate) && (
+                    {/* All Leaves quick filter */}
+                    <Button
+                      variant={filterLeavesOnly ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => {
+                        setFilterLeavesOnly(!filterLeavesOnly);
+                        if (!filterLeavesOnly) setFilterActivity(null);
+                      }}
+                      className="h-10"
+                    >
+                      All Leaves
+                    </Button>
+                    
+                    {(filterFaculty || filterActivity || filterDate || filterLeavesOnly) && (
                       <Button variant="ghost" size="sm" onClick={clearFilters}>
                         <X className="h-4 w-4 mr-1" />
                         Clear Filters
