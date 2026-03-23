@@ -476,6 +476,39 @@ export default function Approvals() {
     return labels[type] || type;
   };
 
+  // Check if current user can delete a given leave entry
+  const canDeleteLeave = useCallback((leave: LeaveEntry) => {
+    if (!userWithRole?.role) return false;
+    const todayStr = formatLocalDate(new Date());
+    
+    // Admin/super_admin can delete any leave (including past)
+    if (isRole(userWithRole.role, "admin", "org_admin", "super_admin")) return true;
+    
+    // L1/L2 can only delete their own future/today leaves (handled in their own Timesheet page, not here)
+    return false;
+  }, [userWithRole?.role]);
+
+  const handleDeleteLeave = async () => {
+    if (!leaveToDelete) return;
+    try {
+      const { error } = await supabase
+        .from('leave_days' as any)
+        .delete()
+        .eq('id', leaveToDelete.id);
+
+      if (error) {
+        toast({ title: "Error", description: "Failed to delete leave entry", variant: "destructive" });
+      } else {
+        toast({ title: "Success", description: "Leave entry deleted successfully" });
+        setLeaveEntries(prev => prev.filter(l => l.id !== leaveToDelete.id));
+      }
+    } catch {
+      toast({ title: "Error", description: "Failed to delete leave entry", variant: "destructive" });
+    }
+    setDeleteLeaveDialogOpen(false);
+    setLeaveToDelete(null);
+  };
+
   // Combine timesheet entries and leave entries for display
   const combinedEntries = useMemo(() => {
     const timesheetItems = entries.map(entry => ({
