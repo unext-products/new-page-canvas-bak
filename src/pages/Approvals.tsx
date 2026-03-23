@@ -556,23 +556,31 @@ export default function Approvals() {
     });
   }, [entries, filterFaculty, filterActivity, filterDate, showPendingOnly]);
   
-  // List view entries - ALWAYS show only pending (submitted) entries
+  // Determine if current user is admin
+  const isCurrentUserAdmin = useMemo(() => {
+    const r = userWithRole?.role;
+    return r === "org_admin" || r === "admin" || r === "super_admin";
+  }, [userWithRole?.role]);
+
+  // List view entries - Admin sees ALL statuses, others see only pending
   const listViewEntries = useMemo(() => {
+    if (filterLeavesOnly) return []; // When "All Leaves" is active, hide timesheet entries
     return entries.filter(entry => {
       if (filterFaculty && entry.user_id !== filterFaculty) return false;
       if (filterActivity && entry.activity_type !== filterActivity) return false;
       if (filterDate && entry.entry_date !== format(filterDate, "yyyy-MM-dd")) return false;
-      // List view always shows only pending entries
-      return entry.status === "submitted";
+      // Admin sees all statuses; others see only pending
+      if (!isCurrentUserAdmin && entry.status !== "submitted") return false;
+      return true;
     });
-  }, [entries, filterFaculty, filterActivity, filterDate]);
+  }, [entries, filterFaculty, filterActivity, filterDate, isCurrentUserAdmin, filterLeavesOnly]);
   
   // Pending entries for badge count (always only submitted)
   const pendingEntries = useMemo(() => {
     return entries.filter(entry => entry.status === "submitted");
   }, [entries]);
 
-  // Filter leave entries based on faculty selection
+  // Filter leave entries based on faculty selection and date
   const filteredLeaveEntries = useMemo(() => {
     return leaveEntries.filter(entry => {
       if (filterFaculty && entry.user_id !== filterFaculty) return false;
