@@ -1262,7 +1262,7 @@ export default function Approvals() {
                             )}
                           </div>
                         </CardHeader>
-                        <CardContent className="space-y-4 pl-12">
+                        <CardContent className={cn("space-y-4", item.status === "submitted" && "pl-12")}>
                           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                             <div>
                               <div className="text-sm text-muted-foreground mb-1">Activity</div>
