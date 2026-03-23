@@ -725,6 +725,7 @@ export default function Approvals() {
     setFilterFaculty(null);
     setFilterActivity(null);
     setFilterDate(null);
+    setFilterLeavesOnly(false);
   };
 
   // Bulk actions
