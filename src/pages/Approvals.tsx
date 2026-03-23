@@ -539,9 +539,14 @@ export default function Approvals() {
       sortDate: leave.leave_date,
     }));
     
-    return [...timesheetItems, ...leaveItems].sort((a, b) => 
-      new Date(b.sortDate).getTime() - new Date(a.sortDate).getTime()
-    );
+    return [...timesheetItems, ...leaveItems].sort((a, b) => {
+      const dateDiff = new Date(a.sortDate).getTime() - new Date(b.sortDate).getTime();
+      if (dateDiff !== 0) return dateDiff;
+      // Within the same date, sort by start_time ascending
+      const aTime = a.type === 'timesheet' ? a.start_time || '' : '00:00';
+      const bTime = b.type === 'timesheet' ? b.start_time || '' : '00:00';
+      return aTime.localeCompare(bTime);
+    });
   }, [listViewEntries, filteredLeaveEntries]);
 
   // Prepare faculty data for day matrix view
