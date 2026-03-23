@@ -1316,8 +1316,24 @@ export default function Approvals() {
                             </div>
                           )}
 
-                          <div className="text-sm text-muted-foreground italic pt-2">
-                            Leave entries do not require approval
+                          <div className="flex items-center justify-between pt-2">
+                            <div className="text-sm text-muted-foreground italic">
+                              Leave entries do not require approval
+                            </div>
+                            {canDeleteLeave(item) && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                onClick={() => {
+                                  setLeaveToDelete(item);
+                                  setDeleteLeaveDialogOpen(true);
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4 mr-1" />
+                                Delete
+                              </Button>
+                            )}
                           </div>
                         </CardContent>
                       </Card>
