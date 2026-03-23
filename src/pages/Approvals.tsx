@@ -144,19 +144,21 @@ export default function Approvals() {
       
       let entriesData: any[] = [];
       
-      // Use dynamic approvable roles from settings
-      const rolesToApprove = approvableRoles;
+      const currentRole = userWithRole.role;
+      const isL2 = currentRole === "l2" || currentRole === "program_manager";
+      const isL3 = currentRole === "l3" || currentRole === "manager";
+      const isAdmin = currentRole === "org_admin" || currentRole === "admin";
+      
+      // Admins should see ALL roles in their org, not just what approval settings say
+      const rolesToApprove = isAdmin 
+        ? ["l1", "l2", "l3"] 
+        : approvableRoles;
       
       if (rolesToApprove.length === 0) {
         setEntries([]);
         setLoading(false);
         return;
       }
-
-      const currentRole = userWithRole.role;
-      const isL2 = currentRole === "l2" || currentRole === "program_manager";
-      const isL3 = currentRole === "l3" || currentRole === "manager";
-      const isAdmin = currentRole === "org_admin" || currentRole === "admin";
       
       const orgId = await getOrgId();
       
