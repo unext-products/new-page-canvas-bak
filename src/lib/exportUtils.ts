@@ -165,6 +165,9 @@ export function exportMemberReportCSV(
   ];
 
   const headers = [
+    "Program",
+    "Vertical",
+    "Name",
     "Date",
     "Activity Type",
     "Activity Subtype",
@@ -176,6 +179,9 @@ export function exportMemberReportCSV(
   ];
 
   const dataRows = report.entries.map((entry: any) => [
+    entry._programName || "N/A",
+    entry._verticalName || "N/A",
+    report.facultyName || "N/A",
     format(new Date(entry.entry_date), "MMM dd, yyyy"),
     entry.activity_type,
     entry.activity_subtype || "",

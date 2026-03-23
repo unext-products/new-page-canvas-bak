@@ -152,8 +152,11 @@ export function exportMemberReportPDF(
   // Detailed Table
   autoTable(doc, {
     startY: yPos + 10,
-    head: [["Date", "Activity", "Time", "Duration", "Status"]],
+    head: [["Program", "Vertical", "Name", "Date", "Activity", "Time", "Duration", "Status"]],
     body: report.entries.map((entry: any) => [
+      entry._programName || "N/A",
+      entry._verticalName || "N/A",
+      report.facultyName || "N/A",
       format(new Date(entry.entry_date), "MMM dd, yyyy"),
       `${entry.activity_type}${entry.activity_subtype ? ` - ${entry.activity_subtype}` : ""}`,
       `${entry.start_time} - ${entry.end_time}`,
@@ -161,7 +164,7 @@ export function exportMemberReportPDF(
       entry.status,
     ]),
     theme: "striped",
-    styles: { fontSize: 8, cellPadding: 3 },
+    styles: { fontSize: 7, cellPadding: 2 },
     headStyles: {
       fillColor: [41, 128, 185],
       textColor: [255, 255, 255],
