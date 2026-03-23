@@ -105,6 +105,10 @@ export default function Approvals() {
   const [bulkComment, setBulkComment] = useState("");
   const [bulkSubmitting, setBulkSubmitting] = useState(false);
   
+  // Leave delete state
+  const [deleteLeaveDialogOpen, setDeleteLeaveDialogOpen] = useState(false);
+  const [leaveToDelete, setLeaveToDelete] = useState<LeaveEntry | null>(null);
+  
   const { toast } = useToast();
   const navigate = useNavigate();
 
