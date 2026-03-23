@@ -89,6 +89,7 @@ export default function Approvals() {
   const [filterFaculty, setFilterFaculty] = useState<string | null>(null);
   const [filterActivity, setFilterActivity] = useState<string | null>(null);
   const [filterDate, setFilterDate] = useState<Date | null>(null);
+  const [filterLeavesOnly, setFilterLeavesOnly] = useState(false);
   
   // View mode state - default to day view
   const [viewMode, setViewMode] = useState<"list" | "day">("day");
@@ -305,16 +306,16 @@ export default function Approvals() {
         entriesData = data || [];
       }
 
-      // Fetch profiles for all users from timesheet entries
+      // Fetch profiles for all approvable users (not just those with timesheet entries)
       const userIds = [...new Set(entriesData?.map(e => e.user_id) || [])];
       
-      // Fetch leave entries for the same users
+      // Fetch leave entries for ALL approvable users (not just those with timesheet entries)
       let leaveData: any[] = [];
-      if (userIds.length > 0) {
+      if (allUserIds.length > 0) {
         const { data: leaves } = await supabase
           .from('leave_days' as any)
           .select('*')
-          .in('user_id', userIds)
+          .in('user_id', allUserIds)
           .order('leave_date', { ascending: false });
         leaveData = leaves || [];
       }
@@ -426,7 +427,7 @@ export default function Approvals() {
     }
   };
 
-  // Get unique faculty list from entries
+  // Get unique faculty list from entries AND leave entries
   const facultyList = useMemo(() => {
     const uniqueFaculty = new Map<string, { name: string; count: number; avatarUrl: string | null }>();
     entries.forEach(entry => {
@@ -441,11 +442,24 @@ export default function Approvals() {
         });
       }
     });
+    // Also include users who only have leave entries
+    leaveEntries.forEach(leave => {
+      const existing = uniqueFaculty.get(leave.user_id);
+      if (existing) {
+        existing.count++;
+      } else {
+        uniqueFaculty.set(leave.user_id, {
+          name: leave.profiles.full_name,
+          count: 1,
+          avatarUrl: leave.profiles.avatar_url
+        });
+      }
+    });
     return Array.from(uniqueFaculty.entries()).map(([userId, data]) => ({
       userId,
       ...data
     }));
-  }, [entries]);
+  }, [entries, leaveEntries]);
 
   // Get unique activity types from entries
   const activityTypes = useMemo(() => {
@@ -542,23 +556,31 @@ export default function Approvals() {
     });
   }, [entries, filterFaculty, filterActivity, filterDate, showPendingOnly]);
   
-  // List view entries - ALWAYS show only pending (submitted) entries
+  // Determine if current user is admin
+  const isCurrentUserAdmin = useMemo(() => {
+    const r = userWithRole?.role;
+    return r === "org_admin" || r === "admin" || r === "super_admin";
+  }, [userWithRole?.role]);
+
+  // List view entries - Admin sees ALL statuses, others see only pending
   const listViewEntries = useMemo(() => {
+    if (filterLeavesOnly) return []; // When "All Leaves" is active, hide timesheet entries
     return entries.filter(entry => {
       if (filterFaculty && entry.user_id !== filterFaculty) return false;
       if (filterActivity && entry.activity_type !== filterActivity) return false;
       if (filterDate && entry.entry_date !== format(filterDate, "yyyy-MM-dd")) return false;
-      // List view always shows only pending entries
-      return entry.status === "submitted";
+      // Admin sees all statuses; others see only pending
+      if (!isCurrentUserAdmin && entry.status !== "submitted") return false;
+      return true;
     });
-  }, [entries, filterFaculty, filterActivity, filterDate]);
+  }, [entries, filterFaculty, filterActivity, filterDate, isCurrentUserAdmin, filterLeavesOnly]);
   
   // Pending entries for badge count (always only submitted)
   const pendingEntries = useMemo(() => {
     return entries.filter(entry => entry.status === "submitted");
   }, [entries]);
 
-  // Filter leave entries based on faculty selection
+  // Filter leave entries based on faculty selection and date
   const filteredLeaveEntries = useMemo(() => {
     return leaveEntries.filter(entry => {
       if (filterFaculty && entry.user_id !== filterFaculty) return false;
@@ -703,6 +725,7 @@ export default function Approvals() {
     setFilterFaculty(null);
     setFilterActivity(null);
     setFilterDate(null);
+    setFilterLeavesOnly(false);
   };
 
   // Bulk actions
@@ -878,7 +901,7 @@ export default function Approvals() {
           }
         />
 
-        {pendingEntries.length === 0 ? (
+        {pendingEntries.length === 0 && !isCurrentUserAdmin ? (
           <Card>
             <CardContent className="py-0">
               <EmptyState
@@ -953,7 +976,20 @@ export default function Approvals() {
                       </PopoverContent>
                     </Popover>
                     
-                    {(filterFaculty || filterActivity || filterDate) && (
+                    {/* All Leaves quick filter */}
+                    <Button
+                      variant={filterLeavesOnly ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => {
+                        setFilterLeavesOnly(!filterLeavesOnly);
+                        if (!filterLeavesOnly) setFilterActivity(null);
+                      }}
+                      className="h-10"
+                    >
+                      All Leaves
+                    </Button>
+                    
+                    {(filterFaculty || filterActivity || filterDate || filterLeavesOnly) && (
                       <Button variant="ghost" size="sm" onClick={clearFilters}>
                         <X className="h-4 w-4 mr-1" />
                         Clear Filters
@@ -1043,7 +1079,7 @@ export default function Approvals() {
                 </div>
 
                 {/* Filter Badges */}
-                {(filterFaculty || filterActivity || filterDate) && (
+                {(filterFaculty || filterActivity || filterDate || filterLeavesOnly) && (
                   <div className="flex flex-wrap gap-2">
                     {filterFaculty && (
                       <Badge variant="secondary" className="gap-1">
@@ -1061,6 +1097,12 @@ export default function Approvals() {
                       <Badge variant="secondary" className="gap-1">
                         Date: {format(filterDate, "MMM d, yyyy")}
                         <X className="h-3 w-3 cursor-pointer" onClick={() => setFilterDate(null)} />
+                      </Badge>
+                    )}
+                    {filterLeavesOnly && (
+                      <Badge variant="secondary" className="gap-1">
+                        All Leaves
+                        <X className="h-3 w-3 cursor-pointer" onClick={() => setFilterLeavesOnly(false)} />
                       </Badge>
                     )}
                   </div>
@@ -1155,14 +1197,14 @@ export default function Approvals() {
                 slotInterval={slotInterval}
               />
             ) : (
-              /* List View - Always shows only pending entries */
+              /* List View */
               listViewCombinedEntries.length === 0 ? (
                 <Card>
                   <CardContent className="flex flex-col items-center justify-center py-12">
                     <Filter className="h-12 w-12 text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">No pending entries found</h3>
+                    <h3 className="text-lg font-semibold mb-2">No entries found</h3>
                     <p className="text-muted-foreground text-center mb-4">
-                      No pending entries match the selected filters.
+                      No entries match the selected filters.
                     </p>
                     <Button variant="outline" onClick={clearFilters}>
                       Clear Filters
@@ -1180,13 +1222,15 @@ export default function Approvals() {
                           selectedEntries.has(item.id) && "border-primary bg-primary/5 shadow-md"
                         )}
                       >
-                        <div className="absolute top-4 left-4 z-10">
-                          <Checkbox
-                            checked={selectedEntries.has(item.id)}
-                            onCheckedChange={() => toggleEntrySelection(item.id)}
-                          />
-                        </div>
-                        <CardHeader className="pl-12">
+                        {item.status === "submitted" && (
+                          <div className="absolute top-4 left-4 z-10">
+                            <Checkbox
+                              checked={selectedEntries.has(item.id)}
+                              onCheckedChange={() => toggleEntrySelection(item.id)}
+                            />
+                          </div>
+                        )}
+                        <CardHeader className={cn(item.status === "submitted" ? "pl-12" : "")}>
                           <div className="flex items-start justify-between">
                             <div className="flex items-center gap-3">
                               <Avatar>
@@ -1203,12 +1247,22 @@ export default function Approvals() {
                                 </div>
                               </div>
                             </div>
-                            <Badge variant="outline" className="bg-warning/10 text-warning-foreground border-warning/20">
-                              Pending Review
-                            </Badge>
+                            {item.status === "submitted" ? (
+                              <Badge variant="outline" className="bg-warning/10 text-warning-foreground border-warning/20">
+                                Pending Review
+                              </Badge>
+                            ) : item.status === "approved" ? (
+                              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800">
+                                Approved
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">
+                                Rejected
+                              </Badge>
+                            )}
                           </div>
                         </CardHeader>
-                        <CardContent className="space-y-4 pl-12">
+                        <CardContent className={cn("space-y-4", item.status === "submitted" && "pl-12")}>
                           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                             <div>
                               <div className="text-sm text-muted-foreground mb-1">Activity</div>
@@ -1261,24 +1315,26 @@ export default function Approvals() {
                             </div>
                           )}
 
-                          <div className="flex gap-2 pt-2">
-                            <Button
-                              onClick={() => handleAction(item, "approve")}
-                              className="flex-1"
-                              variant="default"
-                            >
-                              <CheckCircle className="h-4 w-4 mr-2" />
-                              Approve
-                            </Button>
-                            <Button
-                              onClick={() => handleAction(item, "reject")}
-                              className="flex-1"
-                              variant="destructive"
-                            >
-                              <XCircle className="h-4 w-4 mr-2" />
-                              Reject
-                            </Button>
-                          </div>
+                          {item.status === "submitted" && (
+                            <div className="flex gap-2 pt-2">
+                              <Button
+                                onClick={() => handleAction(item, "approve")}
+                                className="flex-1"
+                                variant="default"
+                              >
+                                <CheckCircle className="h-4 w-4 mr-2" />
+                                Approve
+                              </Button>
+                              <Button
+                                onClick={() => handleAction(item, "reject")}
+                                className="flex-1"
+                                variant="destructive"
+                              >
+                                <XCircle className="h-4 w-4 mr-2" />
+                                Reject
+                              </Button>
+                            </div>
+                          )}
                         </CardContent>
                       </Card>
                     ) : (
