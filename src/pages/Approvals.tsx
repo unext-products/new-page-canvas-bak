@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { getVisibleUserIds } from "@/lib/reportingHierarchy";
 import { useAuth } from "@/contexts/AuthContext";
 import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
@@ -185,68 +186,93 @@ export default function Approvals() {
       // Check if current user can approve L1 entries
       if (rolesToApprove.includes("l1")) {
         if (isL2) {
-          // L2 can only approve L1 in their programs
-          const { data: l2Programs } = await supabase
-            .from("user_programs")
-            .select("program_id")
-            .eq("user_id", userWithRole.user.id);
+          // L2: Check reporting hierarchy first, fallback to program-based
+          const hierarchyUsers = await getVisibleUserIds(userWithRole.user.id, "l2");
           
-          const l2ProgramIds = l2Programs?.map(p => p.program_id) || [];
-          
-          if (l2ProgramIds.length > 0) {
-            const { data: l1UsersInPrograms } = await supabase
-              .from("user_programs")
-              .select("user_id")
-              .in("program_id", l2ProgramIds);
-            
-            const candidateIds = l1UsersInPrograms?.map(u => u.user_id) || [];
-            
-            // Filter to L1 role only
-            if (candidateIds.length > 0) {
+          if (hierarchyUsers !== null) {
+            // Filter to L1 role only from hierarchy reportees
+            if (hierarchyUsers.length > 0) {
               const { data: l1RoleUsers } = await supabase
                 .from("user_roles")
                 .select("user_id")
-                .in("user_id", candidateIds)
+                .in("user_id", hierarchyUsers)
                 .in("role", ["l1", "faculty"]);
-              
               l1RoleUsers?.forEach(u => userIdsToApprove.add(u.user_id));
+            }
+          } else {
+            // Fallback: legacy program-based logic
+            const { data: l2Programs } = await supabase
+              .from("user_programs")
+              .select("program_id")
+              .eq("user_id", userWithRole.user.id);
+            
+            const l2ProgramIds = l2Programs?.map(p => p.program_id) || [];
+            
+            if (l2ProgramIds.length > 0) {
+              const { data: l1UsersInPrograms } = await supabase
+                .from("user_programs")
+                .select("user_id")
+                .in("program_id", l2ProgramIds);
+              
+              const candidateIds = l1UsersInPrograms?.map(u => u.user_id) || [];
+              
+              if (candidateIds.length > 0) {
+                const { data: l1RoleUsers } = await supabase
+                  .from("user_roles")
+                  .select("user_id")
+                  .in("user_id", candidateIds)
+                  .in("role", ["l1", "faculty"]);
+                l1RoleUsers?.forEach(u => userIdsToApprove.add(u.user_id));
+              }
             }
           }
         } else if (isL3) {
-          // L3 can approve L1 in their verticals
-          const { data: l3Verticals } = await supabase
-            .from("user_verticals")
-            .select("vertical_id")
-            .eq("user_id", userWithRole.user.id);
+          // L3: Check reporting hierarchy first, fallback to vertical-based
+          const hierarchyUsers = await getVisibleUserIds(userWithRole.user.id, "l3");
           
-          const l3VerticalIds = l3Verticals?.map(v => v.vertical_id) || [];
-          
-          if (l3VerticalIds.length > 0) {
-            const { data: verticalUsers } = await supabase
-              .from("user_verticals")
-              .select("user_id")
-              .in("vertical_id", l3VerticalIds);
-            
-            const candidateIds = [...new Set(verticalUsers?.map(u => u.user_id) || [])];
-            
-            if (candidateIds.length > 0) {
+          if (hierarchyUsers !== null) {
+            // Filter to L1 role only from hierarchy reportees (transitive)
+            if (hierarchyUsers.length > 0) {
               const { data: l1RoleUsers } = await supabase
                 .from("user_roles")
                 .select("user_id")
-                .in("user_id", candidateIds)
+                .in("user_id", hierarchyUsers)
                 .in("role", ["l1", "faculty"]);
-              
               l1RoleUsers?.forEach(u => userIdsToApprove.add(u.user_id));
+            }
+          } else {
+            // Fallback: legacy vertical-based logic
+            const { data: l3Verticals } = await supabase
+              .from("user_verticals")
+              .select("vertical_id")
+              .eq("user_id", userWithRole.user.id);
+            
+            const l3VerticalIds = l3Verticals?.map(v => v.vertical_id) || [];
+            
+            if (l3VerticalIds.length > 0) {
+              const { data: verticalUsers } = await supabase
+                .from("user_verticals")
+                .select("user_id")
+                .in("vertical_id", l3VerticalIds);
+              
+              const candidateIds = [...new Set(verticalUsers?.map(u => u.user_id) || [])];
+              
+              if (candidateIds.length > 0) {
+                const { data: l1RoleUsers } = await supabase
+                  .from("user_roles")
+                  .select("user_id")
+                  .in("user_id", candidateIds)
+                  .in("role", ["l1", "faculty"]);
+                l1RoleUsers?.forEach(u => userIdsToApprove.add(u.user_id));
+              }
             }
           }
         } else if (isAdmin && orgId) {
-          // Admin can approve all L1 in org
           const { data: l1Users } = await supabase
             .from("user_roles")
             .select("user_id")
             .eq("organization_id", orgId)
             .in("role", ["l1", "faculty"]);
-          
           l1Users?.forEach(u => userIdsToApprove.add(u.user_id));
         }
       }
@@ -254,40 +280,58 @@ export default function Approvals() {
       // Check if current user can approve L2 entries
       if (rolesToApprove.includes("l2")) {
         if (isL3) {
-          // L3 can approve L2 in their verticals
-          const { data: l3Verticals } = await supabase
-            .from("user_verticals")
-            .select("vertical_id")
-            .eq("user_id", userWithRole.user.id);
+          // L3: Check reporting hierarchy first for direct L2 reportees
+          const hierarchyUsers = await getVisibleUserIds(userWithRole.user.id, "l3");
           
-          const l3VerticalIds = l3Verticals?.map(v => v.vertical_id) || [];
-          
-          if (l3VerticalIds.length > 0) {
-            const { data: verticalUsers } = await supabase
-              .from("user_verticals")
+          if (hierarchyUsers !== null) {
+            // Get direct reportees only (not transitive) for L2 approval
+            const { data: directReportees } = await supabase
+              .from("reporting_hierarchy")
               .select("user_id")
-              .in("vertical_id", l3VerticalIds);
+              .eq("manager_id", userWithRole.user.id);
             
-            const candidateIds = [...new Set(verticalUsers?.map(u => u.user_id) || [])];
-            
-            if (candidateIds.length > 0) {
+            const directIds = directReportees?.map(r => r.user_id) || [];
+            if (directIds.length > 0) {
               const { data: l2RoleUsers } = await supabase
                 .from("user_roles")
                 .select("user_id")
-                .in("user_id", candidateIds)
+                .in("user_id", directIds)
                 .in("role", ["l2", "program_manager"]);
-              
               l2RoleUsers?.forEach(u => userIdsToApprove.add(u.user_id));
+            }
+          } else {
+            // Fallback: legacy vertical-based logic
+            const { data: l3Verticals } = await supabase
+              .from("user_verticals")
+              .select("vertical_id")
+              .eq("user_id", userWithRole.user.id);
+            
+            const l3VerticalIds = l3Verticals?.map(v => v.vertical_id) || [];
+            
+            if (l3VerticalIds.length > 0) {
+              const { data: verticalUsers } = await supabase
+                .from("user_verticals")
+                .select("user_id")
+                .in("vertical_id", l3VerticalIds);
+              
+              const candidateIds = [...new Set(verticalUsers?.map(u => u.user_id) || [])];
+              
+              if (candidateIds.length > 0) {
+                const { data: l2RoleUsers } = await supabase
+                  .from("user_roles")
+                  .select("user_id")
+                  .in("user_id", candidateIds)
+                  .in("role", ["l2", "program_manager"]);
+                l2RoleUsers?.forEach(u => userIdsToApprove.add(u.user_id));
+              }
             }
           }
         } else if (isAdmin && orgId) {
-          // Admin can approve all L2 in org
           const { data: l2Users } = await supabase
             .from("user_roles")
             .select("user_id")
             .eq("organization_id", orgId)
             .in("role", ["l2", "program_manager"]);
-          
           l2Users?.forEach(u => userIdsToApprove.add(u.user_id));
         }
       }
@@ -295,13 +339,11 @@ export default function Approvals() {
       // Check if current user can approve L3 entries
       if (rolesToApprove.includes("l3")) {
         if (isAdmin && orgId) {
-          // Admin can approve L3 in their org
           const { data: l3Users } = await supabase
             .from("user_roles")
             .select("user_id")
             .eq("organization_id", orgId)
             .in("role", ["l3", "hod"]);
-          
           l3Users?.forEach(u => userIdsToApprove.add(u.user_id));
         }
       }

@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
+import { getVisibleUserIds } from "@/lib/reportingHierarchy";
 
 interface Member {
   id: string;

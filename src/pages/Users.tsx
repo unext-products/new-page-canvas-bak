@@ -36,6 +36,8 @@ import { calculateDurationMinutes } from "@/lib/timesheetUtils";
 import { format, startOfWeek, endOfWeek } from "date-fns";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { ReporteeSelect } from "@/components/ReporteeSelect";
+import { saveReporteeAssignments } from "@/lib/reportingHierarchy";
 
 interface UserProfile {
   id: string;
@@ -90,6 +92,8 @@ export default function Users() {
     is_active: true,
     password: "",
     confirmPassword: "",
+    // Reporting hierarchy
+    reportee_ids: [] as string[],
   });
   
   const isSuperAdmin = isRole(userWithRole?.role, "super_admin");
@@ -102,6 +106,7 @@ export default function Users() {
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [detailUser, setDetailUser] = useState<UserProfile | null>(null);
   const [weeklyProgress, setWeeklyProgress] = useState({ logged: 0, target: 40 });
+  const [detailReportees, setDetailReportees] = useState<string[]>([]);
   
   // Download dialog state
   const [downloadDialogOpen, setDownloadDialogOpen] = useState(false);
@@ -348,6 +353,7 @@ export default function Users() {
   const openDetailDialog = async (user: UserProfile) => {
     setDetailUser(user);
     setDetailDialogOpen(true);
+    setDetailReportees([]);
     
     // Fetch weekly timesheet data for this user
     const now = new Date();
@@ -367,6 +373,24 @@ export default function Users() {
         sum + calculateDurationMinutes(e.start_time, e.end_time), 0) || 0;
       
       setWeeklyProgress({ logged: totalMinutes / 60, target: 40 });
+      
+      // Fetch reportees for L2/L3 users
+      if (user.role === "l2" || user.role === "l3" || 
+          user.role === "program_manager" || user.role === "manager") {
+        const { data: reportees } = await supabase
+          .from("reporting_hierarchy")
+          .select("user_id")
+          .eq("manager_id", user.id);
+        
+        if (reportees && reportees.length > 0) {
+          const reporteeIds = reportees.map(r => r.user_id);
+          const { data: reporteeProfiles } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .in("id", reporteeIds);
+          setDetailReportees(reporteeProfiles?.map(p => p.full_name) || []);
+        }
+      }
     } catch (error) {
       console.error("Error fetching weekly progress:", error);
       setWeeklyProgress({ logged: 0, target: 40 });
@@ -510,6 +534,13 @@ export default function Users() {
         throw new Error(data.error);
       }
 
+      // Save reporting hierarchy for L2/L3 managers if reportees were selected
+      if (data?.user?.id && formData.reportee_ids.length > 0 &&
+          (formData.role === "l2" || formData.role === "l3" || 
+           formData.role === "program_manager" || formData.role === "manager")) {
+        await saveReporteeAssignments(data.user.id, formData.reportee_ids);
+      }
+
       toast({
         title: "Success",
         description: "User created successfully. You can now share the login credentials with the user.",
@@ -532,6 +563,7 @@ export default function Users() {
         is_active: true,
         password: "",
         confirmPassword: "",
+        reportee_ids: [],
       });
       setShowPassword(false);
       setShowConfirmPassword(false);
@@ -714,6 +746,12 @@ export default function Users() {
         if (data?.error) throw new Error(data.error);
       }
 
+      // Save reporting hierarchy for L2/L3 managers
+      if (formData.role === "l2" || formData.role === "l3" || 
+          formData.role === "program_manager" || formData.role === "manager") {
+        await saveReporteeAssignments(selectedUser.id, formData.reportee_ids);
+      }
+
       toast({
         title: "Success",
         description: formData.password && formData.password.trim() !== "" ? 
@@ -739,6 +777,7 @@ export default function Users() {
         is_active: true,
         password: "",
         confirmPassword: "",
+        reportee_ids: [],
       });
       setShowPassword(false);
       setShowConfirmPassword(false);
@@ -818,13 +857,20 @@ export default function Users() {
   const openEditDialog = async (user: UserProfile) => {
     setSelectedUser(user);
     
-    // Load vertical assignments from user_verticals table
-    const { data: userVerticals } = await supabase
-      .from("user_verticals")
-      .select("vertical_id")
-      .eq("user_id", user.id);
+    // Load vertical assignments and reportees in parallel
+    const [userVerticalsRes, reporteesRes] = await Promise.all([
+      supabase
+        .from("user_verticals")
+        .select("vertical_id")
+        .eq("user_id", user.id),
+      supabase
+        .from("reporting_hierarchy")
+        .select("user_id")
+        .eq("manager_id", user.id),
+    ]);
     
-    const verticalIds = userVerticals?.map(uv => uv.vertical_id) || [];
+    const verticalIds = userVerticalsRes.data?.map(uv => uv.vertical_id) || [];
+    const reporteeIds = reporteesRes.data?.map(r => r.user_id) || [];
     
     // Load all departments and programs from junction tables
     const deptIds = user.departments.map(d => d.id);
@@ -843,12 +889,13 @@ export default function Users() {
       department_ids: deptIds.length > 0 ? deptIds : (user.department_id ? [user.department_id] : []),
       vertical_ids: effectiveVerticalIds,
       program_ids: progIds.length > 0 ? progIds : (user.program_id ? [user.program_id] : []),
-      batch_ids: [], // TODO: Load from user_batches if needed
-      subject_ids: [], // TODO: Load from user_subjects if needed
+      batch_ids: [],
+      subject_ids: [],
       program_id: progIds[0] || user.program_id || "",
       is_active: user.is_active,
       password: "",
       confirmPassword: "",
+      reportee_ids: reporteeIds,
     });
     setEditDialogOpen(true);
   };
@@ -1098,7 +1145,26 @@ export default function Users() {
                     </div>
                   )}
 
-                  {/* Note about L1 full hierarchy - simplified for now */}
+                  {/* Reportee assignment for L2 and L3 */}
+                  {(formData.role === "l2" || formData.role === "l3") && formData.vertical_ids.length > 0 && (
+                    <div>
+                      <Label>
+                        Reportees ({formData.role === "l3" ? roleLabel("l2") : roleLabel("l1")})
+                      </Label>
+                      <ReporteeSelect
+                        managerRole={formData.role}
+                        value={formData.reportee_ids}
+                        onValueChange={(value) => setFormData({ ...formData, reportee_ids: value })}
+                        verticalIds={formData.vertical_ids}
+                        programIds={formData.program_ids}
+                        roleLabel={formData.role === "l3" ? roleLabel("l2") + " reportees" : roleLabel("l1") + " reportees"}
+                      />
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Select users who will report to this {roleLabel(formData.role)}
+                      </p>
+                    </div>
+                  )}
+
                   {formData.role === "l1" && (
                     <div className="text-sm text-muted-foreground p-3 bg-muted rounded-md">
                       <p><strong>Note:</strong> {roleLabel("l1")} users require assignment to verticals, programs, batches, and subjects. Additional hierarchy levels can be configured after user creation.</p>
@@ -1351,6 +1417,18 @@ export default function Users() {
                     <div className="flex flex-wrap gap-2 mt-1">
                       {detailUser.programs.map(p => (
                         <Badge key={p.id} variant="outline">{p.name}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Reportees */}
+                {detailReportees.length > 0 && (
+                  <div>
+                    <Label className="text-muted-foreground">Reportees</Label>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {detailReportees.map((name) => (
+                        <Badge key={name} variant="outline">{name}</Badge>
                       ))}
                     </div>
                   </div>
@@ -1635,6 +1713,29 @@ export default function Users() {
                       Optional for {roleLabel(formData.role)} role
                     </p>
                   )}
+                </div>
+              )}
+
+              {/* Reportee assignment for L2 and L3 */}
+              {(formData.role === "l2" || formData.role === "l3" || 
+                formData.role === "program_manager" || formData.role === "manager") && 
+                formData.vertical_ids.length > 0 && (
+                <div>
+                  <Label>
+                    Reportees ({(formData.role === "l3" || formData.role === "manager") ? roleLabel("l2") : roleLabel("l1")})
+                  </Label>
+                  <ReporteeSelect
+                    managerId={selectedUser?.id}
+                    managerRole={formData.role}
+                    value={formData.reportee_ids}
+                    onValueChange={(value) => setFormData({ ...formData, reportee_ids: value })}
+                    verticalIds={formData.vertical_ids}
+                    programIds={formData.program_ids}
+                    roleLabel={(formData.role === "l3" || formData.role === "manager") ? roleLabel("l2") + " reportees" : roleLabel("l1") + " reportees"}
+                  />
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Select users who will report to this {roleLabel(formData.role)}
+                  </p>
                 </div>
               )}
 
