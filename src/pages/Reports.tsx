@@ -408,6 +408,7 @@ export default function Reports() {
                 expectedHours={currentReport.expectedHours}
                 completionRate={currentReport.completionRate}
                 period={period}
+                expectedHoursBreakdown={reportType === "member" ? facultyReport?.expectedHoursBreakdown : undefined}
               />
 
               {/* Activity Breakdown */}

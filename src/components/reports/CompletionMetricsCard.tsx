@@ -1,13 +1,16 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle2, AlertCircle, TrendingUp } from "lucide-react";
+import { CheckCircle2, AlertCircle, TrendingUp, CalendarDays, TreePalm, Landmark } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ExpectedHoursBreakdown } from "@/lib/reportQueries";
 
 interface CompletionMetricsCardProps {
   actualHours: number;
   expectedHours: number;
   completionRate: number;
   period: string;
+  expectedHoursBreakdown?: ExpectedHoursBreakdown;
+  dailyTargetHours?: number;
 }
 
 export function CompletionMetricsCard({
@@ -15,6 +18,8 @@ export function CompletionMetricsCard({
   expectedHours,
   completionRate,
   period,
+  expectedHoursBreakdown,
+  dailyTargetHours = 8,
 }: CompletionMetricsCardProps) {
   const getStatusConfig = () => {
     if (completionRate >= 100) {
@@ -96,8 +101,41 @@ export function CompletionMetricsCard({
           <div>
             <p className="text-xs text-muted-foreground">Expected</p>
             <p className="text-lg font-semibold">{expectedHours.toFixed(1)}h</p>
+            {expectedHoursBreakdown && (
+              <p className="text-xs text-muted-foreground mt-0.5">
+                ({expectedHoursBreakdown.totalDays - (expectedHoursBreakdown.leaveDays + expectedHoursBreakdown.holidayDays)} Working Days × {dailyTargetHours} Hrs)
+              </p>
+            )}
           </div>
         </div>
+
+        {expectedHoursBreakdown && (
+          <div className="grid grid-cols-3 gap-3 pt-3 border-t">
+            <div className="flex items-center gap-2 rounded-md border px-3 py-2">
+              <CalendarDays className="h-4 w-4 text-green-600 shrink-0" />
+              <div>
+                <p className="text-xs text-muted-foreground">Days</p>
+                <p className="text-sm font-semibold">{expectedHoursBreakdown.totalDays}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 rounded-md border px-3 py-2">
+              <TreePalm className="h-4 w-4 text-orange-500 shrink-0" />
+              <div>
+                <p className="text-xs text-muted-foreground">Leaves</p>
+                <p className="text-sm font-semibold">
+                  {expectedHoursBreakdown.leaveDays % 1 === 0 ? expectedHoursBreakdown.leaveDays : expectedHoursBreakdown.leaveDays.toFixed(1)}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 rounded-md border px-3 py-2">
+              <Landmark className="h-4 w-4 text-red-500 shrink-0" />
+              <div>
+                <p className="text-xs text-muted-foreground">Holidays</p>
+                <p className="text-sm font-semibold">{expectedHoursBreakdown.holidayDays}</p>
+              </div>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
