@@ -326,8 +326,9 @@ export default function Approvals() {
         leaveData = leaves || [];
       }
       
-      // Combine user IDs from both sources for profile fetching
-      const profileUserIds = [...new Set([...userIds, ...leaveData.map((l: any) => l.user_id)])];
+      // Combine user IDs from both sources + approver IDs for profile fetching
+      const approverIds = entriesData?.map(e => e.approved_by).filter(Boolean) as string[] || [];
+      const profileUserIds = [...new Set([...userIds, ...leaveData.map((l: any) => l.user_id), ...approverIds])];
       
       if (profileUserIds.length > 0) {
         const { data: profilesData, error: profilesError } = await supabase
@@ -344,7 +345,8 @@ export default function Approvals() {
         const entriesWithProfiles = entriesData?.map(entry => ({
           ...entry,
           type: 'timesheet' as const,
-          profiles: profilesMap.get(entry.user_id) || { full_name: "Unknown", avatar_url: null }
+          profiles: profilesMap.get(entry.user_id) || { full_name: "Unknown", avatar_url: null },
+          approver_profile: entry.approved_by ? (profilesMap.get(entry.approved_by) || null) : null,
         })) || [];
 
         // Merge leave entries with profiles
