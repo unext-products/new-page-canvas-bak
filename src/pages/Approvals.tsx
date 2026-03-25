@@ -797,6 +797,10 @@ export default function Approvals() {
     setFilterDateFrom(null);
     setFilterDateTo(null);
     setFilterLeavesOnly(false);
+    setAppliedFaculty(null);
+    setAppliedActivity(null);
+    setAppliedDateFrom(null);
+    setAppliedDateTo(null);
   };
 
   // Bulk actions
