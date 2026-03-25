@@ -28,8 +28,8 @@ serve(async (req) => {
 
     const token = authHeader.replace('Bearer ', '').trim();
 
-    // User-context client for JWT validation
-    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+    // User-context client for auth validation
+    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
       auth: { autoRefreshToken: false, persistSession: false },
     });
@@ -39,23 +39,16 @@ serve(async (req) => {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    let userId: string | undefined;
-
-    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
-    if (claimsData?.claims?.sub) {
-      userId = claimsData.claims.sub;
-    } else {
-      console.warn('getClaims failed, falling back to getUser:', claimsError);
-      const { data: userData, error: userError } = await supabaseAuth.auth.getUser(token);
-      if (userError || !userData?.user?.id) {
-        console.error('Auth error:', userError ?? claimsError);
-        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      userId = userData.user.id;
+    const { data: { user }, error: authError } = await userClient.auth.getUser(token);
+    if (authError || !user?.id) {
+      console.error('Auth error:', authError);
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
+
+    const userId = user.id;
 
     const { data: roleData, error: roleError } = await supabaseClient
       .from('user_roles')
