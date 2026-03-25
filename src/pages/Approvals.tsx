@@ -1021,7 +1021,15 @@ export default function Approvals() {
                       </SelectContent>
                     </Select>
                     
-                    <Select value={filterActivity || "all"} onValueChange={(value) => setFilterActivity(value === "all" ? null : value)}>
+                    <Select value={filterLeavesOnly ? "leaves_only" : (filterActivity || "all")} onValueChange={(value) => {
+                      if (value === "leaves_only") {
+                        setFilterLeavesOnly(true);
+                        setFilterActivity(null);
+                      } else {
+                        setFilterLeavesOnly(false);
+                        setFilterActivity(value === "all" ? null : value);
+                      }
+                    }}>
                       <SelectTrigger className="w-[200px]">
                         <SelectValue placeholder="By Activity" />
                       </SelectTrigger>
@@ -1032,6 +1040,7 @@ export default function Approvals() {
                             {type.replace(/_/g, " ").charAt(0).toUpperCase() + type.slice(1).replace(/_/g, " ")} ({count})
                           </SelectItem>
                         ))}
+                        <SelectItem value="leaves_only">All Leaves ({leaveEntries.length})</SelectItem>
                       </SelectContent>
                     </Select>
                     
