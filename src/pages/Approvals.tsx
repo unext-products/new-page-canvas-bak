@@ -322,9 +322,7 @@ export default function Approvals() {
             offset += PAGE_SIZE;
           }
         }
-        
-        if (error) throw error;
-        entriesData = data || [];
+        entriesData = allEntriesData;
       }
 
       // Fetch profiles for all approvable users (not just those with timesheet entries)
