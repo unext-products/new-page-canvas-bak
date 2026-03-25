@@ -1125,7 +1125,26 @@ export default function Users() {
                     </div>
                   )}
 
-                  {/* Note about L1 full hierarchy - simplified for now */}
+                  {/* Reportee assignment for L2 and L3 */}
+                  {(formData.role === "l2" || formData.role === "l3") && formData.vertical_ids.length > 0 && (
+                    <div>
+                      <Label>
+                        Reportees ({formData.role === "l3" ? roleLabel("l2") : roleLabel("l1")})
+                      </Label>
+                      <ReporteeSelect
+                        managerRole={formData.role}
+                        value={formData.reportee_ids}
+                        onValueChange={(value) => setFormData({ ...formData, reportee_ids: value })}
+                        verticalIds={formData.vertical_ids}
+                        programIds={formData.program_ids}
+                        roleLabel={formData.role === "l3" ? roleLabel("l2") + " reportees" : roleLabel("l1") + " reportees"}
+                      />
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Select users who will report to this {roleLabel(formData.role)}
+                      </p>
+                    </div>
+                  )}
+
                   {formData.role === "l1" && (
                     <div className="text-sm text-muted-foreground p-3 bg-muted rounded-md">
                       <p><strong>Note:</strong> {roleLabel("l1")} users require assignment to verticals, programs, batches, and subjects. Additional hierarchy levels can be configured after user creation.</p>
