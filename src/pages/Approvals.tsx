@@ -389,12 +389,18 @@ export default function Approvals() {
     }
   }, [userWithRole, settingsLoading, approvableRoles, getOrgId, toast]);
 
+  // Auto-fetch on first load with default date (today)
   useEffect(() => {
-    if (allowedApproverRoles.includes(userWithRole?.role || "") && !settingsLoading) {
+    if (allowedApproverRoles.includes(userWithRole?.role || "") && !settingsLoading && !hasFetched) {
+      setHasFetched(true);
       fetchEntries();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userWithRole?.role, userWithRole?.departmentId, settingsLoading]);
+
+  const handleSubmitFilter = () => {
+    fetchEntries();
+  };
 
   const handleAction = (entry: TimesheetEntry, action: "approve" | "reject") => {
     setSelectedEntry(entry);
