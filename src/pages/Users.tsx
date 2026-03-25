@@ -719,6 +719,12 @@ export default function Users() {
         if (data?.error) throw new Error(data.error);
       }
 
+      // Save reporting hierarchy for L2/L3 managers
+      if (formData.role === "l2" || formData.role === "l3" || 
+          formData.role === "program_manager" || formData.role === "manager") {
+        await saveReporteeAssignments(selectedUser.id, formData.reportee_ids);
+      }
+
       toast({
         title: "Success",
         description: formData.password && formData.password.trim() !== "" ? 
