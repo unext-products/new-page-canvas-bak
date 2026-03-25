@@ -94,7 +94,7 @@ export default function Approvals() {
   const [selectedEntries, setSelectedEntries] = useState<Set<string>>(new Set());
   const [filterFaculty, setFilterFaculty] = useState<string | null>(null);
   const [filterActivity, setFilterActivity] = useState<string | null>(null);
-  const [filterDate, setFilterDate] = useState<Date | null>(null);
+  const [filterDate, setFilterDate] = useState<Date | null>(new Date());
   const [filterLeavesOnly, setFilterLeavesOnly] = useState(false);
   
   // View mode state - default to day view
