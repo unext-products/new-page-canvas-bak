@@ -1102,19 +1102,6 @@ export default function Approvals() {
                       </Popover>
                     </div>
                     
-                    {/* All Leaves quick filter */}
-                    <Button
-                      variant={filterLeavesOnly ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => {
-                        setFilterLeavesOnly(!filterLeavesOnly);
-                        if (!filterLeavesOnly) setFilterActivity(null);
-                      }}
-                      className="h-10"
-                    >
-                      All Leaves
-                    </Button>
-                    
                     {/* Submit button to fetch data */}
                     <Button
                       size="sm"
