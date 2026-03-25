@@ -1006,19 +1006,49 @@ export default function Approvals() {
                     <span className="font-medium">Quick Filters:</span>
                   </div>
                   <div className="flex flex-wrap gap-2 flex-1">
-                    <Select value={filterFaculty || "all"} onValueChange={(value) => setFilterFaculty(value === "all" ? null : value)}>
-                      <SelectTrigger className="w-[200px]">
-                        <SelectValue placeholder="By Faculty" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Faculty</SelectItem>
-                        {facultyList.map(({ userId, name, count }) => (
-                          <SelectItem key={userId} value={userId}>
-                            {name} ({count})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Popover open={facultyPopoverOpen} onOpenChange={setFacultyPopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" role="combobox" aria-expanded={facultyPopoverOpen} className="w-[220px] justify-between font-normal">
+                          {filterFaculty
+                            ? `${facultyList.find(f => f.userId === filterFaculty)?.name || "Unknown"} (${facultyList.find(f => f.userId === filterFaculty)?.count || 0})`
+                            : "All Faculty"}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[250px] p-0">
+                        <Command>
+                          <CommandInput placeholder="Search faculty..." />
+                          <CommandList>
+                            <CommandEmpty>No faculty found.</CommandEmpty>
+                            <CommandGroup>
+                              <CommandItem
+                                value="all-faculty"
+                                onSelect={() => {
+                                  setFilterFaculty(null);
+                                  setFacultyPopoverOpen(false);
+                                }}
+                              >
+                                <Check className={cn("mr-2 h-4 w-4", !filterFaculty ? "opacity-100" : "opacity-0")} />
+                                All Faculty
+                              </CommandItem>
+                              {facultyList.map(({ userId, name, count }) => (
+                                <CommandItem
+                                  key={userId}
+                                  value={name}
+                                  onSelect={() => {
+                                    setFilterFaculty(userId);
+                                    setFacultyPopoverOpen(false);
+                                  }}
+                                >
+                                  <Check className={cn("mr-2 h-4 w-4", filterFaculty === userId ? "opacity-100" : "opacity-0")} />
+                                  {name} ({count})
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                     
                     <Select value={filterLeavesOnly ? "leaves_only" : (filterActivity || "all")} onValueChange={(value) => {
                       if (value === "leaves_only") {
