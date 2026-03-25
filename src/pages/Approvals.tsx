@@ -10,7 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-import { CheckCircle, XCircle, Clock, Calendar, User, Filter, X, ClipboardCheck, CalendarDays, List, ZoomIn, Trash2 } from "lucide-react";
+import { CheckCircle, XCircle, Clock, Calendar, User, Filter, X, ClipboardCheck, CalendarDays, List, ZoomIn, Trash2, Search, ChevronsUpDown, Check } from "lucide-react";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { isRole } from "@/lib/roleMapping";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { formatLocalDate } from "@/lib/dateUtils";
@@ -123,7 +124,8 @@ export default function Approvals() {
   // Leave delete state
   const [deleteLeaveDialogOpen, setDeleteLeaveDialogOpen] = useState(false);
   const [leaveToDelete, setLeaveToDelete] = useState<LeaveEntry | null>(null);
-  
+  const [allApprovableFaculty, setAllApprovableFaculty] = useState<{ userId: string; name: string; avatarUrl: string | null }[]>([]);
+  const [facultyPopoverOpen, setFacultyPopoverOpen] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -343,7 +345,22 @@ export default function Approvals() {
         entriesData = allEntriesData;
       }
 
-      // Fetch profiles for all approvable users (not just those with timesheet entries)
+      // Fetch profiles for ALL approvable users for the faculty dropdown
+      if (allUserIds.length > 0) {
+        const { data: allProfiles } = await supabase
+          .from("profiles")
+          .select("id, full_name, avatar_url")
+          .in("id", allUserIds);
+        
+        setAllApprovableFaculty(
+          (allProfiles || [])
+            .map(p => ({ userId: p.id, name: p.full_name, avatarUrl: p.avatar_url }))
+            .sort((a, b) => a.name.localeCompare(b.name))
+        );
+      } else {
+        setAllApprovableFaculty([]);
+      }
+
       const userIds = [...new Set(entriesData?.map(e => e.user_id) || [])];
       
       // Fetch leave entries for ALL approvable users (not just those with timesheet entries)
@@ -484,39 +501,21 @@ export default function Approvals() {
     }
   };
 
-  // Get unique faculty list from entries AND leave entries
+  // Build faculty list from ALL approvable faculty, with entry counts
   const facultyList = useMemo(() => {
-    const uniqueFaculty = new Map<string, { name: string; count: number; avatarUrl: string | null }>();
+    const countMap = new Map<string, number>();
     entries.forEach(entry => {
-      const existing = uniqueFaculty.get(entry.user_id);
-      if (existing) {
-        existing.count++;
-      } else {
-        uniqueFaculty.set(entry.user_id, {
-          name: entry.profiles.full_name,
-          count: 1,
-          avatarUrl: entry.profiles.avatar_url
-        });
-      }
+      countMap.set(entry.user_id, (countMap.get(entry.user_id) || 0) + 1);
     });
-    // Also include users who only have leave entries
     leaveEntries.forEach(leave => {
-      const existing = uniqueFaculty.get(leave.user_id);
-      if (existing) {
-        existing.count++;
-      } else {
-        uniqueFaculty.set(leave.user_id, {
-          name: leave.profiles.full_name,
-          count: 1,
-          avatarUrl: leave.profiles.avatar_url
-        });
-      }
+      countMap.set(leave.user_id, (countMap.get(leave.user_id) || 0) + 1);
     });
-    return Array.from(uniqueFaculty.entries()).map(([userId, data]) => ({
-      userId,
-      ...data
+    
+    return allApprovableFaculty.map(f => ({
+      ...f,
+      count: countMap.get(f.userId) || 0
     }));
-  }, [entries, leaveEntries]);
+  }, [allApprovableFaculty, entries, leaveEntries]);
 
   // Get unique activity types from entries
   const activityTypes = useMemo(() => {
@@ -1007,19 +1006,49 @@ export default function Approvals() {
                     <span className="font-medium">Quick Filters:</span>
                   </div>
                   <div className="flex flex-wrap gap-2 flex-1">
-                    <Select value={filterFaculty || "all"} onValueChange={(value) => setFilterFaculty(value === "all" ? null : value)}>
-                      <SelectTrigger className="w-[200px]">
-                        <SelectValue placeholder="By Faculty" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Faculty</SelectItem>
-                        {facultyList.map(({ userId, name, count }) => (
-                          <SelectItem key={userId} value={userId}>
-                            {name} ({count})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Popover open={facultyPopoverOpen} onOpenChange={setFacultyPopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" role="combobox" aria-expanded={facultyPopoverOpen} className="w-[220px] justify-between font-normal">
+                          {filterFaculty
+                            ? `${facultyList.find(f => f.userId === filterFaculty)?.name || "Unknown"} (${facultyList.find(f => f.userId === filterFaculty)?.count || 0})`
+                            : "All Faculty"}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[250px] p-0">
+                        <Command>
+                          <CommandInput placeholder="Search faculty..." />
+                          <CommandList>
+                            <CommandEmpty>No faculty found.</CommandEmpty>
+                            <CommandGroup>
+                              <CommandItem
+                                value="all-faculty"
+                                onSelect={() => {
+                                  setFilterFaculty(null);
+                                  setFacultyPopoverOpen(false);
+                                }}
+                              >
+                                <Check className={cn("mr-2 h-4 w-4", !filterFaculty ? "opacity-100" : "opacity-0")} />
+                                All Faculty
+                              </CommandItem>
+                              {facultyList.map(({ userId, name, count }) => (
+                                <CommandItem
+                                  key={userId}
+                                  value={name}
+                                  onSelect={() => {
+                                    setFilterFaculty(userId);
+                                    setFacultyPopoverOpen(false);
+                                  }}
+                                >
+                                  <Check className={cn("mr-2 h-4 w-4", filterFaculty === userId ? "opacity-100" : "opacity-0")} />
+                                  {name} ({count})
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                     
                     <Select value={filterLeavesOnly ? "leaves_only" : (filterActivity || "all")} onValueChange={(value) => {
                       if (value === "leaves_only") {
