@@ -49,6 +49,12 @@ export interface ActivityBreakdown {
   count: number;
 }
 
+export interface ExpectedHoursBreakdown {
+  totalDays: number;
+  leaveDays: number;
+  holidayDays: number;
+}
+
 export interface FacultyReportData {
   userId: string;
   facultyName: string;
@@ -62,6 +68,7 @@ export interface FacultyReportData {
   averageDailyHours: number;
   approvedCount: number;
   pendingCount: number;
+  expectedHoursBreakdown?: ExpectedHoursBreakdown;
 }
 
 export interface VerticalReportData {
