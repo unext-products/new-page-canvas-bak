@@ -824,13 +824,20 @@ export default function Users() {
   const openEditDialog = async (user: UserProfile) => {
     setSelectedUser(user);
     
-    // Load vertical assignments from user_verticals table
-    const { data: userVerticals } = await supabase
-      .from("user_verticals")
-      .select("vertical_id")
-      .eq("user_id", user.id);
+    // Load vertical assignments and reportees in parallel
+    const [userVerticalsRes, reporteesRes] = await Promise.all([
+      supabase
+        .from("user_verticals")
+        .select("vertical_id")
+        .eq("user_id", user.id),
+      supabase
+        .from("reporting_hierarchy")
+        .select("user_id")
+        .eq("manager_id", user.id),
+    ]);
     
-    const verticalIds = userVerticals?.map(uv => uv.vertical_id) || [];
+    const verticalIds = userVerticalsRes.data?.map(uv => uv.vertical_id) || [];
+    const reporteeIds = reporteesRes.data?.map(r => r.user_id) || [];
     
     // Load all departments and programs from junction tables
     const deptIds = user.departments.map(d => d.id);
@@ -849,13 +856,13 @@ export default function Users() {
       department_ids: deptIds.length > 0 ? deptIds : (user.department_id ? [user.department_id] : []),
       vertical_ids: effectiveVerticalIds,
       program_ids: progIds.length > 0 ? progIds : (user.program_id ? [user.program_id] : []),
-      batch_ids: [], // TODO: Load from user_batches if needed
-      subject_ids: [], // TODO: Load from user_subjects if needed
+      batch_ids: [],
+      subject_ids: [],
       program_id: progIds[0] || user.program_id || "",
       is_active: user.is_active,
       password: "",
       confirmPassword: "",
-      reportee_ids: [],
+      reportee_ids: reporteeIds,
     });
     setEditDialogOpen(true);
   };
