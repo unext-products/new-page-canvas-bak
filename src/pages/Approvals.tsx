@@ -96,6 +96,7 @@ export default function Approvals() {
   const [filterActivity, setFilterActivity] = useState<string | null>(null);
   const [filterDateFrom, setFilterDateFrom] = useState<Date | null>(new Date());
   const [filterDateTo, setFilterDateTo] = useState<Date | null>(new Date());
+  const [hasFetched, setHasFetched] = useState(false);
   const [filterLeavesOnly, setFilterLeavesOnly] = useState(false);
   
   // View mode state - default to day view
@@ -388,12 +389,18 @@ export default function Approvals() {
     }
   }, [userWithRole, settingsLoading, approvableRoles, getOrgId, toast]);
 
+  // Auto-fetch on first load with default date (today)
   useEffect(() => {
-    if (allowedApproverRoles.includes(userWithRole?.role || "") && !settingsLoading) {
+    if (allowedApproverRoles.includes(userWithRole?.role || "") && !settingsLoading && !hasFetched) {
+      setHasFetched(true);
       fetchEntries();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userWithRole?.role, userWithRole?.departmentId, settingsLoading]);
+
+  const handleSubmitFilter = () => {
+    fetchEntries();
+  };
 
   const handleAction = (entry: TimesheetEntry, action: "approve" | "reject") => {
     setSelectedEntry(entry);
@@ -1059,6 +1066,15 @@ export default function Approvals() {
                       className="h-10"
                     >
                       All Leaves
+                    </Button>
+                    
+                    {/* Submit button to fetch data */}
+                    <Button
+                      size="sm"
+                      onClick={handleSubmitFilter}
+                      className="h-10"
+                    >
+                      Submit
                     </Button>
                     
                     {(filterFaculty || filterActivity || filterDateFrom || filterDateTo || filterLeavesOnly) && (
