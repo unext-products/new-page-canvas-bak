@@ -36,6 +36,8 @@ import { calculateDurationMinutes } from "@/lib/timesheetUtils";
 import { format, startOfWeek, endOfWeek } from "date-fns";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { ReporteeSelect } from "@/components/ReporteeSelect";
+import { saveReporteeAssignments } from "@/lib/reportingHierarchy";
 
 interface UserProfile {
   id: string;
