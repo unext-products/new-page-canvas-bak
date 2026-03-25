@@ -1333,6 +1333,13 @@ export default function Approvals() {
                             </div>
                           )}
 
+                          {item.approver_notes && (item.status === "approved" || item.status === "rejected") && (
+                            <div>
+                              <div className="text-sm text-muted-foreground mb-1">Approver Notes</div>
+                              <p className="text-sm bg-muted/50 rounded-md p-3">{item.approver_notes}</p>
+                            </div>
+                          )}
+
                           {item.status === "submitted" && (
                             <div className="flex gap-2 pt-2">
                               <Button
