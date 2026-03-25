@@ -92,7 +92,7 @@ export function ReporteeSelect({
         .from("user_roles")
         .select("user_id, role")
         .in("user_id", candidateUserIds)
-        .in("role", targetRoles);
+        .in("role", targetRoles as any);
 
       const targetUserIds = roleUsers?.map((r) => r.user_id) || [];
 
