@@ -855,6 +855,7 @@ export default function Users() {
       is_active: user.is_active,
       password: "",
       confirmPassword: "",
+      reportee_ids: [],
     });
     setEditDialogOpen(true);
   };
