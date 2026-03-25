@@ -1421,6 +1421,18 @@ export default function Users() {
                     </div>
                   </div>
                 )}
+
+                {/* Reportees */}
+                {detailReportees.length > 0 && (
+                  <div>
+                    <Label className="text-muted-foreground">Reportees</Label>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {detailReportees.map((name) => (
+                        <Badge key={name} variant="outline">{name}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 
                 {/* Weekly Progress */}
                 <div className="bg-muted p-4 rounded-lg">
