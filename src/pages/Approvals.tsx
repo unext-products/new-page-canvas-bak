@@ -674,6 +674,10 @@ export default function Approvals() {
     }));
     
     return [...timesheetItems, ...leaveItems].sort((a, b) => {
+      // Timesheet entries first, leaves at the bottom
+      if (a.type !== b.type) {
+        return a.type === 'timesheet' ? -1 : 1;
+      }
       const dateDiff = new Date(a.sortDate).getTime() - new Date(b.sortDate).getTime();
       if (dateDiff !== 0) return dateDiff;
       // Within the same date, sort by start_time ascending
