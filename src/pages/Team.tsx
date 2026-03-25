@@ -82,78 +82,46 @@ export default function Team() {
 
       let userIds: string[] = [];
 
-      // L3 sees L2 + L1 in their verticals
-      if (isL3) {
-        // Get L3's verticals
-        const { data: l3Verticals } = await supabase
-          .from("user_verticals")
-          .select("vertical_id")
-          .eq("user_id", userWithRole.user.id);
-
-        const verticalIds = l3Verticals?.map((v) => v.vertical_id) || [];
-
-        if (verticalIds.length > 0) {
-          // Get users in those verticals
-          const { data: verticalUsers } = await supabase
-            .from("user_verticals")
-            .select("user_id")
-            .in("vertical_id", verticalIds);
-
-          const candidateUserIds = [...new Set(verticalUsers?.map((u) => u.user_id) || [])];
-
-          // Filter to L1 and L2 roles only
-          const { data: subordinateRoles } = await supabase
-            .from("user_roles")
-            .select("user_id")
-            .in("user_id", candidateUserIds)
-            .in("role", ["l1", "l2", "faculty", "program_manager"]);
-
-          userIds = (subordinateRoles?.map((r) => r.user_id) || []).filter(
-            (id) => id !== userWithRole.user.id
-          );
-        }
-      }
-      // L2 sees L1 in their programs OR in their verticals if no program assignments
-      else if (isL2) {
-        // Get L2's programs
-        const { data: l2Programs } = await supabase
-          .from("user_programs")
-          .select("program_id")
-          .eq("user_id", userWithRole.user.id);
-
-        const programIds = l2Programs?.map((p) => p.program_id) || [];
-
-        if (programIds.length > 0) {
-          // Get users in those programs
-          const { data: programUsers } = await supabase
-            .from("user_programs")
-            .select("user_id")
-            .in("program_id", programIds);
-
-          const candidateUserIds = [...new Set(programUsers?.map((u) => u.user_id) || [])];
-
-          if (candidateUserIds.length > 0) {
-            // Filter to L1 roles only
+      // Check reporting hierarchy first for L2/L3
+      if (isL3 || isL2) {
+        const hierarchyUsers = await getVisibleUserIds(userWithRole.user.id, currentRole);
+        
+        if (hierarchyUsers !== null && hierarchyUsers.length > 0) {
+          // Use hierarchy-based filtering
+          if (isL3) {
+            // L3 sees direct L2 reportees + transitive L1 reportees
+            const { data: subordinateRoles } = await supabase
+              .from("user_roles")
+              .select("user_id")
+              .in("user_id", hierarchyUsers)
+              .in("role", ["l1", "l2", "faculty", "program_manager"]);
+            userIds = (subordinateRoles?.map((r) => r.user_id) || []).filter(
+              (id) => id !== userWithRole.user.id
+            );
+          } else {
+            // L2 sees direct L1 reportees only
             const { data: l1Roles } = await supabase
               .from("user_roles")
               .select("user_id")
-              .in("user_id", candidateUserIds)
+              .in("user_id", hierarchyUsers)
               .in("role", ["l1", "faculty"]);
-
             userIds = (l1Roles?.map((r) => r.user_id) || []).filter(
               (id) => id !== userWithRole.user.id
             );
           }
         }
-        
-        // Fallback: If no L1s found via programs, try via verticals (same as L3 logic)
-        if (userIds.length === 0) {
-          const { data: l2Verticals } = await supabase
+      }
+
+      // Fallback to legacy vertical/program logic if no hierarchy results
+      if (userIds.length === 0) {
+        // L3 sees L2 + L1 in their verticals
+        if (isL3) {
+          const { data: l3Verticals } = await supabase
             .from("user_verticals")
             .select("vertical_id")
             .eq("user_id", userWithRole.user.id);
 
-          const verticalIds = l2Verticals?.map((v) => v.vertical_id) || [];
+          const verticalIds = l3Verticals?.map((v) => v.vertical_id) || [];
 
           if (verticalIds.length > 0) {
             const { data: verticalUsers } = await supabase
@@ -162,6 +130,33 @@ export default function Team() {
               .in("vertical_id", verticalIds);
 
             const candidateUserIds = [...new Set(verticalUsers?.map((u) => u.user_id) || [])];
+
+            const { data: subordinateRoles } = await supabase
+              .from("user_roles")
+              .select("user_id")
+              .in("user_id", candidateUserIds)
+              .in("role", ["l1", "l2", "faculty", "program_manager"]);
+
+            userIds = (subordinateRoles?.map((r) => r.user_id) || []).filter(
+              (id) => id !== userWithRole.user.id
+            );
+          }
+        }
+        else if (isL2) {
+          const { data: l2Programs } = await supabase
+            .from("user_programs")
+            .select("program_id")
+            .eq("user_id", userWithRole.user.id);
+
+          const programIds = l2Programs?.map((p) => p.program_id) || [];
+
+          if (programIds.length > 0) {
+            const { data: programUsers } = await supabase
+              .from("user_programs")
+              .select("user_id")
+              .in("program_id", programIds);
+
+            const candidateUserIds = [...new Set(programUsers?.map((u) => u.user_id) || [])];
 
             if (candidateUserIds.length > 0) {
               const { data: l1Roles } = await supabase
@@ -175,26 +170,57 @@ export default function Team() {
               );
             }
           }
+          
+          // Fallback: If no L1s found via programs, try via verticals
+          if (userIds.length === 0) {
+            const { data: l2Verticals } = await supabase
+              .from("user_verticals")
+              .select("vertical_id")
+              .eq("user_id", userWithRole.user.id);
+
+            const verticalIds = l2Verticals?.map((v) => v.vertical_id) || [];
+
+            if (verticalIds.length > 0) {
+              const { data: verticalUsers } = await supabase
+                .from("user_verticals")
+                .select("user_id")
+                .in("vertical_id", verticalIds);
+
+              const candidateUserIds = [...new Set(verticalUsers?.map((u) => u.user_id) || [])];
+
+              if (candidateUserIds.length > 0) {
+                const { data: l1Roles } = await supabase
+                  .from("user_roles")
+                  .select("user_id")
+                  .in("user_id", candidateUserIds)
+                  .in("role", ["l1", "faculty"]);
+
+                userIds = (l1Roles?.map((r) => r.user_id) || []).filter(
+                  (id) => id !== userWithRole.user.id
+                );
+              }
+            }
+          }
         }
-      }
-      // Admin sees all users in org (except super_admin)
-      else if (isAdmin) {
-        const { data: roleData } = await supabase
-          .from("user_roles")
-          .select("organization_id")
-          .eq("user_id", userWithRole.user.id)
-          .single();
-
-        if (roleData?.organization_id) {
-          const { data: orgUsers } = await supabase
+        // Admin sees all users in org (except super_admin)
+        else if (isAdmin) {
+          const { data: roleData } = await supabase
             .from("user_roles")
-            .select("user_id")
-            .eq("organization_id", roleData.organization_id)
-            .neq("role", "super_admin");
+            .select("organization_id")
+            .eq("user_id", userWithRole.user.id)
+            .single();
 
-          userIds = (orgUsers?.map((u) => u.user_id) || []).filter(
-            (id) => id !== userWithRole.user.id
-          );
+          if (roleData?.organization_id) {
+            const { data: orgUsers } = await supabase
+              .from("user_roles")
+              .select("user_id")
+              .eq("organization_id", roleData.organization_id)
+              .neq("role", "super_admin");
+
+            userIds = (orgUsers?.map((u) => u.user_id) || []).filter(
+              (id) => id !== userWithRole.user.id
+            );
+          }
         }
       }
 
