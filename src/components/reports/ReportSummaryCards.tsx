@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Clock, CheckCircle, FileText, TrendingUp, CheckCircle2, AlertCircle } from "lucide-react";
+import { ExpectedHoursBreakdown } from "@/lib/reportQueries";
 
 interface ReportSummaryCardsProps {
   totalHours: number;
@@ -9,6 +10,7 @@ interface ReportSummaryCardsProps {
   averageDailyHours?: number;
   approvedCount?: number;
   pendingCount?: number;
+  expectedHoursBreakdown?: ExpectedHoursBreakdown;
 }
 
 export function ReportSummaryCards({
@@ -19,6 +21,7 @@ export function ReportSummaryCards({
   averageDailyHours,
   approvedCount,
   pendingCount,
+  expectedHoursBreakdown,
 }: ReportSummaryCardsProps) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -32,6 +35,11 @@ export function ReportSummaryCards({
           <p className="text-xs text-muted-foreground">
             Expected: {expectedHours.toFixed(1)}h
           </p>
+          {expectedHoursBreakdown && (
+            <p className="text-xs text-muted-foreground mt-0.5">
+              D: {expectedHoursBreakdown.totalDays} L: {expectedHoursBreakdown.leaveDays % 1 === 0 ? expectedHoursBreakdown.leaveDays : expectedHoursBreakdown.leaveDays.toFixed(1)} H: {expectedHoursBreakdown.holidayDays}
+            </p>
+          )}
         </CardContent>
       </Card>
 

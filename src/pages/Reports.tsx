@@ -398,6 +398,7 @@ export default function Reports() {
                   : departmentReport?.facultyBreakdown.reduce((sum, f) => sum + f.pendingCount, 0)
               }
               averageDailyHours={currentReport.averageDailyHours}
+              expectedHoursBreakdown={reportType === "member" ? facultyReport?.expectedHoursBreakdown : undefined}
             />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
