@@ -94,7 +94,8 @@ export default function Approvals() {
   const [selectedEntries, setSelectedEntries] = useState<Set<string>>(new Set());
   const [filterFaculty, setFilterFaculty] = useState<string | null>(null);
   const [filterActivity, setFilterActivity] = useState<string | null>(null);
-  const [filterDate, setFilterDate] = useState<Date | null>(new Date());
+  const [filterDateFrom, setFilterDateFrom] = useState<Date | null>(new Date());
+  const [filterDateTo, setFilterDateTo] = useState<Date | null>(new Date());
   const [filterLeavesOnly, setFilterLeavesOnly] = useState(false);
   
   // View mode state - default to day view
@@ -565,17 +566,32 @@ export default function Approvals() {
     );
   }, [entries, leaveEntries]);
 
+  // Helper to check if a date string falls within the filter range
+  const isDateInRange = useCallback((dateStr: string) => {
+    if (!filterDateFrom && !filterDateTo) return true;
+    const d = dateStr; // already yyyy-MM-dd
+    if (filterDateFrom) {
+      const fromStr = format(filterDateFrom, "yyyy-MM-dd");
+      if (d < fromStr) return false;
+    }
+    if (filterDateTo) {
+      const toStr = format(filterDateTo, "yyyy-MM-dd");
+      if (d > toStr) return false;
+    }
+    return true;
+  }, [filterDateFrom, filterDateTo]);
+
   // Filter entries based on selections (for day view - respects showPendingOnly toggle)
   const filteredEntries = useMemo(() => {
     return entries.filter(entry => {
       if (filterFaculty && entry.user_id !== filterFaculty) return false;
       if (filterActivity && entry.activity_type !== filterActivity) return false;
-      if (filterDate && entry.entry_date !== format(filterDate, "yyyy-MM-dd")) return false;
+      if (!isDateInRange(entry.entry_date)) return false;
       // Apply showPendingOnly toggle for day view
       if (showPendingOnly && entry.status !== "submitted") return false;
       return true;
     });
-  }, [entries, filterFaculty, filterActivity, filterDate, showPendingOnly]);
+  }, [entries, filterFaculty, filterActivity, isDateInRange, showPendingOnly]);
   
   // Determine if current user is admin
   const isCurrentUserAdmin = useMemo(() => {
@@ -589,26 +605,26 @@ export default function Approvals() {
     return entries.filter(entry => {
       if (filterFaculty && entry.user_id !== filterFaculty) return false;
       if (filterActivity && entry.activity_type !== filterActivity) return false;
-      if (filterDate && entry.entry_date !== format(filterDate, "yyyy-MM-dd")) return false;
+      if (!isDateInRange(entry.entry_date)) return false;
       // Admin sees all statuses; others see only pending
       if (!isCurrentUserAdmin && entry.status !== "submitted") return false;
       return true;
     });
-  }, [entries, filterFaculty, filterActivity, filterDate, isCurrentUserAdmin, filterLeavesOnly]);
+  }, [entries, filterFaculty, filterActivity, isDateInRange, isCurrentUserAdmin, filterLeavesOnly]);
   
   // Pending entries for badge count (always only submitted)
   const pendingEntries = useMemo(() => {
     return entries.filter(entry => entry.status === "submitted");
   }, [entries]);
 
-  // Filter leave entries based on faculty selection and date
+  // Filter leave entries based on faculty selection and date range
   const filteredLeaveEntries = useMemo(() => {
     return leaveEntries.filter(entry => {
       if (filterFaculty && entry.user_id !== filterFaculty) return false;
-      if (filterDate && entry.leave_date !== format(filterDate, "yyyy-MM-dd")) return false;
+      if (!isDateInRange(entry.leave_date)) return false;
       return true;
     });
-  }, [leaveEntries, filterFaculty, filterDate]);
+  }, [leaveEntries, filterFaculty, isDateInRange]);
 
   // Combined filtered entries for LIST VIEW display - always pending only
   const listViewCombinedEntries = useMemo(() => {
@@ -636,7 +652,7 @@ export default function Approvals() {
 
   // Prepare faculty data for day matrix view
   const dayMatrixData = useMemo(() => {
-    const dateToUse = filterDate || new Date();
+    const dateToUse = filterDateFrom || new Date();
     const dateStr = format(dateToUse, "yyyy-MM-dd");
     
     // Get unique faculty with entries for this date
@@ -716,7 +732,7 @@ export default function Approvals() {
       });
     
     return Array.from(facultyMap.values());
-  }, [filteredEntries, filteredLeaveEntries, filterDate]);
+  }, [filteredEntries, filteredLeaveEntries, filterDateFrom]);
 
   // Selection handlers
   const toggleEntrySelection = (entryId: string) => {
@@ -745,7 +761,8 @@ export default function Approvals() {
   const clearFilters = () => {
     setFilterFaculty(null);
     setFilterActivity(null);
-    setFilterDate(null);
+    setFilterDateFrom(null);
+    setFilterDateTo(null);
     setFilterLeavesOnly(false);
   };
 
@@ -818,7 +835,8 @@ export default function Approvals() {
       setSelectedEntries(new Set());
       setFilterFaculty(null);
       setFilterActivity(null);
-      setFilterDate(null);
+      setFilterDateFrom(null);
+      setFilterDateTo(null);
       
       fetchEntries();
     } catch (error) {
@@ -883,12 +901,12 @@ export default function Approvals() {
 
   // Get entries for day view selection
   const dayViewEntryIds = useMemo(() => {
-    const dateToUse = filterDate || new Date();
+    const dateToUse = filterDateFrom || new Date();
     const dateStr = format(dateToUse, "yyyy-MM-dd");
     return filteredEntries
       .filter(entry => entry.entry_date === dateStr)
       .map(entry => entry.id);
-  }, [filteredEntries, filterDate]);
+  }, [filteredEntries, filterDateFrom]);
 
   const selectAllDayEntries = () => {
     const allIds = new Set(dayViewEntryIds);
@@ -972,30 +990,63 @@ export default function Approvals() {
                       </SelectContent>
                     </Select>
                     
-                    {/* Date Filter */}
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-[200px] justify-start text-left font-normal",
-                            !filterDate && "text-muted-foreground"
-                          )}
-                        >
-                          <Calendar className="mr-2 h-4 w-4" />
-                          {filterDate ? format(filterDate, "MMM d, yyyy") : "By Date"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <CalendarComponent
-                          mode="single"
-                          selected={filterDate || undefined}
-                          onSelect={(date) => setFilterDate(date || null)}
-                          initialFocus
-                          className="p-3 pointer-events-auto"
-                        />
-                      </PopoverContent>
-                    </Popover>
+                    {/* Date Range Filter */}
+                    <div className="flex items-center gap-2">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-[150px] justify-start text-left font-normal",
+                              !filterDateFrom && "text-muted-foreground"
+                            )}
+                          >
+                            <Calendar className="mr-2 h-4 w-4" />
+                            {filterDateFrom ? format(filterDateFrom, "MMM d, yyyy") : "From"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <CalendarComponent
+                            mode="single"
+                            selected={filterDateFrom || undefined}
+                            onSelect={(date) => {
+                              setFilterDateFrom(date || null);
+                              // If to-date is before new from-date, update it
+                              if (date && filterDateTo && date > filterDateTo) {
+                                setFilterDateTo(date);
+                              }
+                            }}
+                            initialFocus
+                            className="p-3 pointer-events-auto"
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <span className="text-sm text-muted-foreground">to</span>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-[150px] justify-start text-left font-normal",
+                              !filterDateTo && "text-muted-foreground"
+                            )}
+                          >
+                            <Calendar className="mr-2 h-4 w-4" />
+                            {filterDateTo ? format(filterDateTo, "MMM d, yyyy") : "To"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <CalendarComponent
+                            mode="single"
+                            selected={filterDateTo || undefined}
+                            onSelect={(date) => setFilterDateTo(date || null)}
+                            disabled={(date) => filterDateFrom ? date < filterDateFrom : false}
+                            initialFocus
+                            className="p-3 pointer-events-auto"
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
                     
                     {/* All Leaves quick filter */}
                     <Button
@@ -1010,7 +1061,7 @@ export default function Approvals() {
                       All Leaves
                     </Button>
                     
-                    {(filterFaculty || filterActivity || filterDate || filterLeavesOnly) && (
+                    {(filterFaculty || filterActivity || filterDateFrom || filterDateTo || filterLeavesOnly) && (
                       <Button variant="ghost" size="sm" onClick={clearFilters}>
                         <X className="h-4 w-4 mr-1" />
                         Clear Filters
@@ -1037,8 +1088,9 @@ export default function Approvals() {
                       size="sm"
                       onClick={() => {
                         setViewMode("day");
-                        if (!filterDate) {
-                          setFilterDate(new Date());
+                        if (!filterDateFrom) {
+                          setFilterDateFrom(new Date());
+                          setFilterDateTo(new Date());
                         }
                       }}
                       className={cn(
@@ -1100,7 +1152,7 @@ export default function Approvals() {
                 </div>
 
                 {/* Filter Badges */}
-                {(filterFaculty || filterActivity || filterDate || filterLeavesOnly) && (
+                {(filterFaculty || filterActivity || filterDateFrom || filterDateTo || filterLeavesOnly) && (
                   <div className="flex flex-wrap gap-2">
                     {filterFaculty && (
                       <Badge variant="secondary" className="gap-1">
@@ -1114,10 +1166,10 @@ export default function Approvals() {
                         <X className="h-3 w-3 cursor-pointer" onClick={() => setFilterActivity(null)} />
                       </Badge>
                     )}
-                    {filterDate && (
+                    {(filterDateFrom || filterDateTo) && (
                       <Badge variant="secondary" className="gap-1">
-                        Date: {format(filterDate, "MMM d, yyyy")}
-                        <X className="h-3 w-3 cursor-pointer" onClick={() => setFilterDate(null)} />
+                        Date: {filterDateFrom ? format(filterDateFrom, "MMM d, yyyy") : "..."} - {filterDateTo ? format(filterDateTo, "MMM d, yyyy") : "..."}
+                        <X className="h-3 w-3 cursor-pointer" onClick={() => { setFilterDateFrom(null); setFilterDateTo(null); }} />
                       </Badge>
                     )}
                     {filterLeavesOnly && (
@@ -1183,7 +1235,7 @@ export default function Approvals() {
             {/* Content based on view mode */}
             {viewMode === "day" ? (
               <DayMatrixView
-                date={filterDate || new Date()}
+                date={filterDateFrom || new Date()}
                 facultyData={dayMatrixData}
                 onEntryClick={handleMatrixEntryClick}
                 onApprove={handleMatrixApprove}
