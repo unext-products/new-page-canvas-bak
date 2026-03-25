@@ -343,11 +343,19 @@ export default function Approvals() {
       // Fetch leave entries for ALL approvable users (not just those with timesheet entries)
       let leaveData: any[] = [];
       if (allUserIds.length > 0) {
-        const { data: leaves } = await supabase
+        let leaveQuery = supabase
           .from('leave_days' as any)
           .select('*')
-          .in('user_id', allUserIds)
-          .order('leave_date', { ascending: false });
+          .in('user_id', allUserIds);
+        
+        if (filterDateFrom) {
+          leaveQuery = leaveQuery.gte('leave_date', format(filterDateFrom, "yyyy-MM-dd"));
+        }
+        if (filterDateTo) {
+          leaveQuery = leaveQuery.lte('leave_date', format(filterDateTo, "yyyy-MM-dd"));
+        }
+        
+        const { data: leaves } = await leaveQuery.order('leave_date', { ascending: false });
         leaveData = leaves || [];
       }
       
