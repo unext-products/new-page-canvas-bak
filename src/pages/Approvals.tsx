@@ -501,39 +501,21 @@ export default function Approvals() {
     }
   };
 
-  // Get unique faculty list from entries AND leave entries
+  // Build faculty list from ALL approvable faculty, with entry counts
   const facultyList = useMemo(() => {
-    const uniqueFaculty = new Map<string, { name: string; count: number; avatarUrl: string | null }>();
+    const countMap = new Map<string, number>();
     entries.forEach(entry => {
-      const existing = uniqueFaculty.get(entry.user_id);
-      if (existing) {
-        existing.count++;
-      } else {
-        uniqueFaculty.set(entry.user_id, {
-          name: entry.profiles.full_name,
-          count: 1,
-          avatarUrl: entry.profiles.avatar_url
-        });
-      }
+      countMap.set(entry.user_id, (countMap.get(entry.user_id) || 0) + 1);
     });
-    // Also include users who only have leave entries
     leaveEntries.forEach(leave => {
-      const existing = uniqueFaculty.get(leave.user_id);
-      if (existing) {
-        existing.count++;
-      } else {
-        uniqueFaculty.set(leave.user_id, {
-          name: leave.profiles.full_name,
-          count: 1,
-          avatarUrl: leave.profiles.avatar_url
-        });
-      }
+      countMap.set(leave.user_id, (countMap.get(leave.user_id) || 0) + 1);
     });
-    return Array.from(uniqueFaculty.entries()).map(([userId, data]) => ({
-      userId,
-      ...data
+    
+    return allApprovableFaculty.map(f => ({
+      ...f,
+      count: countMap.get(f.userId) || 0
     }));
-  }, [entries, leaveEntries]);
+  }, [allApprovableFaculty, entries, leaveEntries]);
 
   // Get unique activity types from entries
   const activityTypes = useMemo(() => {
