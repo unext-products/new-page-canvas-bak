@@ -835,7 +835,8 @@ export default function Approvals() {
       setSelectedEntries(new Set());
       setFilterFaculty(null);
       setFilterActivity(null);
-      setFilterDate(null);
+      setFilterDateFrom(null);
+      setFilterDateTo(null);
       
       fetchEntries();
     } catch (error) {
