@@ -39,6 +39,9 @@ interface TimesheetEntry {
   activity_subtype: string | null;
   notes: string | null;
   status: string;
+  approved_by?: string | null;
+  approved_at?: string | null;
+  approver_notes?: string | null;
   department_code?: string | null;
   vertical_id?: string | null;
   vertical_code?: string | null;
@@ -54,6 +57,9 @@ interface TimesheetEntry {
     full_name: string;
     avatar_url: string | null;
   };
+  approver_profile?: {
+    full_name: string;
+  } | null;
   type: 'timesheet';
 }
 
