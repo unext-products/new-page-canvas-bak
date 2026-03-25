@@ -1061,7 +1061,7 @@ export default function Approvals() {
                       All Leaves
                     </Button>
                     
-                    {(filterFaculty || filterActivity || filterDate || filterLeavesOnly) && (
+                    {(filterFaculty || filterActivity || filterDateFrom || filterDateTo || filterLeavesOnly) && (
                       <Button variant="ghost" size="sm" onClick={clearFilters}>
                         <X className="h-4 w-4 mr-1" />
                         Clear Filters
