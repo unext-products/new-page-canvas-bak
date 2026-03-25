@@ -674,6 +674,10 @@ export default function Approvals() {
     }));
     
     return [...timesheetItems, ...leaveItems].sort((a, b) => {
+      // Timesheet entries first, leaves at the bottom
+      if (a.type !== b.type) {
+        return a.type === 'timesheet' ? -1 : 1;
+      }
       const dateDiff = new Date(a.sortDate).getTime() - new Date(b.sortDate).getTime();
       if (dateDiff !== 0) return dateDiff;
       // Within the same date, sort by start_time ascending
@@ -1017,7 +1021,15 @@ export default function Approvals() {
                       </SelectContent>
                     </Select>
                     
-                    <Select value={filterActivity || "all"} onValueChange={(value) => setFilterActivity(value === "all" ? null : value)}>
+                    <Select value={filterLeavesOnly ? "leaves_only" : (filterActivity || "all")} onValueChange={(value) => {
+                      if (value === "leaves_only") {
+                        setFilterLeavesOnly(true);
+                        setFilterActivity(null);
+                      } else {
+                        setFilterLeavesOnly(false);
+                        setFilterActivity(value === "all" ? null : value);
+                      }
+                    }}>
                       <SelectTrigger className="w-[200px]">
                         <SelectValue placeholder="By Activity" />
                       </SelectTrigger>
@@ -1028,6 +1040,7 @@ export default function Approvals() {
                             {type.replace(/_/g, " ").charAt(0).toUpperCase() + type.slice(1).replace(/_/g, " ")} ({count})
                           </SelectItem>
                         ))}
+                        <SelectItem value="leaves_only">All Leaves ({leaveEntries.length})</SelectItem>
                       </SelectContent>
                     </Select>
                     
@@ -1088,19 +1101,6 @@ export default function Approvals() {
                         </PopoverContent>
                       </Popover>
                     </div>
-                    
-                    {/* All Leaves quick filter */}
-                    <Button
-                      variant={filterLeavesOnly ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => {
-                        setFilterLeavesOnly(!filterLeavesOnly);
-                        if (!filterLeavesOnly) setFilterActivity(null);
-                      }}
-                      className="h-10"
-                    >
-                      All Leaves
-                    </Button>
                     
                     {/* Submit button to fetch data */}
                     <Button
