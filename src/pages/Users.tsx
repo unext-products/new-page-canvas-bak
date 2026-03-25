@@ -353,6 +353,7 @@ export default function Users() {
   const openDetailDialog = async (user: UserProfile) => {
     setDetailUser(user);
     setDetailDialogOpen(true);
+    setDetailReportees([]);
     
     // Fetch weekly timesheet data for this user
     const now = new Date();
