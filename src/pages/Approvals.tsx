@@ -405,7 +405,7 @@ export default function Approvals() {
     } finally {
       setLoading(false);
     }
-  }, [userWithRole, settingsLoading, approvableRoles, getOrgId, toast]);
+  }, [userWithRole, settingsLoading, approvableRoles, getOrgId, toast, filterDateFrom, filterDateTo]);
 
   // Auto-fetch on first load with default date (today)
   useEffect(() => {
