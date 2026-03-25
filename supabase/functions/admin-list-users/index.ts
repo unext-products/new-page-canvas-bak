@@ -99,8 +99,8 @@ serve(async (req) => {
 
       const superAdminIds = new Set(superAdminUsers?.map(u => u.user_id) || []);
       
-      // Filter out other super_admins from the list
-      filteredUsers = allUsers.filter((u: any) => !superAdminIds.has(u.id));
+      // Filter out other super_admins from the list (keep self)
+      filteredUsers = allUsers.filter((u: any) => u.id === userId || !superAdminIds.has(u.id));
     } else {
       // Org admin can only see users in their organization
       if (!adminOrgId) {
