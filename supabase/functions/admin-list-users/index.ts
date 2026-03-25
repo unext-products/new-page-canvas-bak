@@ -95,7 +95,7 @@ serve(async (req) => {
         .from('user_roles')
         .select('user_id')
         .eq('role', 'super_admin')
-        .neq('user_id', user.id);
+        .neq('user_id', userId);
 
       const superAdminIds = new Set(superAdminUsers?.map(u => u.user_id) || []);
       
