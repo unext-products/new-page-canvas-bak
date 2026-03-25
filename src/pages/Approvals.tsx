@@ -124,7 +124,8 @@ export default function Approvals() {
   // Leave delete state
   const [deleteLeaveDialogOpen, setDeleteLeaveDialogOpen] = useState(false);
   const [leaveToDelete, setLeaveToDelete] = useState<LeaveEntry | null>(null);
-  
+  const [allApprovableFaculty, setAllApprovableFaculty] = useState<{ userId: string; name: string; avatarUrl: string | null }[]>([]);
+  const [facultyPopoverOpen, setFacultyPopoverOpen] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
