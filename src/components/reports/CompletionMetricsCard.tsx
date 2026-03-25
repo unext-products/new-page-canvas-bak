@@ -18,6 +18,8 @@ export function CompletionMetricsCard({
   expectedHours,
   completionRate,
   period,
+  expectedHoursBreakdown,
+  dailyTargetHours = 8,
 }: CompletionMetricsCardProps) {
   const getStatusConfig = () => {
     if (completionRate >= 100) {
