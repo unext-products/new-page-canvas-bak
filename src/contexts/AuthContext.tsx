@@ -44,8 +44,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     resolving.current = true;
 
     try {
+      const { data: { user: verifiedUser }, error: verifyError } = await supabase.auth.getUser();
+      if (fetchId !== latestFetchId.current) return;
+
+      if (verifyError || !verifiedUser) {
+        console.warn("[Auth] Session invalid, clearing local session");
+        await supabase.auth.signOut({ scope: 'local' });
+        return;
+      }
+
       // Attempt 1
-      let userData = await getUserWithRole(sessionUser.id, sessionUser);
+      let userData = await getUserWithRole(verifiedUser.id, verifiedUser);
       if (fetchId !== latestFetchId.current) return;
 
       // Retry 1
