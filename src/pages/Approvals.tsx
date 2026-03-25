@@ -423,6 +423,10 @@ export default function Approvals() {
   }, [userWithRole?.role, userWithRole?.departmentId, settingsLoading]);
 
   const handleSubmitFilter = () => {
+    setAppliedFaculty(filterFaculty);
+    setAppliedActivity(filterActivity);
+    setAppliedDateFrom(filterDateFrom);
+    setAppliedDateTo(filterDateTo);
     fetchEntries();
   };
 
