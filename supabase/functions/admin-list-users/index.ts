@@ -31,8 +31,9 @@ serve(async (req) => {
     // Create admin client with service role key
     const supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Verify user using getClaims for reliable JWT validation
-    const supabaseAuth = createClient(supabaseUrl, supabaseServiceKey, {
+    // Verify user using getClaims with anon key client for reliable JWT validation
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } }
     });
     const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
