@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { getVisibleUserIds } from "@/lib/reportingHierarchy";
 import { useAuth } from "@/contexts/AuthContext";
 import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
