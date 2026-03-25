@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
     }
 
     // Prevent self-deletion
-    if (user_id === user.id) {
+    if (user_id === userId) {
       console.error('Admin attempted to delete themselves:', user_id);
       return new Response(
         JSON.stringify({ error: 'Cannot delete your own account' }),
