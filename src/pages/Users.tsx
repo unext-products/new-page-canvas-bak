@@ -514,6 +514,13 @@ export default function Users() {
         throw new Error(data.error);
       }
 
+      // Save reporting hierarchy for L2/L3 managers if reportees were selected
+      if (data?.user?.id && formData.reportee_ids.length > 0 &&
+          (formData.role === "l2" || formData.role === "l3" || 
+           formData.role === "program_manager" || formData.role === "manager")) {
+        await saveReporteeAssignments(data.user.id, formData.reportee_ids);
+      }
+
       toast({
         title: "Success",
         description: "User created successfully. You can now share the login credentials with the user.",
