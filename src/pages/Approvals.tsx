@@ -311,11 +311,21 @@ export default function Approvals() {
           let offset = 0;
           const PAGE_SIZE = 1000;
           while (true) {
-            const { data, error } = await supabase
+            let query = supabase
               .from("timesheet_entries")
               .select("id, entry_date, start_time, end_time, activity_type, activity_subtype, notes, user_id, department_code, vertical_id, vertical_code, program_id, batch_id, batch_name, term_id, term_name, subject_id, subject_code, status, approved_by, approved_at, approver_notes")
               .in("user_id", chunk)
-              .in("status", ["submitted", "approved", "rejected"])
+              .in("status", ["submitted", "approved", "rejected"]);
+            
+            // Apply date range filters at the database level
+            if (filterDateFrom) {
+              query = query.gte("entry_date", format(filterDateFrom, "yyyy-MM-dd"));
+            }
+            if (filterDateTo) {
+              query = query.lte("entry_date", format(filterDateTo, "yyyy-MM-dd"));
+            }
+            
+            const { data, error } = await query
               .order("entry_date", { ascending: false })
               .range(offset, offset + PAGE_SIZE - 1);
             if (error) throw error;
@@ -333,11 +343,19 @@ export default function Approvals() {
       // Fetch leave entries for ALL approvable users (not just those with timesheet entries)
       let leaveData: any[] = [];
       if (allUserIds.length > 0) {
-        const { data: leaves } = await supabase
+        let leaveQuery = supabase
           .from('leave_days' as any)
           .select('*')
-          .in('user_id', allUserIds)
-          .order('leave_date', { ascending: false });
+          .in('user_id', allUserIds);
+        
+        if (filterDateFrom) {
+          leaveQuery = leaveQuery.gte('leave_date', format(filterDateFrom, "yyyy-MM-dd"));
+        }
+        if (filterDateTo) {
+          leaveQuery = leaveQuery.lte('leave_date', format(filterDateTo, "yyyy-MM-dd"));
+        }
+        
+        const { data: leaves } = await leaveQuery.order('leave_date', { ascending: false });
         leaveData = leaves || [];
       }
       
@@ -387,7 +405,7 @@ export default function Approvals() {
     } finally {
       setLoading(false);
     }
-  }, [userWithRole, settingsLoading, approvableRoles, getOrgId, toast]);
+  }, [userWithRole, settingsLoading, approvableRoles, getOrgId, toast, filterDateFrom, filterDateTo]);
 
   // Auto-fetch on first load with default date (today)
   useEffect(() => {
