@@ -461,6 +461,27 @@ export type Database = {
           },
         ]
       }
+      reporting_hierarchy: {
+        Row: {
+          created_at: string
+          id: string
+          manager_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          manager_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          manager_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       settings: {
         Row: {
           created_at: string
@@ -1088,9 +1109,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_all_reportees: { Args: { p_manager_id: string }; Returns: string[] }
+      get_direct_reportees: {
+        Args: { p_manager_id: string }
+        Returns: string[]
+      }
       get_role_level: {
         Args: { p_role: Database["public"]["Enums"]["app_role"] }
         Returns: number
+      }
+      get_transitive_reportees: {
+        Args: { p_manager_id: string }
+        Returns: string[]
       }
       get_user_batches: { Args: { p_user_id: string }; Returns: string[] }
       get_user_department: { Args: { user_id: string }; Returns: string }
@@ -1105,6 +1135,10 @@ export type Database = {
       get_user_subjects: { Args: { p_user_id: string }; Returns: string[] }
       get_user_vertical: { Args: { user_id: string }; Returns: string }
       get_user_verticals: { Args: { p_user_id: string }; Returns: string[] }
+      has_reporting_hierarchy: {
+        Args: { p_manager_id: string }
+        Returns: boolean
+      }
       is_super_admin: { Args: { p_user_id: string }; Returns: boolean }
       user_in_batch: {
         Args: { p_batch_id: string; p_user_id: string }
