@@ -874,6 +874,10 @@ export default function Approvals() {
       setFilterActivity(null);
       setFilterDateFrom(null);
       setFilterDateTo(null);
+      setAppliedFaculty(null);
+      setAppliedActivity(null);
+      setAppliedDateFrom(null);
+      setAppliedDateTo(null);
       
       fetchEntries();
     } catch (error) {
