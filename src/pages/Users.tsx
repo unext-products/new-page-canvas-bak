@@ -536,6 +536,7 @@ export default function Users() {
         is_active: true,
         password: "",
         confirmPassword: "",
+        reportee_ids: [],
       });
       setShowPassword(false);
       setShowConfirmPassword(false);
