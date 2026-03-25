@@ -1255,20 +1255,29 @@ export default function Approvals() {
                                 </div>
                               </div>
                             </div>
-                            {item.status === "submitted" ? (
-                              <Badge variant="outline" className="bg-warning/10 text-warning-foreground border-warning/20">
-                                Pending Review
-                              </Badge>
-                            ) : item.status === "approved" ? (
-                              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800">
-                                Approved
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">
-                                Rejected
-                              </Badge>
-                            )}
-                          </div>
+                            <div className="flex flex-col items-end gap-1">
+                              {item.status === "submitted" ? (
+                                <Badge variant="outline" className="bg-warning/10 text-warning-foreground border-warning/20">
+                                  Pending Review
+                                </Badge>
+                              ) : item.status === "approved" ? (
+                                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800">
+                                  Approved
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">
+                                  Rejected
+                                </Badge>
+                              )}
+                              {(item.status === "approved" || item.status === "rejected") && item.approver_profile && (
+                                <span className="text-xs text-muted-foreground">
+                                  by {item.approver_profile.full_name}
+                                  {item.approved_at && (
+                                    <> on {format(new Date(item.approved_at), "MMM d, yyyy")}</>
+                                  )}
+                                </span>
+                              )}
+                            </div>
                         </CardHeader>
                         <CardContent className={cn("space-y-4", item.status === "submitted" && "pl-12")}>
                           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
