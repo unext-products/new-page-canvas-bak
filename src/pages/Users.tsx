@@ -106,6 +106,7 @@ export default function Users() {
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [detailUser, setDetailUser] = useState<UserProfile | null>(null);
   const [weeklyProgress, setWeeklyProgress] = useState({ logged: 0, target: 40 });
+  const [detailReportees, setDetailReportees] = useState<string[]>([]);
   
   // Download dialog state
   const [downloadDialogOpen, setDownloadDialogOpen] = useState(false);
