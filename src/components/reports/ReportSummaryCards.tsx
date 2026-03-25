@@ -38,18 +38,33 @@ export function ReportSummaryCards({
           </p>
           {expectedHoursBreakdown && (
             <div className="flex items-center gap-2.5 mt-1.5">
-              <span className="inline-flex items-center gap-1 text-xs font-medium text-primary">
-                <CalendarDays className="h-3 w-3" />
-                {expectedHoursBreakdown.totalDays}
-              </span>
-              <span className="inline-flex items-center gap-1 text-xs font-medium text-warning">
-                <TreePalm className="h-3 w-3" />
-                {expectedHoursBreakdown.leaveDays % 1 === 0 ? expectedHoursBreakdown.leaveDays : expectedHoursBreakdown.leaveDays.toFixed(1)}
-              </span>
-              <span className="inline-flex items-center gap-1 text-xs font-medium text-destructive">
-                <Landmark className="h-3 w-3" />
-                {expectedHoursBreakdown.holidayDays}
-              </span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex items-center gap-1 text-xs font-medium text-green-600 cursor-default">
+                    <CalendarDays className="h-3 w-3" />
+                    {expectedHoursBreakdown.totalDays}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom"><p>Days</p></TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex items-center gap-1 text-xs font-medium text-orange-500 cursor-default">
+                    <TreePalm className="h-3 w-3" />
+                    {expectedHoursBreakdown.leaveDays % 1 === 0 ? expectedHoursBreakdown.leaveDays : expectedHoursBreakdown.leaveDays.toFixed(1)}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom"><p>Leaves</p></TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex items-center gap-1 text-xs font-medium text-red-500 cursor-default">
+                    <Landmark className="h-3 w-3" />
+                    {expectedHoursBreakdown.holidayDays}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom"><p>Holidays</p></TooltipContent>
+              </Tooltip>
             </div>
           )}
         </CardContent>
