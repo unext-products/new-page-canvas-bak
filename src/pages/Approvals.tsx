@@ -303,7 +303,7 @@ export default function Approvals() {
         // Fetch all statuses to support showing approved/rejected entries
         const { data, error } = await supabase
           .from("timesheet_entries")
-          .select("id, entry_date, start_time, end_time, activity_type, activity_subtype, notes, user_id, department_code, vertical_id, vertical_code, program_id, batch_id, batch_name, term_id, term_name, subject_id, subject_code, status")
+          .select("id, entry_date, start_time, end_time, activity_type, activity_subtype, notes, user_id, department_code, vertical_id, vertical_code, program_id, batch_id, batch_name, term_id, term_name, subject_id, subject_code, status, approved_by, approved_at, approver_notes")
           .in("user_id", allUserIds)
           .in("status", ["submitted", "approved", "rejected"])
           .order("entry_date", { ascending: false });
