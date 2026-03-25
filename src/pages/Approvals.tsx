@@ -566,17 +566,32 @@ export default function Approvals() {
     );
   }, [entries, leaveEntries]);
 
+  // Helper to check if a date string falls within the filter range
+  const isDateInRange = useCallback((dateStr: string) => {
+    if (!filterDateFrom && !filterDateTo) return true;
+    const d = dateStr; // already yyyy-MM-dd
+    if (filterDateFrom) {
+      const fromStr = format(filterDateFrom, "yyyy-MM-dd");
+      if (d < fromStr) return false;
+    }
+    if (filterDateTo) {
+      const toStr = format(filterDateTo, "yyyy-MM-dd");
+      if (d > toStr) return false;
+    }
+    return true;
+  }, [filterDateFrom, filterDateTo]);
+
   // Filter entries based on selections (for day view - respects showPendingOnly toggle)
   const filteredEntries = useMemo(() => {
     return entries.filter(entry => {
       if (filterFaculty && entry.user_id !== filterFaculty) return false;
       if (filterActivity && entry.activity_type !== filterActivity) return false;
-      if (filterDate && entry.entry_date !== format(filterDate, "yyyy-MM-dd")) return false;
+      if (!isDateInRange(entry.entry_date)) return false;
       // Apply showPendingOnly toggle for day view
       if (showPendingOnly && entry.status !== "submitted") return false;
       return true;
     });
-  }, [entries, filterFaculty, filterActivity, filterDate, showPendingOnly]);
+  }, [entries, filterFaculty, filterActivity, isDateInRange, showPendingOnly]);
   
   // Determine if current user is admin
   const isCurrentUserAdmin = useMemo(() => {
