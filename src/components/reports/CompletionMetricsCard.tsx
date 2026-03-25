@@ -1,13 +1,16 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle2, AlertCircle, TrendingUp } from "lucide-react";
+import { CheckCircle2, AlertCircle, TrendingUp, CalendarDays, TreePalm, Landmark } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ExpectedHoursBreakdown } from "@/lib/reportQueries";
 
 interface CompletionMetricsCardProps {
   actualHours: number;
   expectedHours: number;
   completionRate: number;
   period: string;
+  expectedHoursBreakdown?: ExpectedHoursBreakdown;
+  dailyTargetHours?: number;
 }
 
 export function CompletionMetricsCard({
