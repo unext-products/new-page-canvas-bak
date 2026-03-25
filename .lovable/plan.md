@@ -1,121 +1,172 @@
 
 
-## Root Cause Analysis
+# Reporting Hierarchy Implementation Plan
 
-**All working-day calculations across the app use `isWeekend()` to exclude non-working days but never query the `holidays` table.** Holidays (like March 19) are invisible to these calculations, so the system counts them as full working days.
+## Problem
+Currently, L2 and L3 users see and manage ALL subordinates in their verticals/programs. There is no direct manager-reportee relationship. Two L2 users in the same program both see all L1 users, rather than only their assigned reportees.
 
-Affected locations:
-1. **`EnhancedCompletionCard.tsx` line 79** — `isWeekend(day)` only
-2. **`reportQueries.ts` `countWorkingDays()` line 461** — `isWeekend(day)` only
-3. **`Dashboard.tsx` line 149** — hardcoded `5` base working days per week
-4. **`Team.tsx` line 268** — hardcoded `5` base working days per week
+## Solution Overview
+Introduce a `reporting_hierarchy` table that maps each user to their direct reporting manager. This creates explicit manager-reportee relationships that replace the current "same vertical/program = full access" model.
 
-The `useThresholds` hook already fetches holidays and exposes `isHoliday()`, but none of these calculation paths use it.
+## Architecture
 
-## Fix Plan
+```text
+Admin (org_admin)
+  └── sees/manages ALL users (no change)
 
-### Step 1: Make `countWorkingDays` holiday-aware (central fix)
+L3 (Vertical Head)
+  └── sees L2 users assigned as direct reportees
+      └── and transitively, all L1s who report to those L2s
 
-**File: `src/lib/reportQueries.ts`**
-
-Add a `holidayDates` parameter (a `Set<string>`) to `countWorkingDays()`. Inside the loop, after the `isWeekend` check, skip days that are in `holidayDates`:
-
-```typescript
-export function countWorkingDays(
-  dateFrom: Date, dateTo: Date,
-  leaveDates: Set<string> = new Set(),
-  leaveTypeMap?: Map<string, string>,
-  holidayDates: Set<string> = new Set()  // NEW
-): number {
-  ...
-  for (const day of allDays) {
-    if (isWeekend(day)) continue;
-    const dateStr = format(day, "yyyy-MM-dd");
-    if (holidayDates.has(dateStr)) continue;  // NEW — skip holidays
-    // ... existing leave logic
-  }
-}
+L2 (Program Head)
+  └── sees only L1 users assigned as direct reportees
 ```
 
-Also update `calculateExpectedHours()` similarly to accept and use holiday dates.
+---
 
-### Step 2: Pass holidays into report calculations
+## Step 1: Database — Create `reporting_hierarchy` table
 
-**File: `src/lib/reportQueries.ts`**
+New migration:
+```sql
+CREATE TABLE public.reporting_hierarchy (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,          -- the reportee
+  manager_id uuid NOT NULL,       -- the manager
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE(user_id, manager_id)
+);
 
-In `fetchFacultyReport()`, fetch holidays for the user's org and pass them to `countWorkingDays()`:
+ALTER TABLE public.reporting_hierarchy ENABLE ROW LEVEL SECURITY;
 
-```typescript
-// Fetch holidays for the user's org
-const { data: holidays } = await supabase
-  .from("holidays")
-  .select("holiday_date")
-  .eq("organization_id", orgId);
-const holidayDates = new Set(holidays?.map(h => h.holiday_date) || []);
+-- Admins can manage all
+CREATE POLICY "Org admins can manage reporting hierarchy"
+  ON public.reporting_hierarchy FOR ALL
+  USING (get_user_role(auth.uid()) = 'org_admin'::app_role);
 
-// Pass to countWorkingDays
-countWorkingDays(start, end, leaveDates, leaveMap, holidayDates);
+CREATE POLICY "Super admins can manage all reporting hierarchy"
+  ON public.reporting_hierarchy FOR ALL
+  USING (is_super_admin(auth.uid()));
+
+-- Managers can view their own reportees
+CREATE POLICY "Managers can view their reportees"
+  ON public.reporting_hierarchy FOR SELECT
+  USING (manager_id = auth.uid());
+
+-- Users can view their own reporting relationship
+CREATE POLICY "Users can view own reporting"
+  ON public.reporting_hierarchy FOR SELECT
+  USING (user_id = auth.uid());
 ```
 
-### Step 3: Fix `EnhancedCompletionCard.tsx`
+Also create a security definer helper function:
+```sql
+CREATE OR REPLACE FUNCTION public.get_direct_reportees(p_manager_id uuid)
+RETURNS uuid[]
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
+AS $$
+  SELECT COALESCE(array_agg(user_id), ARRAY[]::uuid[])
+  FROM public.reporting_hierarchy
+  WHERE manager_id = p_manager_id;
+$$;
 
-**File: `src/components/dashboard/EnhancedCompletionCard.tsx`**
-
-Fetch holidays for the user's org in parallel with entries/leaves/target. Add a holiday check in the working-days loop:
-
-```typescript
-// In fetchCompletionData, add holidays fetch
-const [entriesRes, leavesRes, targetBreakdown, holidaysRes] = await Promise.all([
-  ...existing...,
-  supabase
-    .from("holidays")
-    .select("holiday_date")
-    .eq("organization_id", userOrgId)  // need to resolve user's org
-]);
-
-const holidayDates = new Set(holidaysRes.data?.map(h => h.holiday_date) || []);
-
-// In the loop:
-if (isWeekend(day)) continue;
-if (holidayDates.has(dateStr)) continue;  // NEW
+-- Transitive: get all L1s under an L3 (via their L2 reportees)
+CREATE OR REPLACE FUNCTION public.get_transitive_reportees(p_manager_id uuid)
+RETURNS uuid[]
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
+AS $$
+  SELECT COALESCE(array_agg(DISTINCT r2.user_id), ARRAY[]::uuid[])
+  FROM public.reporting_hierarchy r1
+  JOIN public.reporting_hierarchy r2 ON r2.manager_id = r1.user_id
+  WHERE r1.manager_id = p_manager_id;
+$$;
 ```
 
-Will also need to fetch the user's `organization_id` from `user_roles`.
+---
 
-### Step 4: Fix Dashboard weekly target
+## Step 2: Admin UI — Reportee Assignment in User Edit Dialog
 
-**File: `src/pages/Dashboard.tsx`**
+In **`src/pages/Users.tsx`** (Edit Dialog), add a "Reportees" multi-select section:
+- For **L2 users**: show a multi-select of L1 users in the same vertical/program, allowing admin to pick which L1s report to this L2.
+- For **L3 users**: show a multi-select of L2 users in the same vertical, allowing admin to pick which L2s report to this L3.
+- Load existing assignments from `reporting_hierarchy` on dialog open.
+- On save, sync `reporting_hierarchy` (delete old + insert new).
 
-Replace hardcoded `5` with actual count. Fetch holidays for the current week and subtract them:
+Also add the same section to the **Create User** dialog for L2/L3 roles.
 
-```typescript
-const { data: weekHolidays } = await supabase
-  .from("holidays")
-  .select("holiday_date")
-  .eq("organization_id", orgId)
-  .gte("holiday_date", weekStartStr)
-  .lte("holiday_date", weekEndStr);
+Additionally, display assigned reportees in the **User Detail** dialog so admins can quickly see the reporting structure.
 
-const holidayCount = weekHolidays?.length || 0;
-const workingDaysThisWeek = Math.max(0, 5 - holidayCount - leaveDaysThisWeek);
-```
+---
 
-### Step 5: Fix Team page weekly target
+## Step 3: Update Approvals Page (`src/pages/Approvals.tsx`)
 
-**File: `src/pages/Team.tsx`**
+Replace the current logic that finds approvable users by vertical/program membership with direct reportee lookups:
 
-Same pattern as Dashboard — fetch holidays for the week and subtract:
+- **L2 approvers**: Query `reporting_hierarchy` where `manager_id = current L2 user` to get direct L1 reportee IDs. Only show entries from those L1s.
+- **L3 approvers**: Query `reporting_hierarchy` where `manager_id = current L3 user` to get direct L2 reportees. Then query again to get L1s reporting to those L2s (transitive). Show entries from direct L2 reportees AND transitive L1 reportees.
+- **Admin**: No change — continues to see all entries in org.
 
-```typescript
-const workingDaysThisWeek = Math.max(0, 5 - holidayCount - memberWeekLeaveDays);
-```
+---
 
-### Files to change
+## Step 4: Update Team Page (`src/pages/Team.tsx`)
+
+Same pattern as Approvals:
+- **L2**: Show only direct L1 reportees from `reporting_hierarchy`.
+- **L3**: Show direct L2 reportees + transitive L1 reportees.
+- **Admin**: No change.
+
+---
+
+## Step 5: Update Reports — Member Select & Vertical View (`src/components/MemberSelect.tsx`, `src/lib/reportQueries.ts`)
+
+- **MemberSelect**: When used by L2/L3, filter the member list to only show direct/transitive reportees.
+- **Vertical/Department view reports** (`fetchVerticalReport`): For L2/L3 users, scope faculty breakdown to their reportee tree only.
+
+---
+
+## Step 6: Update RLS Policies on `timesheet_entries`
+
+Add new RLS policies (or update existing ones) so L2/L3 users can only SELECT/UPDATE entries belonging to their reportees:
+
+- **L2 SELECT/UPDATE**: `user_id = ANY(get_direct_reportees(auth.uid()))` AND role check confirms the entry owner is L1.
+- **L3 SELECT/UPDATE**: `user_id = ANY(get_direct_reportees(auth.uid()))` (for L2 entries) OR `user_id = ANY(get_transitive_reportees(auth.uid()))` (for L1 entries).
+
+The existing vertical/program-based policies will be replaced or made secondary to the reporting hierarchy policies.
+
+---
+
+## Step 7: Backward Compatibility & Data Migration
+
+- **No data loss**: The existing `user_verticals`, `user_programs` tables remain untouched. The new `reporting_hierarchy` table is additive.
+- **Fallback behavior**: If a manager has zero entries in `reporting_hierarchy`, the system falls back to the current vertical/program-based visibility. This ensures existing users continue working until admins configure the reporting structure.
+- **Gradual adoption**: Admins can assign reportees at their own pace. Unassigned users remain visible via the old logic.
+
+---
+
+## Step 8: Dashboard Scoping (`src/pages/Dashboard.tsx`)
+
+For L2/L3 dashboards that show team stats, scope the team member counts and aggregations to reportees only (with the same fallback).
+
+---
+
+## Files Affected
 
 | File | Change |
-|------|--------|
-| `src/lib/reportQueries.ts` | Add `holidayDates` param to `countWorkingDays` and `calculateExpectedHours`; fetch holidays in `fetchFacultyReport` |
-| `src/components/dashboard/EnhancedCompletionCard.tsx` | Fetch user's org holidays; skip holiday dates in working-days loop |
-| `src/pages/Dashboard.tsx` | Fetch week's holidays; subtract from base working days |
-| `src/pages/Team.tsx` | Fetch week's holidays; subtract from base working days |
+|---|---|
+| New migration SQL | `reporting_hierarchy` table, RLS, helper functions |
+| `src/pages/Users.tsx` | Add reportee multi-select in edit/create dialogs, load/save hierarchy |
+| `src/pages/Approvals.tsx` | Replace vertical/program user collection with reportee queries |
+| `src/pages/Team.tsx` | Replace vertical/program scoping with reportee queries |
+| `src/components/MemberSelect.tsx` | Filter members by reportee hierarchy for L2/L3 |
+| `src/lib/reportQueries.ts` | Scope vertical report faculty list by reportees for L2/L3 |
+| `src/pages/Dashboard.tsx` | Scope admin/manager stats to reportees |
+| RLS policies on `timesheet_entries` | Add reportee-based policies |
+
+---
+
+## Key Design Decisions
+
+1. **Reporting hierarchy is stored as direct relationships only** (manager → reportee). Transitive access (L3 → L1 via L2) is computed via a DB function.
+2. **Admin retains full org-wide access** — no hierarchy filtering for admins.
+3. **Fallback to current behavior** when no reporting hierarchy is configured, ensuring zero disruption to existing users.
+4. **Reportee assignment is done from the manager's perspective** — admin edits an L2 user and selects which L1s report to them.
 
