@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { getVisibleUserIds } from "@/lib/reportingHierarchy";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
