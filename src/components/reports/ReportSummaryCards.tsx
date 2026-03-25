@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Clock, CheckCircle, FileText, TrendingUp, CheckCircle2, AlertCircle } from "lucide-react";
+import { Clock, CheckCircle, FileText, TrendingUp, CheckCircle2, AlertCircle, CalendarDays, TreePalm, Landmark } from "lucide-react";
 import { ExpectedHoursBreakdown } from "@/lib/reportQueries";
 
 interface ReportSummaryCardsProps {
