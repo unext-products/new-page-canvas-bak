@@ -378,33 +378,45 @@ export default function Dashboard() {
     const hodHolidayCount = hodWeekHolidays?.length || 0;
     const hodWorkingDaysThisWeek = Math.max(0, 5 - hodHolidayCount);
 
-    // Fetch all users in HOD's verticals from user_verticals (primary)
-    let allVertUserIds: string[] = [];
-    const { data: vertUsers } = await supabase
-      .from("user_verticals")
-      .select("user_id")
-      .in("vertical_id", hodVerticalIds);
+    // Check reporting hierarchy first
+    const currentRole = userWithRole?.role || "";
+    const hierarchyUsers = await getVisibleUserIds(hodUserId, currentRole);
+    
+    let teamUserIds: string[] = [];
 
-    if (vertUsers && vertUsers.length > 0) {
-      allVertUserIds = [...new Set(vertUsers.map((v) => v.user_id))];
-    } else {
-      // Fallback to user_departments
-      const { data: deptUsers } = await supabase
-        .from("user_departments")
+    if (hierarchyUsers !== null && hierarchyUsers.length > 0) {
+      // Use hierarchy-based team
+      const { data: facultyRoles } = await supabase
+        .from("user_roles")
         .select("user_id")
-        .in("department_id", hodVerticalIds);
-      allVertUserIds = [...new Set(deptUsers?.map((d) => d.user_id) || [])];
+        .in("role", ["l1", "l2", "faculty", "program_manager"])
+        .in("user_id", hierarchyUsers);
+      teamUserIds = (facultyRoles?.map((r) => r.user_id) || []).filter((id) => id !== hodUserId);
+    } else {
+      // Fallback: legacy vertical-based logic
+      let allVertUserIds: string[] = [];
+      const { data: vertUsers } = await supabase
+        .from("user_verticals")
+        .select("user_id")
+        .in("vertical_id", hodVerticalIds);
+
+      if (vertUsers && vertUsers.length > 0) {
+        allVertUserIds = [...new Set(vertUsers.map((v) => v.user_id))];
+      } else {
+        const { data: deptUsers } = await supabase
+          .from("user_departments")
+          .select("user_id")
+          .in("department_id", hodVerticalIds);
+        allVertUserIds = [...new Set(deptUsers?.map((d) => d.user_id) || [])];
+      }
+
+      const { data: facultyRoles } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .in("role", ["l1", "faculty"])
+        .in("user_id", allVertUserIds.length > 0 ? allVertUserIds : [hodUserId]);
+      teamUserIds = (facultyRoles?.map((r) => r.user_id) || []).filter((id) => id !== hodUserId);
     }
-
-    // Fetch faculty/L1 roles to filter to only L1/faculty users
-    const { data: facultyRoles } = await supabase
-      .from("user_roles")
-      .select("user_id")
-      .in("role", ["l1", "faculty"])
-      .in("user_id", allVertUserIds.length > 0 ? allVertUserIds : [hodUserId]);
-
-    // Team = L1/faculty in HOD's verticals, excluding HOD themselves
-    const teamUserIds = (facultyRoles?.map((r) => r.user_id) || []).filter((id) => id !== hodUserId);
 
     // Fetch team profiles
     const { data: teamProfiles } = await supabase
