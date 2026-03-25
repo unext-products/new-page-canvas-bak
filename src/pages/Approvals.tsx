@@ -901,12 +901,12 @@ export default function Approvals() {
 
   // Get entries for day view selection
   const dayViewEntryIds = useMemo(() => {
-    const dateToUse = filterDate || new Date();
+    const dateToUse = filterDateFrom || new Date();
     const dateStr = format(dateToUse, "yyyy-MM-dd");
     return filteredEntries
       .filter(entry => entry.entry_date === dateStr)
       .map(entry => entry.id);
-  }, [filteredEntries, filterDate]);
+  }, [filteredEntries, filterDateFrom]);
 
   const selectAllDayEntries = () => {
     const allIds = new Set(dayViewEntryIds);
