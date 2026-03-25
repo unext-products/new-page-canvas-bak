@@ -92,6 +92,8 @@ export default function Users() {
     is_active: true,
     password: "",
     confirmPassword: "",
+    // Reporting hierarchy
+    reportee_ids: [] as string[],
   });
   
   const isSuperAdmin = isRole(userWithRole?.role, "super_admin");
