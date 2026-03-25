@@ -345,7 +345,22 @@ export default function Approvals() {
         entriesData = allEntriesData;
       }
 
-      // Fetch profiles for all approvable users (not just those with timesheet entries)
+      // Fetch profiles for ALL approvable users for the faculty dropdown
+      if (allUserIds.length > 0) {
+        const { data: allProfiles } = await supabase
+          .from("profiles")
+          .select("id, full_name, avatar_url")
+          .in("id", allUserIds);
+        
+        setAllApprovableFaculty(
+          (allProfiles || [])
+            .map(p => ({ userId: p.id, name: p.full_name, avatarUrl: p.avatar_url }))
+            .sort((a, b) => a.name.localeCompare(b.name))
+        );
+      } else {
+        setAllApprovableFaculty([]);
+      }
+
       const userIds = [...new Set(entriesData?.map(e => e.user_id) || [])];
       
       // Fetch leave entries for ALL approvable users (not just those with timesheet entries)
