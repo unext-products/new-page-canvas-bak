@@ -617,14 +617,14 @@ export default function Approvals() {
     return entries.filter(entry => entry.status === "submitted");
   }, [entries]);
 
-  // Filter leave entries based on faculty selection and date
+  // Filter leave entries based on faculty selection and date range
   const filteredLeaveEntries = useMemo(() => {
     return leaveEntries.filter(entry => {
       if (filterFaculty && entry.user_id !== filterFaculty) return false;
-      if (filterDate && entry.leave_date !== format(filterDate, "yyyy-MM-dd")) return false;
+      if (!isDateInRange(entry.leave_date)) return false;
       return true;
     });
-  }, [leaveEntries, filterFaculty, filterDate]);
+  }, [leaveEntries, filterFaculty, isDateInRange]);
 
   // Combined filtered entries for LIST VIEW display - always pending only
   const listViewCombinedEntries = useMemo(() => {
