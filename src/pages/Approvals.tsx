@@ -1152,7 +1152,7 @@ export default function Approvals() {
                 </div>
 
                 {/* Filter Badges */}
-                {(filterFaculty || filterActivity || filterDate || filterLeavesOnly) && (
+                {(filterFaculty || filterActivity || filterDateFrom || filterDateTo || filterLeavesOnly) && (
                   <div className="flex flex-wrap gap-2">
                     {filterFaculty && (
                       <Badge variant="secondary" className="gap-1">
@@ -1166,10 +1166,10 @@ export default function Approvals() {
                         <X className="h-3 w-3 cursor-pointer" onClick={() => setFilterActivity(null)} />
                       </Badge>
                     )}
-                    {filterDate && (
+                    {(filterDateFrom || filterDateTo) && (
                       <Badge variant="secondary" className="gap-1">
-                        Date: {format(filterDate, "MMM d, yyyy")}
-                        <X className="h-3 w-3 cursor-pointer" onClick={() => setFilterDate(null)} />
+                        Date: {filterDateFrom ? format(filterDateFrom, "MMM d, yyyy") : "..."} - {filterDateTo ? format(filterDateTo, "MMM d, yyyy") : "..."}
+                        <X className="h-3 w-3 cursor-pointer" onClick={() => { setFilterDateFrom(null); setFilterDateTo(null); }} />
                       </Badge>
                     )}
                     {filterLeavesOnly && (
