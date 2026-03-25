@@ -349,6 +349,11 @@ export async function fetchFacultyReport(
     averageDailyHours,
     approvedCount,
     pendingCount,
+    expectedHoursBreakdown: {
+      totalDays: weekdaysInPeriod.length,
+      leaveDays: leaveCount,
+      holidayDays: holidayCount,
+    },
   };
 }
 
