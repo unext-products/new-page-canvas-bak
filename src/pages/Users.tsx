@@ -373,6 +373,24 @@ export default function Users() {
         sum + calculateDurationMinutes(e.start_time, e.end_time), 0) || 0;
       
       setWeeklyProgress({ logged: totalMinutes / 60, target: 40 });
+      
+      // Fetch reportees for L2/L3 users
+      if (user.role === "l2" || user.role === "l3" || 
+          user.role === "program_manager" || user.role === "manager") {
+        const { data: reportees } = await supabase
+          .from("reporting_hierarchy")
+          .select("user_id")
+          .eq("manager_id", user.id);
+        
+        if (reportees && reportees.length > 0) {
+          const reporteeIds = reportees.map(r => r.user_id);
+          const { data: reporteeProfiles } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .in("id", reporteeIds);
+          setDetailReportees(reporteeProfiles?.map(p => p.full_name) || []);
+        }
+      }
     } catch (error) {
       console.error("Error fetching weekly progress:", error);
       setWeeklyProgress({ logged: 0, target: 40 });
