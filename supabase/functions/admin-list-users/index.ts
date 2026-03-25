@@ -49,7 +49,7 @@ serve(async (req) => {
     const { data: roleData, error: roleError } = await supabaseClient
       .from('user_roles')
       .select('role, organization_id')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .single();
 
     // Allow super_admin and org_admin to list users
