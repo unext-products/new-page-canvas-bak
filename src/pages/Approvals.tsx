@@ -605,12 +605,12 @@ export default function Approvals() {
     return entries.filter(entry => {
       if (filterFaculty && entry.user_id !== filterFaculty) return false;
       if (filterActivity && entry.activity_type !== filterActivity) return false;
-      if (filterDate && entry.entry_date !== format(filterDate, "yyyy-MM-dd")) return false;
+      if (!isDateInRange(entry.entry_date)) return false;
       // Admin sees all statuses; others see only pending
       if (!isCurrentUserAdmin && entry.status !== "submitted") return false;
       return true;
     });
-  }, [entries, filterFaculty, filterActivity, filterDate, isCurrentUserAdmin, filterLeavesOnly]);
+  }, [entries, filterFaculty, filterActivity, isDateInRange, isCurrentUserAdmin, filterLeavesOnly]);
   
   // Pending entries for badge count (always only submitted)
   const pendingEntries = useMemo(() => {
