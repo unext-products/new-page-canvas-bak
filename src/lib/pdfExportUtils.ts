@@ -152,7 +152,7 @@ export function exportMemberReportPDF(
   // Detailed Table
   autoTable(doc, {
     startY: yPos + 10,
-    head: [["Program", "Vertical", "Name", "Date", "Activity", "Time", "Duration", "Status"]],
+    head: [["Program", "Vertical", "Name", "Date", "Activity", "Time", "Duration", "Status", "Approved By"]],
     body: report.entries.map((entry: any) => [
       entry._programName || "N/A",
       entry._verticalName || "N/A",
@@ -162,6 +162,7 @@ export function exportMemberReportPDF(
       `${entry.start_time} - ${entry.end_time}`,
       formatDuration(calculateDurationMinutes(entry.start_time, entry.end_time)),
       entry.status,
+      entry._approvedByName || "",
     ]),
     theme: "striped",
     styles: { fontSize: 7, cellPadding: 2 },

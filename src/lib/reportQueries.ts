@@ -287,26 +287,32 @@ export async function fetchFacultyReport(
   const approvedCount = entries?.filter(e => e.status === "approved").length || 0;
   const pendingCount = entries?.filter(e => e.status === "submitted").length || 0;
 
-  // Resolve program and vertical names for entries
+  // Resolve program, vertical, and approver names for entries
   const programIds = [...new Set((entries || []).map(e => e.program_id).filter(Boolean))];
   const verticalIds = [...new Set((entries || []).map(e => e.vertical_id).filter(Boolean))];
+  const approverIds = [...new Set((entries || []).map(e => e.approved_by).filter(Boolean))];
 
-  const [programsRes, verticalsRes] = await Promise.all([
+  const [programsRes, verticalsRes, approversRes] = await Promise.all([
     programIds.length > 0
       ? supabase.from("programs").select("id, name").in("id", programIds)
       : Promise.resolve({ data: [] }),
     verticalIds.length > 0
       ? supabase.from("verticals").select("id, name").in("id", verticalIds)
       : Promise.resolve({ data: [] }),
+    approverIds.length > 0
+      ? supabase.from("profiles").select("id, full_name").in("id", approverIds)
+      : Promise.resolve({ data: [] }),
   ]);
 
   const programMap = new Map((programsRes.data || []).map(p => [p.id, p.name]));
   const verticalMap = new Map((verticalsRes.data || []).map(v => [v.id, v.name]));
+  const approverMap = new Map((approversRes.data || []).map(a => [a.id, a.full_name]));
 
   const enrichedEntries = (entries || []).map(e => ({
     ...e,
     _programName: e.program_id ? (programMap.get(e.program_id) || "N/A") : "N/A",
     _verticalName: e.vertical_id ? (verticalMap.get(e.vertical_id) || "N/A") : "N/A",
+    _approvedByName: e.approved_by ? (approverMap.get(e.approved_by) || "") : "",
   }));
 
   return {

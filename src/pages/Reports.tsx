@@ -446,6 +446,7 @@ export default function Reports() {
                                 <TableHead>Time</TableHead>
                                 <TableHead>Duration</TableHead>
                                 <TableHead>Status</TableHead>
+                                <TableHead>Approved By</TableHead>
                                 <TableHead>Notes</TableHead>
                               </TableRow>
                             </TableHeader>
@@ -469,6 +470,9 @@ export default function Reports() {
                                   <TableCell>{formatDuration(calculateDurationMinutes(entry.start_time, entry.end_time))}</TableCell>
                                   <TableCell>
                                     <StatusBadge status={entry.status} />
+                                  </TableCell>
+                                  <TableCell className="text-sm">
+                                    {entry._approvedByName || "-"}
                                   </TableCell>
                                   <TableCell className="max-w-xs truncate">
                                     {entry.notes || "-"}
