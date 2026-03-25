@@ -1035,12 +1035,12 @@ export default function Approvals() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Activities</SelectItem>
+                        <SelectItem value="leaves_only">All Leaves ({leaveEntries.length})</SelectItem>
                         {activityTypes.map(({ type, count }) => (
                           <SelectItem key={type} value={type}>
                             {type.replace(/_/g, " ").charAt(0).toUpperCase() + type.slice(1).replace(/_/g, " ")} ({count})
                           </SelectItem>
                         ))}
-                        <SelectItem value="leaves_only">All Leaves ({leaveEntries.length})</SelectItem>
                       </SelectContent>
                     </Select>
                     
