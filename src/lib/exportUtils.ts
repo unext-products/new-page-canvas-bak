@@ -175,6 +175,7 @@ export function exportMemberReportCSV(
     "End Time",
     "Duration",
     "Status",
+    "Approved By",
     "Notes",
   ];
 
@@ -189,6 +190,7 @@ export function exportMemberReportCSV(
     entry.end_time,
     formatDuration(calculateDurationMinutes(entry.start_time, entry.end_time)),
     entry.status,
+    entry._approvedByName || "",
     entry.notes || "",
   ]);
 
