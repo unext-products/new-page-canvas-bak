@@ -465,6 +465,50 @@ export async function fetchVerticalReport(
 
   const totalMinutes = entries?.reduce((sum, e) => sum + getEntryDuration(e), 0) || 0;
   const totalHours = totalMinutes / 60;
+
+  // Fetch org holidays once for all faculty
+  let orgHolidayDates = new Set<string>();
+  if (uniqueFacultyIds.length > 0) {
+    const { data: orgIdData } = await supabase
+      .from("user_roles")
+      .select("organization_id")
+      .eq("user_id", uniqueFacultyIds[0])
+      .single();
+    if (orgIdData?.organization_id) {
+      const { data: holidays } = await supabase
+        .from("holidays")
+        .select("holiday_date")
+        .eq("organization_id", orgIdData.organization_id)
+        .gte("holiday_date", dateFrom)
+        .lte("holiday_date", dateTo);
+      orgHolidayDates = new Set(holidays?.map(h => h.holiday_date) || []);
+    }
+  }
+
+  // Fetch per-user daily targets and leaves in parallel
+  const [userTargets, userLeaves] = await Promise.all([
+    Promise.all(uniqueFacultyIds.map(uid => calculateUserTotalDailyTargetMinutes(uid))),
+    Promise.all(uniqueFacultyIds.map(uid =>
+      supabase
+        .from("leave_days")
+        .select("leave_date, leave_type")
+        .eq("user_id", uid)
+        .gte("leave_date", dateFrom)
+        .lte("leave_date", dateTo)
+        .then(res => res.data || [])
+    )),
+  ]);
+
+  const userTargetMap = new Map(uniqueFacultyIds.map((uid, i) => [uid, userTargets[i].totalDailyTargetMinutes]));
+  const userLeaveMap = new Map(uniqueFacultyIds.map((uid, i) => {
+    const leaveTypeMap = new Map<string, string>();
+    const leaveDateSet = new Set<string>();
+    userLeaves[i].forEach((l: any) => {
+      leaveTypeMap.set(l.leave_date, l.leave_type || 'other');
+      leaveDateSet.add(l.leave_date);
+    });
+    return [uid, { leaveDates: leaveDateSet, leaveTypeMap }] as const;
+  }));
   
   // Calculate expected hours per faculty, capping at deactivation date for inactive users
   let totalExpectedHours = 0;
@@ -481,9 +525,14 @@ export async function fetchVerticalReport(
         effectiveEnd = deactivatedDate;
       }
     }
-    const userExpectedHours = effectiveEnd >= period.dateFrom 
-      ? calculateExpectedHours({ ...period, dateTo: effectiveEnd })
+
+    const userDailyTarget = userTargetMap.get(userId) || 480;
+    const userLeaveData = userLeaveMap.get(userId) || { leaveDates: new Set<string>(), leaveTypeMap: new Map<string, string>() };
+    
+    const workingDays = effectiveEnd >= period.dateFrom
+      ? countWorkingDays(period.dateFrom, effectiveEnd, userLeaveData.leaveDates, userLeaveData.leaveTypeMap, orgHolidayDates)
       : 0;
+    const userExpectedHours = (workingDays * userDailyTarget) / 60;
     const userExpectedMinutes = userExpectedHours * 60;
     totalExpectedHours += userExpectedHours;
     
