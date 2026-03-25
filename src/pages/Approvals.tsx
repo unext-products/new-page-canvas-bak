@@ -761,7 +761,8 @@ export default function Approvals() {
   const clearFilters = () => {
     setFilterFaculty(null);
     setFilterActivity(null);
-    setFilterDate(null);
+    setFilterDateFrom(null);
+    setFilterDateTo(null);
     setFilterLeavesOnly(false);
   };
 
