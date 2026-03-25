@@ -1088,8 +1088,9 @@ export default function Approvals() {
                       size="sm"
                       onClick={() => {
                         setViewMode("day");
-                        if (!filterDate) {
-                          setFilterDate(new Date());
+                        if (!filterDateFrom) {
+                          setFilterDateFrom(new Date());
+                          setFilterDateTo(new Date());
                         }
                       }}
                       className={cn(
