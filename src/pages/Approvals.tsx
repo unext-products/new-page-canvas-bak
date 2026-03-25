@@ -601,32 +601,31 @@ export default function Approvals() {
     );
   }, [entries, leaveEntries]);
 
-  // Helper to check if a date string falls within the filter range
+  // Helper to check if a date string falls within the applied filter range
   const isDateInRange = useCallback((dateStr: string) => {
-    if (!filterDateFrom && !filterDateTo) return true;
-    const d = dateStr; // already yyyy-MM-dd
-    if (filterDateFrom) {
-      const fromStr = format(filterDateFrom, "yyyy-MM-dd");
+    if (!appliedDateFrom && !appliedDateTo) return true;
+    const d = dateStr;
+    if (appliedDateFrom) {
+      const fromStr = format(appliedDateFrom, "yyyy-MM-dd");
       if (d < fromStr) return false;
     }
-    if (filterDateTo) {
-      const toStr = format(filterDateTo, "yyyy-MM-dd");
+    if (appliedDateTo) {
+      const toStr = format(appliedDateTo, "yyyy-MM-dd");
       if (d > toStr) return false;
     }
     return true;
-  }, [filterDateFrom, filterDateTo]);
+  }, [appliedDateFrom, appliedDateTo]);
 
-  // Filter entries based on selections (for day view - respects showPendingOnly toggle)
+  // Filter entries based on applied selections (for day view)
   const filteredEntries = useMemo(() => {
     return entries.filter(entry => {
-      if (filterFaculty && entry.user_id !== filterFaculty) return false;
-      if (filterActivity && entry.activity_type !== filterActivity) return false;
+      if (appliedFaculty && entry.user_id !== appliedFaculty) return false;
+      if (appliedActivity && entry.activity_type !== appliedActivity) return false;
       if (!isDateInRange(entry.entry_date)) return false;
-      // Apply showPendingOnly toggle for day view
       if (showPendingOnly && entry.status !== "submitted") return false;
       return true;
     });
-  }, [entries, filterFaculty, filterActivity, isDateInRange, showPendingOnly]);
+  }, [entries, appliedFaculty, appliedActivity, isDateInRange, showPendingOnly]);
   
   // Determine if current user is admin
   const isCurrentUserAdmin = useMemo(() => {
@@ -636,30 +635,29 @@ export default function Approvals() {
 
   // List view entries - Admin sees ALL statuses, others see only pending
   const listViewEntries = useMemo(() => {
-    if (filterLeavesOnly) return []; // When "All Leaves" is active, hide timesheet entries
+    if (filterLeavesOnly) return [];
     return entries.filter(entry => {
-      if (filterFaculty && entry.user_id !== filterFaculty) return false;
-      if (filterActivity && entry.activity_type !== filterActivity) return false;
+      if (appliedFaculty && entry.user_id !== appliedFaculty) return false;
+      if (appliedActivity && entry.activity_type !== appliedActivity) return false;
       if (!isDateInRange(entry.entry_date)) return false;
-      // Admin sees all statuses; others see only pending
       if (!isCurrentUserAdmin && entry.status !== "submitted") return false;
       return true;
     });
-  }, [entries, filterFaculty, filterActivity, isDateInRange, isCurrentUserAdmin, filterLeavesOnly]);
+  }, [entries, appliedFaculty, appliedActivity, isDateInRange, isCurrentUserAdmin, filterLeavesOnly]);
   
   // Pending entries for badge count (always only submitted)
   const pendingEntries = useMemo(() => {
     return entries.filter(entry => entry.status === "submitted");
   }, [entries]);
 
-  // Filter leave entries based on faculty selection and date range
+  // Filter leave entries based on applied faculty selection and date range
   const filteredLeaveEntries = useMemo(() => {
     return leaveEntries.filter(entry => {
-      if (filterFaculty && entry.user_id !== filterFaculty) return false;
+      if (appliedFaculty && entry.user_id !== appliedFaculty) return false;
       if (!isDateInRange(entry.leave_date)) return false;
       return true;
     });
-  }, [leaveEntries, filterFaculty, isDateInRange]);
+  }, [leaveEntries, appliedFaculty, isDateInRange]);
 
   // Combined filtered entries for LIST VIEW display - always pending only
   const listViewCombinedEntries = useMemo(() => {
