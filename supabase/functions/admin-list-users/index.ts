@@ -31,15 +31,20 @@ serve(async (req) => {
     // Create admin client with service role key
     const supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Verify user using the token directly
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
-    if (authError || !user) {
-      console.error('Auth error:', authError);
+    // Verify user using getClaims for reliable JWT validation
+    const supabaseAuth = createClient(supabaseUrl, supabaseServiceKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims?.sub) {
+      console.error('Auth error:', claimsError);
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    const userId = claimsData.claims.sub;
 
     const { data: roleData, error: roleError } = await supabaseClient
       .from('user_roles')
