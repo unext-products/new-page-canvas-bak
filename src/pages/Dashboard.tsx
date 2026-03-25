@@ -5,6 +5,7 @@ import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/lib/reportQueries";
+import { getVisibleUserIds } from "@/lib/reportingHierarchy";
 import { Button } from "@/components/ui/button";
 import {
   Plus,
