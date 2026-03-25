@@ -1068,6 +1068,15 @@ export default function Approvals() {
                       All Leaves
                     </Button>
                     
+                    {/* Submit button to fetch data */}
+                    <Button
+                      size="sm"
+                      onClick={handleSubmitFilter}
+                      className="h-10"
+                    >
+                      Submit
+                    </Button>
+                    
                     {(filterFaculty || filterActivity || filterDateFrom || filterDateTo || filterLeavesOnly) && (
                       <Button variant="ghost" size="sm" onClick={clearFilters}>
                         <X className="h-4 w-4 mr-1" />
