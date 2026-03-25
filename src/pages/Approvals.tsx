@@ -990,30 +990,63 @@ export default function Approvals() {
                       </SelectContent>
                     </Select>
                     
-                    {/* Date Filter */}
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-[200px] justify-start text-left font-normal",
-                            !filterDate && "text-muted-foreground"
-                          )}
-                        >
-                          <Calendar className="mr-2 h-4 w-4" />
-                          {filterDate ? format(filterDate, "MMM d, yyyy") : "By Date"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <CalendarComponent
-                          mode="single"
-                          selected={filterDate || undefined}
-                          onSelect={(date) => setFilterDate(date || null)}
-                          initialFocus
-                          className="p-3 pointer-events-auto"
-                        />
-                      </PopoverContent>
-                    </Popover>
+                    {/* Date Range Filter */}
+                    <div className="flex items-center gap-2">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-[150px] justify-start text-left font-normal",
+                              !filterDateFrom && "text-muted-foreground"
+                            )}
+                          >
+                            <Calendar className="mr-2 h-4 w-4" />
+                            {filterDateFrom ? format(filterDateFrom, "MMM d, yyyy") : "From"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <CalendarComponent
+                            mode="single"
+                            selected={filterDateFrom || undefined}
+                            onSelect={(date) => {
+                              setFilterDateFrom(date || null);
+                              // If to-date is before new from-date, update it
+                              if (date && filterDateTo && date > filterDateTo) {
+                                setFilterDateTo(date);
+                              }
+                            }}
+                            initialFocus
+                            className="p-3 pointer-events-auto"
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <span className="text-sm text-muted-foreground">to</span>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-[150px] justify-start text-left font-normal",
+                              !filterDateTo && "text-muted-foreground"
+                            )}
+                          >
+                            <Calendar className="mr-2 h-4 w-4" />
+                            {filterDateTo ? format(filterDateTo, "MMM d, yyyy") : "To"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <CalendarComponent
+                            mode="single"
+                            selected={filterDateTo || undefined}
+                            onSelect={(date) => setFilterDateTo(date || null)}
+                            disabled={(date) => filterDateFrom ? date < filterDateFrom : false}
+                            initialFocus
+                            className="p-3 pointer-events-auto"
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
                     
                     {/* All Leaves quick filter */}
                     <Button
