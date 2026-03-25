@@ -140,6 +140,13 @@ export default function Users() {
   const fetchUsers = async () => {
     try {
       setIsLoading(true);
+
+      const { data: { user: currentUser }, error: authError } = await supabase.auth.getUser();
+      if (authError || !currentUser) {
+        await supabase.auth.signOut({ scope: "local" });
+        navigate("/", { replace: true });
+        return;
+      }
       
       // Fetch profiles
       const { data: profilesData, error: profilesError } = await supabase
