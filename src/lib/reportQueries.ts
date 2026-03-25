@@ -49,6 +49,12 @@ export interface ActivityBreakdown {
   count: number;
 }
 
+export interface ExpectedHoursBreakdown {
+  totalDays: number;
+  leaveDays: number;
+  holidayDays: number;
+}
+
 export interface FacultyReportData {
   userId: string;
   facultyName: string;
@@ -62,6 +68,7 @@ export interface FacultyReportData {
   averageDailyHours: number;
   approvedCount: number;
   pendingCount: number;
+  expectedHoursBreakdown?: ExpectedHoursBreakdown;
 }
 
 export interface VerticalReportData {
@@ -275,6 +282,21 @@ export async function fetchFacultyReport(
   const workingDays = effectivePeriodEnd >= period.dateFrom 
     ? countWorkingDays(effectiveStart, effectivePeriodEnd, leaveDates, leaveMap, holidayDates)
     : 0;
+
+  // Calculate breakdown for expected hours display
+  const allPeriodDays = effectivePeriodEnd >= period.dateFrom
+    ? eachDayOfInterval({ start: effectiveStart, end: effectivePeriodEnd })
+    : [];
+  const weekdaysInPeriod = allPeriodDays.filter(day => !isWeekend(day));
+  const holidayCount = weekdaysInPeriod.filter(day => holidayDates.has(format(day, "yyyy-MM-dd"))).length;
+  const leaveCount = weekdaysInPeriod.filter(day => {
+    const dateStr = format(day, "yyyy-MM-dd");
+    return !holidayDates.has(dateStr) && leaveDates.has(dateStr);
+  }).reduce((sum, day) => {
+    const dateStr = format(day, "yyyy-MM-dd");
+    const leaveType = leaveMap.get(dateStr) || "other";
+    return sum + getLeaveWeight(leaveType);
+  }, 0);
   
   // Use user's resolved daily target for expected hours calculation
   const expectedHours = (workingDays * userDailyTargetMinutes) / 60;
@@ -327,6 +349,11 @@ export async function fetchFacultyReport(
     averageDailyHours,
     approvedCount,
     pendingCount,
+    expectedHoursBreakdown: {
+      totalDays: weekdaysInPeriod.length,
+      leaveDays: leaveCount,
+      holidayDays: holidayCount,
+    },
   };
 }
 
