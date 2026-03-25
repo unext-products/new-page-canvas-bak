@@ -39,6 +39,9 @@ interface TimesheetEntry {
   activity_subtype: string | null;
   notes: string | null;
   status: string;
+  approved_by?: string | null;
+  approved_at?: string | null;
+  approver_notes?: string | null;
   department_code?: string | null;
   vertical_id?: string | null;
   vertical_code?: string | null;
@@ -54,6 +57,9 @@ interface TimesheetEntry {
     full_name: string;
     avatar_url: string | null;
   };
+  approver_profile?: {
+    full_name: string;
+  } | null;
   type: 'timesheet';
 }
 
@@ -297,7 +303,7 @@ export default function Approvals() {
         // Fetch all statuses to support showing approved/rejected entries
         const { data, error } = await supabase
           .from("timesheet_entries")
-          .select("id, entry_date, start_time, end_time, activity_type, activity_subtype, notes, user_id, department_code, vertical_id, vertical_code, program_id, batch_id, batch_name, term_id, term_name, subject_id, subject_code, status")
+          .select("id, entry_date, start_time, end_time, activity_type, activity_subtype, notes, user_id, department_code, vertical_id, vertical_code, program_id, batch_id, batch_name, term_id, term_name, subject_id, subject_code, status, approved_by, approved_at, approver_notes")
           .in("user_id", allUserIds)
           .in("status", ["submitted", "approved", "rejected"])
           .order("entry_date", { ascending: false });
@@ -320,8 +326,9 @@ export default function Approvals() {
         leaveData = leaves || [];
       }
       
-      // Combine user IDs from both sources for profile fetching
-      const profileUserIds = [...new Set([...userIds, ...leaveData.map((l: any) => l.user_id)])];
+      // Combine user IDs from both sources + approver IDs for profile fetching
+      const approverIds = entriesData?.map(e => e.approved_by).filter(Boolean) as string[] || [];
+      const profileUserIds = [...new Set([...userIds, ...leaveData.map((l: any) => l.user_id), ...approverIds])];
       
       if (profileUserIds.length > 0) {
         const { data: profilesData, error: profilesError } = await supabase
@@ -338,7 +345,8 @@ export default function Approvals() {
         const entriesWithProfiles = entriesData?.map(entry => ({
           ...entry,
           type: 'timesheet' as const,
-          profiles: profilesMap.get(entry.user_id) || { full_name: "Unknown", avatar_url: null }
+          profiles: profilesMap.get(entry.user_id) || { full_name: "Unknown", avatar_url: null },
+          approver_profile: entry.approved_by ? (profilesMap.get(entry.approved_by) || null) : null,
         })) || [];
 
         // Merge leave entries with profiles
@@ -1247,19 +1255,29 @@ export default function Approvals() {
                                 </div>
                               </div>
                             </div>
-                            {item.status === "submitted" ? (
-                              <Badge variant="outline" className="bg-warning/10 text-warning-foreground border-warning/20">
-                                Pending Review
-                              </Badge>
-                            ) : item.status === "approved" ? (
-                              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800">
-                                Approved
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">
-                                Rejected
-                              </Badge>
-                            )}
+                            <div className="flex flex-col items-end gap-1">
+                              {item.status === "submitted" ? (
+                                <Badge variant="outline" className="bg-warning/10 text-warning-foreground border-warning/20">
+                                  Pending Review
+                                </Badge>
+                              ) : item.status === "approved" ? (
+                                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800">
+                                  Approved
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">
+                                  Rejected
+                                </Badge>
+                              )}
+                              {(item.status === "approved" || item.status === "rejected") && item.approver_profile && (
+                                <span className="text-xs text-muted-foreground">
+                                  by {item.approver_profile.full_name}
+                                  {item.approved_at && (
+                                    <> on {format(new Date(item.approved_at), "MMM d, yyyy")}</>
+                                  )}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </CardHeader>
                         <CardContent className={cn("space-y-4", item.status === "submitted" && "pl-12")}>
@@ -1312,6 +1330,13 @@ export default function Approvals() {
                             <div>
                               <div className="text-sm text-muted-foreground mb-1">Notes</div>
                               <p className="text-sm bg-muted/50 rounded-md p-3">{item.notes}</p>
+                            </div>
+                          )}
+
+                          {item.approver_notes && (item.status === "approved" || item.status === "rejected") && (
+                            <div>
+                              <div className="text-sm text-muted-foreground mb-1">Approver Notes</div>
+                              <p className="text-sm bg-muted/50 rounded-md p-3">{item.approver_notes}</p>
                             </div>
                           )}
 
