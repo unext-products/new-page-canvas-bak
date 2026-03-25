@@ -1278,6 +1278,7 @@ export default function Approvals() {
                                 </span>
                               )}
                             </div>
+                          </div>
                         </CardHeader>
                         <CardContent className={cn("space-y-4", item.status === "submitted" && "pl-12")}>
                           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
