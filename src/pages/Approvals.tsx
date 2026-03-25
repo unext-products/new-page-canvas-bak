@@ -301,15 +301,28 @@ export default function Approvals() {
       
       if (allUserIds.length > 0) {
         // Fetch all statuses to support showing approved/rejected entries
-        const { data, error } = await supabase
-          .from("timesheet_entries")
-          .select("id, entry_date, start_time, end_time, activity_type, activity_subtype, notes, user_id, department_code, vertical_id, vertical_code, program_id, batch_id, batch_name, term_id, term_name, subject_id, subject_code, status, approved_by, approved_at, approver_notes")
-          .in("user_id", allUserIds)
-          .in("status", ["submitted", "approved", "rejected"])
-          .order("entry_date", { ascending: false });
-        
-        if (error) throw error;
-        entriesData = data || [];
+        // Fetch in chunks to avoid the default 1000-row limit
+        const CHUNK_SIZE = 500;
+        let allEntriesData: any[] = [];
+        for (let i = 0; i < allUserIds.length; i += CHUNK_SIZE) {
+          const chunk = allUserIds.slice(i, i + CHUNK_SIZE);
+          let offset = 0;
+          const PAGE_SIZE = 1000;
+          while (true) {
+            const { data, error } = await supabase
+              .from("timesheet_entries")
+              .select("id, entry_date, start_time, end_time, activity_type, activity_subtype, notes, user_id, department_code, vertical_id, vertical_code, program_id, batch_id, batch_name, term_id, term_name, subject_id, subject_code, status, approved_by, approved_at, approver_notes")
+              .in("user_id", chunk)
+              .in("status", ["submitted", "approved", "rejected"])
+              .order("entry_date", { ascending: false })
+              .range(offset, offset + PAGE_SIZE - 1);
+            if (error) throw error;
+            allEntriesData = allEntriesData.concat(data || []);
+            if (!data || data.length < PAGE_SIZE) break;
+            offset += PAGE_SIZE;
+          }
+        }
+        entriesData = allEntriesData;
       }
 
       // Fetch profiles for all approvable users (not just those with timesheet entries)
