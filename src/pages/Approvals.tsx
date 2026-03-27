@@ -96,15 +96,15 @@ export default function Approvals() {
   const [selectedEntries, setSelectedEntries] = useState<Set<string>>(new Set());
   const [filterFaculty, setFilterFaculty] = useState<string | null>(null);
   const [filterActivity, setFilterActivity] = useState<string | null>(null);
-  const [filterDateFrom, setFilterDateFrom] = useState<Date | null>(null);
-  const [filterDateTo, setFilterDateTo] = useState<Date | null>(null);
+  const [filterDateFrom, setFilterDateFrom] = useState<Date | null>(new Date());
+  const [filterDateTo, setFilterDateTo] = useState<Date | null>(new Date());
   const [hasFetched, setHasFetched] = useState(false);
   
   // Applied filter values - only updated on Submit click
   const [appliedFaculty, setAppliedFaculty] = useState<string | null>(null);
   const [appliedActivity, setAppliedActivity] = useState<string | null>(null);
-  const [appliedDateFrom, setAppliedDateFrom] = useState<Date | null>(null);
-  const [appliedDateTo, setAppliedDateTo] = useState<Date | null>(null);
+  const [appliedDateFrom, setAppliedDateFrom] = useState<Date | null>(new Date());
+  const [appliedDateTo, setAppliedDateTo] = useState<Date | null>(new Date());
   const [filterLeavesOnly, setFilterLeavesOnly] = useState(false);
   
   // View mode state - default to day view
