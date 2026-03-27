@@ -825,7 +825,7 @@ export default function Approvals() {
       });
     
     return Array.from(facultyMap.values());
-  }, [filteredEntries, filteredLeaveEntries, appliedDateFrom]);
+  }, [filteredEntries, filteredLeaveEntries, effectiveDayViewDate]);
 
   // Selection handlers
   const toggleEntrySelection = (entryId: string) => {
