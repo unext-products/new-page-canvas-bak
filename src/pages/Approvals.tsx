@@ -1371,7 +1371,7 @@ export default function Approvals() {
             {/* Content based on view mode */}
             {viewMode === "day" ? (
               <DayMatrixView
-                date={filterDateFrom || new Date()}
+                date={effectiveDayViewDate}
                 facultyData={dayMatrixData}
                 onEntryClick={handleMatrixEntryClick}
                 onApprove={handleMatrixApprove}
