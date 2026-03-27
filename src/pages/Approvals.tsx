@@ -728,9 +728,24 @@ export default function Approvals() {
     });
   }, [listViewEntries, filteredLeaveEntries]);
 
+  // Compute effective date for day view: use applied date, or most recent entry date, or today
+  const effectiveDayViewDate = useMemo(() => {
+    if (appliedDateFrom) return appliedDateFrom;
+    // Find the most recent entry date from filtered entries
+    const allDates = [
+      ...filteredEntries.map(e => e.entry_date),
+      ...filteredLeaveEntries.map(l => l.leave_date),
+    ];
+    if (allDates.length > 0) {
+      const sorted = [...new Set(allDates)].sort((a, b) => b.localeCompare(a));
+      return new Date(sorted[0] + "T00:00:00");
+    }
+    return new Date();
+  }, [appliedDateFrom, filteredEntries, filteredLeaveEntries]);
+
   // Prepare faculty data for day matrix view
   const dayMatrixData = useMemo(() => {
-    const dateToUse = appliedDateFrom || new Date();
+    const dateToUse = effectiveDayViewDate;
     const dateStr = format(dateToUse, "yyyy-MM-dd");
     
     // Get unique faculty with entries for this date
@@ -810,7 +825,7 @@ export default function Approvals() {
       });
     
     return Array.from(facultyMap.values());
-  }, [filteredEntries, filteredLeaveEntries, appliedDateFrom]);
+  }, [filteredEntries, filteredLeaveEntries, effectiveDayViewDate]);
 
   // Selection handlers
   const toggleEntrySelection = (entryId: string) => {
@@ -1356,7 +1371,7 @@ export default function Approvals() {
             {/* Content based on view mode */}
             {viewMode === "day" ? (
               <DayMatrixView
-                date={filterDateFrom || new Date()}
+                date={effectiveDayViewDate}
                 facultyData={dayMatrixData}
                 onEntryClick={handleMatrixEntryClick}
                 onApprove={handleMatrixApprove}
