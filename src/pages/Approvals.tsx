@@ -846,6 +846,7 @@ export default function Approvals() {
     setAppliedActivity(null);
     setAppliedDateFrom(null);
     setAppliedDateTo(null);
+    fetchEntries(null, null);
   };
 
   // Bulk actions
@@ -1209,10 +1210,6 @@ export default function Approvals() {
                       size="sm"
                       onClick={() => {
                         setViewMode("day");
-                        if (!filterDateFrom) {
-                          setFilterDateFrom(new Date());
-                          setFilterDateTo(new Date());
-                        }
                       }}
                       className={cn(
                         "h-8 px-3 rounded-md",
@@ -1356,7 +1353,7 @@ export default function Approvals() {
             {/* Content based on view mode */}
             {viewMode === "day" ? (
               <DayMatrixView
-                date={filterDateFrom || new Date()}
+                date={appliedDateFrom || new Date()}
                 facultyData={dayMatrixData}
                 onEntryClick={handleMatrixEntryClick}
                 onApprove={handleMatrixApprove}
