@@ -96,15 +96,15 @@ export default function Approvals() {
   const [selectedEntries, setSelectedEntries] = useState<Set<string>>(new Set());
   const [filterFaculty, setFilterFaculty] = useState<string | null>(null);
   const [filterActivity, setFilterActivity] = useState<string | null>(null);
-  const [filterDateFrom, setFilterDateFrom] = useState<Date | null>(new Date());
-  const [filterDateTo, setFilterDateTo] = useState<Date | null>(new Date());
+  const [filterDateFrom, setFilterDateFrom] = useState<Date | null>(null);
+  const [filterDateTo, setFilterDateTo] = useState<Date | null>(null);
   const [hasFetched, setHasFetched] = useState(false);
   
   // Applied filter values - only updated on Submit click
   const [appliedFaculty, setAppliedFaculty] = useState<string | null>(null);
   const [appliedActivity, setAppliedActivity] = useState<string | null>(null);
-  const [appliedDateFrom, setAppliedDateFrom] = useState<Date | null>(new Date());
-  const [appliedDateTo, setAppliedDateTo] = useState<Date | null>(new Date());
+  const [appliedDateFrom, setAppliedDateFrom] = useState<Date | null>(null);
+  const [appliedDateTo, setAppliedDateTo] = useState<Date | null>(null);
   const [filterLeavesOnly, setFilterLeavesOnly] = useState(false);
   
   // View mode state - default to day view
@@ -154,7 +154,7 @@ export default function Approvals() {
     return data?.organization_id || null;
   }, [userWithRole]);
 
-  const fetchEntries = useCallback(async () => {
+  const fetchEntries = useCallback(async (dateFrom: Date | null = appliedDateFrom, dateTo: Date | null = appliedDateTo) => {
     if (!userWithRole?.role || settingsLoading || !settings) return;
     
     try {
@@ -368,11 +368,11 @@ export default function Approvals() {
               .in("status", ["submitted", "approved", "rejected"]);
             
             // Apply date range filters at the database level
-            if (filterDateFrom) {
-              query = query.gte("entry_date", format(filterDateFrom, "yyyy-MM-dd"));
+            if (dateFrom) {
+              query = query.gte("entry_date", formatLocalDate(dateFrom));
             }
-            if (filterDateTo) {
-              query = query.lte("entry_date", format(filterDateTo, "yyyy-MM-dd"));
+            if (dateTo) {
+              query = query.lte("entry_date", formatLocalDate(dateTo));
             }
             
             const { data, error } = await query
@@ -413,11 +413,11 @@ export default function Approvals() {
           .select('*')
           .in('user_id', allUserIds);
         
-        if (filterDateFrom) {
-          leaveQuery = leaveQuery.gte('leave_date', format(filterDateFrom, "yyyy-MM-dd"));
+        if (dateFrom) {
+          leaveQuery = leaveQuery.gte('leave_date', formatLocalDate(dateFrom));
         }
-        if (filterDateTo) {
-          leaveQuery = leaveQuery.lte('leave_date', format(filterDateTo, "yyyy-MM-dd"));
+        if (dateTo) {
+          leaveQuery = leaveQuery.lte('leave_date', formatLocalDate(dateTo));
         }
         
         const { data: leaves } = await leaveQuery.order('leave_date', { ascending: false });
@@ -470,9 +470,9 @@ export default function Approvals() {
     } finally {
       setLoading(false);
     }
-  }, [userWithRole, settingsLoading, approvableRoles, getOrgId, toast, filterDateFrom, filterDateTo]);
+  }, [userWithRole, settingsLoading, approvableRoles, getOrgId, toast, appliedDateFrom, appliedDateTo]);
 
-  // Auto-fetch on first load with default date (today)
+  // Auto-fetch on first load without a date filter so counts match the dashboard
   useEffect(() => {
     if (allowedApproverRoles.includes(userWithRole?.role || "") && !settingsLoading && !hasFetched) {
       setHasFetched(true);
@@ -486,7 +486,7 @@ export default function Approvals() {
     setAppliedActivity(filterActivity);
     setAppliedDateFrom(filterDateFrom);
     setAppliedDateTo(filterDateTo);
-    fetchEntries();
+    fetchEntries(filterDateFrom, filterDateTo);
   };
 
   const handleAction = (entry: TimesheetEntry, action: "approve" | "reject") => {
@@ -647,11 +647,11 @@ export default function Approvals() {
     if (!appliedDateFrom && !appliedDateTo) return true;
     const d = dateStr;
     if (appliedDateFrom) {
-      const fromStr = format(appliedDateFrom, "yyyy-MM-dd");
+      const fromStr = formatLocalDate(appliedDateFrom);
       if (d < fromStr) return false;
     }
     if (appliedDateTo) {
-      const toStr = format(appliedDateTo, "yyyy-MM-dd");
+      const toStr = formatLocalDate(appliedDateTo);
       if (d > toStr) return false;
     }
     return true;
@@ -731,7 +731,7 @@ export default function Approvals() {
   // Prepare faculty data for day matrix view
   const dayMatrixData = useMemo(() => {
     const dateToUse = appliedDateFrom || new Date();
-    const dateStr = format(dateToUse, "yyyy-MM-dd");
+    const dateStr = formatLocalDate(dateToUse);
     
     // Get unique faculty with entries for this date
     const facultyMap = new Map<string, {
@@ -988,7 +988,7 @@ export default function Approvals() {
   // Get entries for day view selection
   const dayViewEntryIds = useMemo(() => {
     const dateToUse = appliedDateFrom || new Date();
-    const dateStr = format(dateToUse, "yyyy-MM-dd");
+    const dateStr = formatLocalDate(dateToUse);
     return filteredEntries
       .filter(entry => entry.entry_date === dateStr)
       .map(entry => entry.id);
