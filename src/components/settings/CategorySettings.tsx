@@ -51,6 +51,7 @@ function SortableCategoryItem({
   onToggleActive, 
   onDelete,
   onAddActivity,
+  onEdit,
   isParent,
   childCount,
   roleLabel,
@@ -59,6 +60,7 @@ function SortableCategoryItem({
   onToggleActive: (category: Category) => void;
   onDelete: (category: Category) => void;
   onAddActivity?: (parentId: string) => void;
+  onEdit: (category: Category) => void;
   isParent: boolean;
   childCount?: number;
   roleLabel: (role: string) => string;
