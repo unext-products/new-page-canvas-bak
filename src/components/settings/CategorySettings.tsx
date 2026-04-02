@@ -599,6 +599,7 @@ export default function CategorySettings({ organizationId }: CategorySettingsPro
                           onToggleActive={handleToggleActive}
                           onDelete={handleDelete}
                           onAddActivity={openAddActivityDialog}
+                          onUpdateRoleScope={handleUpdateRoleScope}
                           isParent={true}
                           childCount={children.length}
                           roleLabel={roleLabel}
