@@ -548,10 +548,12 @@ export default function Reports() {
                     </CardHeader>
                     <CardContent>
                       <div className="border rounded-lg">
-                        <Table>
+                         <Table>
                           <TableHeader>
                             <TableRow>
                               <TableHead>Faculty Name</TableHead>
+                              <TableHead>Email</TableHead>
+                              <TableHead>Vertical</TableHead>
                               <TableHead>Hours Logged</TableHead>
                               <TableHead>Completion Rate</TableHead>
                               <TableHead>Total Entries</TableHead>
@@ -562,6 +564,8 @@ export default function Reports() {
                             {departmentReport.facultyBreakdown.map((faculty) => (
                               <TableRow key={faculty.userId}>
                                 <TableCell className="font-medium">{faculty.facultyName}</TableCell>
+                                <TableCell className="text-sm text-muted-foreground">{faculty.email || "-"}</TableCell>
+                                <TableCell className="text-sm">{faculty.verticalName || "-"}</TableCell>
                                 <TableCell>{faculty.totalHours.toFixed(1)}h</TableCell>
                                 <TableCell>{faculty.completionRate.toFixed(1)}%</TableCell>
                                 <TableCell>{faculty.entryCount}</TableCell>

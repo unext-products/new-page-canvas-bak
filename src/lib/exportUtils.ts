@@ -242,6 +242,8 @@ export function exportDepartmentReportCSV(
 
   const headers = [
     "Member Name",
+    "Email",
+    "Vertical",
     "Hours Logged",
     "Completion Rate",
     "Total Entries",
@@ -250,6 +252,8 @@ export function exportDepartmentReportCSV(
 
   const dataRows = report.facultyBreakdown.map((faculty: any) => [
     faculty.facultyName,
+    faculty.email || "",
+    faculty.verticalName || "",
     `${faculty.totalHours.toFixed(1)} hours`,
     `${faculty.completionRate.toFixed(1)}%`,
     faculty.entryCount.toString(),
