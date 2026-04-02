@@ -14,6 +14,24 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Impersonation override — module-level store so useAuth can react to it
+let _impersonationOverride: UserWithRole | null = null;
+let _impersonationListeners: Set<() => void> = new Set();
+
+export function setImpersonationOverride(override: UserWithRole | null) {
+  _impersonationOverride = override;
+  _impersonationListeners.forEach(l => l());
+}
+
+function subscribeImpersonation(callback: () => void) {
+  _impersonationListeners.add(callback);
+  return () => { _impersonationListeners.delete(callback); };
+}
+
+function getImpersonationSnapshot() {
+  return _impersonationOverride;
+}
+
 const AUTH_INIT_TIMEOUT_MS = 10000; // 10s watchdog
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
