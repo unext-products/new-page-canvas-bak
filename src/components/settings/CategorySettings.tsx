@@ -53,6 +53,7 @@ function SortableCategoryItem({
   onAddActivity,
   isParent,
   childCount,
+  roleLabel,
 }: { 
   category: Category;
   onToggleActive: (category: Category) => void;
@@ -60,6 +61,7 @@ function SortableCategoryItem({
   onAddActivity?: (parentId: string) => void;
   isParent: boolean;
   childCount?: number;
+  roleLabel: (role: string) => string;
 }) {
   const {
     attributes,
