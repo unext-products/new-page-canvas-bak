@@ -106,11 +106,6 @@ function SortableCategoryItem({
           <p className={cn("font-medium truncate", isParent && "text-primary")}>
             {category.name}
           </p>
-          {isParent && childCount !== undefined && childCount > 0 && (
-            <span className="text-xs text-muted-foreground">
-              ({childCount} {childCount === 1 ? 'activity' : 'activities'})
-            </span>
-          )}
           {isParent && category.role_scope && category.role_scope.length < 3 && (
             <div className="flex gap-1">
               {category.role_scope.map(role => (
@@ -140,18 +135,18 @@ function SortableCategoryItem({
             Add Activity
           </Button>
         )}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => onEdit(category)}
-          className="text-muted-foreground hover:text-foreground"
-        >
-          <Pencil className="h-4 w-4" />
-        </Button>
         <Switch
           checked={category.is_active}
           onCheckedChange={() => onToggleActive(category)}
         />
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => onEdit(category)}
+          className="text-destructive hover:text-destructive"
+        >
+          <Pencil className="h-4 w-4" />
+        </Button>
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
