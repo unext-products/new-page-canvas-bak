@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useImpersonation } from "@/contexts/ImpersonationContext";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,10 +32,15 @@ import { fetchUserThresholds, validateAgainstThresholds } from "@/lib/thresholdV
 
 export default function Timesheet() {
   const { userWithRole } = useAuth();
+  const { impersonatedUser } = useImpersonation();
   const { toast } = useToast();
   const navigate = useNavigate();
   const { fireConfetti } = useConfetti();
   const { resetTour, hasSeen } = useOnboardingTour();
+  
+  // When impersonating, use the impersonated user's ID for data queries
+  const effectiveUserId = impersonatedUser?.userId || userWithRole?.user?.id;
+  
   const { categories, loading: categoriesLoading, parentCategories, getChildren, hasHierarchy, selectableActivities } = useActivityCategories(userWithRole?.verticalId || userWithRole?.departmentId);
   
   // Stable ref for userWithRole to prevent async handlers from seeing null during token refresh
@@ -91,18 +97,24 @@ export default function Timesheet() {
     return { from: start, to: end };
   });
 
+  // Reset and reload when effective user changes (e.g. impersonation starts/stops)
+  const prevEffectiveUserId = useRef<string | undefined>(undefined);
+  
   useEffect(() => {
-    if (!userWithRole) return;
+    if (!userWithRole || !effectiveUserId) return;
     if (userWithRole && !isRole(userWithRole.role, "l1", "l2", "l3", "member", "manager", "program_manager", "faculty")) {
       navigate("/dashboard");
       return;
     }
-    if (hasLoadedRef.current) return;
+    
+    // Reload if user changed (impersonation) or first load
+    if (prevEffectiveUserId.current === effectiveUserId && hasLoadedRef.current) return;
+    prevEffectiveUserId.current = effectiveUserId;
     hasLoadedRef.current = true;
     loadEntries();
     loadLeaveDays();
     loadUserVerticals();
-  }, [userWithRole, navigate]);
+  }, [userWithRole, effectiveUserId, navigate]);
 
   const loadUserVerticals = async () => {
     if (!userWithRole) return;
@@ -111,7 +123,7 @@ export default function Timesheet() {
     const { data: userVerts } = await supabase
       .from("user_verticals")
       .select("vertical_id")
-      .eq("user_id", userWithRole.user.id);
+      .eq("user_id", effectiveUserId!);
     
     let vertIds = userVerts?.map(uv => uv.vertical_id) || [];
     
@@ -120,7 +132,7 @@ export default function Timesheet() {
       const { data: userDepts } = await supabase
         .from("user_departments")
         .select("department_id")
-        .eq("user_id", userWithRole.user.id);
+        .eq("user_id", effectiveUserId!);
       vertIds = userDepts?.map(ud => ud.department_id) || [];
     }
     
@@ -164,7 +176,7 @@ export default function Timesheet() {
     const { data, error } = await supabase
       .from("timesheet_entries")
       .select("*")
-      .eq("user_id", userWithRole.user.id)
+      .eq("user_id", effectiveUserId!)
       .order("entry_date", { ascending: false })
       .order("created_at", { ascending: false });
 
@@ -186,7 +198,7 @@ export default function Timesheet() {
     const { data } = await supabase
       .from('leave_days' as any)
       .select('*')
-      .eq('user_id', userWithRole.user.id)
+      .eq('user_id', effectiveUserId!)
       .order('leave_date', { ascending: false });
 
     if (data) {
@@ -886,7 +898,7 @@ export default function Timesheet() {
           )}
           <Dialog open={leaveDialogOpen} onOpenChange={setLeaveDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" className="w-full sm:w-auto" data-tour="mark-leave" data-mutating="true">
+              <Button variant="outline" className="w-full sm:w-auto" data-tour="mark-leave">
                 <Calendar className="mr-2 h-4 w-4" />
                 Mark Leave
               </Button>
@@ -942,7 +954,7 @@ export default function Timesheet() {
           </Dialog>
           <Dialog open={dialogOpen} onOpenChange={handleDialogClose}>
               <DialogTrigger asChild>
-                <Button className="w-full sm:w-auto" data-tour="new-entry" data-mutating="true">
+                <Button className="w-full sm:w-auto" data-tour="new-entry">
                   <Plus className="mr-2 h-4 w-4" />
                   New Entry
                 </Button>
