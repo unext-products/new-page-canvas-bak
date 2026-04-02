@@ -297,22 +297,30 @@ export default function BulkImport() {
         (deptCodesRes.data as any[] || []).forEach((d: any) => userDeptCodes.add(d.code.toUpperCase()));
         (vertCodesRes.data as any[] || []).forEach((v: any) => userDeptCodes.add(v.code.toUpperCase()));
 
-        // Build user programs map
-        let userProgramsMap: Map<string, { id: string; vertical_id: string; vertical_code?: string; name?: string }> | null = null;
+        // Build user programs map - use arrays to handle duplicate program names/codes across verticals
+        let userProgramsMap: Map<string, { id: string; vertical_id: string; vertical_code?: string; name?: string }[]> | null = null;
         if ((progsRes.data as any[])?.length) {
           const progs = progsRes.data as any[];
-          userProgramsMap = new Map(
-            progs.map((p: any) => {
-              const vertCode = p.verticals?.code?.toUpperCase() || "";
-              return [p.code.toUpperCase(), { id: p.id, vertical_id: p.vertical_id || "", vertical_code: vertCode, name: p.name }];
-            }),
-          );
+          userProgramsMap = new Map();
           
-          // Also add by name for lookup flexibility
           progs.forEach((p: any) => {
-            if (p.name && userProgramsMap) {
-              const vertCode = p.verticals?.code?.toUpperCase() || "";
-              userProgramsMap.set(p.name.toUpperCase(), { id: p.id, vertical_id: p.vertical_id || "", vertical_code: vertCode, name: p.name });
+            const vertCode = p.verticals?.code?.toUpperCase() || "";
+            const entry = { id: p.id, vertical_id: p.vertical_id || "", vertical_code: vertCode, name: p.name };
+            const codeKey = p.code.toUpperCase();
+            
+            // Add by code
+            const existingByCode = userProgramsMap!.get(codeKey) || [];
+            existingByCode.push(entry);
+            userProgramsMap!.set(codeKey, existingByCode);
+            
+            // Also add by name for lookup flexibility
+            if (p.name) {
+              const nameKey = p.name.toUpperCase();
+              if (nameKey !== codeKey) {
+                const existingByName = userProgramsMap!.get(nameKey) || [];
+                existingByName.push(entry);
+                userProgramsMap!.set(nameKey, existingByName);
+              }
             }
           });
         }
