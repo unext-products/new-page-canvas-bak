@@ -326,3 +326,11 @@ All colors MUST be HSL.
     background-clip: text;
   }
 }
+
+/* Impersonation read-only mode — disable mutating actions but allow viewing dialogs/popups/reports */
+body.impersonation-readonly button[type="submit"],
+body.impersonation-readonly [data-mutating="true"] {
+  opacity: 0.5 !important;
+  pointer-events: none !important;
+  cursor: not-allowed !important;
+}

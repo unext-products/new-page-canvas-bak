@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { AppSidebar } from "@/components/AppSidebar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -14,6 +14,15 @@ export function Layout({ children }: LayoutProps) {
   const isMobile = useIsMobile();
   const { isReadOnly } = useImpersonation();
 
+  useEffect(() => {
+    if (isReadOnly) {
+      document.body.classList.add("impersonation-readonly");
+    } else {
+      document.body.classList.remove("impersonation-readonly");
+    }
+    return () => document.body.classList.remove("impersonation-readonly");
+  }, [isReadOnly]);
+
   return (
     <SidebarProvider defaultOpen={!isMobile}>
       <div className="min-h-screen w-full flex bg-background">
@@ -28,12 +37,7 @@ export function Layout({ children }: LayoutProps) {
           
           <main className={`flex-1 p-3 sm:p-4 md:p-6 ${isReadOnly ? 'pb-16' : ''}`}>
             <div className="max-w-7xl mx-auto">
-              {isReadOnly && (
-                <div className="pointer-events-none [&_button:not([data-nav])]:opacity-50 [&_button:not([data-nav])]:cursor-not-allowed [&_form]:pointer-events-none">
-                  {children}
-                </div>
-              )}
-              {!isReadOnly && children}
+              {children}
             </div>
           </main>
         </div>

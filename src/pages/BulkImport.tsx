@@ -739,7 +739,7 @@ export default function BulkImport() {
               </div>
 
               <div className="flex gap-2">
-                <Button onClick={handleImport} disabled={isImporting || validCount === 0}>
+                <Button onClick={handleImport} disabled={isImporting || validCount === 0} data-mutating="true">
                   {isImporting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                   {isImporting
                     ? "Importing..."

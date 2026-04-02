@@ -886,7 +886,7 @@ export default function Timesheet() {
           )}
           <Dialog open={leaveDialogOpen} onOpenChange={setLeaveDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" className="w-full sm:w-auto" data-tour="mark-leave">
+              <Button variant="outline" className="w-full sm:w-auto" data-tour="mark-leave" data-mutating="true">
                 <Calendar className="mr-2 h-4 w-4" />
                 Mark Leave
               </Button>
@@ -934,7 +934,7 @@ export default function Timesheet() {
                     placeholder="Any additional notes..."
                   />
                 </div>
-                <Button onClick={handleMarkLeave} disabled={loading} className="w-full">
+                <Button onClick={handleMarkLeave} disabled={loading} className="w-full" data-mutating="true">
                   {loading ? "Marking..." : "Mark Leave"}
                 </Button>
               </div>
@@ -942,7 +942,7 @@ export default function Timesheet() {
           </Dialog>
           <Dialog open={dialogOpen} onOpenChange={handleDialogClose}>
               <DialogTrigger asChild>
-                <Button className="w-full sm:w-auto" data-tour="new-entry">
+                <Button className="w-full sm:w-auto" data-tour="new-entry" data-mutating="true">
                   <Plus className="mr-2 h-4 w-4" />
                   New Entry
                 </Button>
@@ -1153,6 +1153,7 @@ export default function Timesheet() {
                   className="flex-1"
                   onClick={() => handleSubmit("submitted")}
                   disabled={loading}
+                  data-mutating="true"
                 >
                   Submit
                 </Button>
@@ -1231,6 +1232,7 @@ export default function Timesheet() {
                               size="sm"
                               onClick={() => handleEdit(item)}
                               title="Edit entry"
+                              data-mutating="true"
                             >
                               <Pencil className="h-4 w-4" />
                             </Button>
@@ -1239,6 +1241,7 @@ export default function Timesheet() {
                               size="sm"
                               onClick={() => handleDelete(item.id)}
                               title="Delete entry"
+                              data-mutating="true"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -1269,6 +1272,7 @@ export default function Timesheet() {
                             size="sm"
                             onClick={() => handleDeleteLeave(item.id)}
                             title="Delete leave"
+                            data-mutating="true"
                           >
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>

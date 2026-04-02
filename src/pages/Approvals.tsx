@@ -1332,6 +1332,7 @@ export default function Approvals() {
                       disabled={selectedEntries.size === 0}
                       variant="default"
                       size="sm"
+                      data-mutating="true"
                     >
                       <CheckCircle className="h-4 w-4 mr-2" />
                       Approve Selected
@@ -1341,6 +1342,7 @@ export default function Approvals() {
                       disabled={selectedEntries.size === 0}
                       variant="destructive"
                       size="sm"
+                      data-mutating="true"
                     >
                       <XCircle className="h-4 w-4 mr-2" />
                       Reject Selected
@@ -1529,6 +1531,7 @@ export default function Approvals() {
                                 onClick={() => handleAction(item, "approve")}
                                 className="flex-1"
                                 variant="default"
+                                data-mutating="true"
                               >
                                 <CheckCircle className="h-4 w-4 mr-2" />
                                 Approve
@@ -1537,6 +1540,7 @@ export default function Approvals() {
                                 onClick={() => handleAction(item, "reject")}
                                 className="flex-1"
                                 variant="destructive"
+                                data-mutating="true"
                               >
                                 <XCircle className="h-4 w-4 mr-2" />
                                 Reject
@@ -1696,13 +1700,13 @@ export default function Approvals() {
                   onClick={() => {
                     setActionType("reject");
                     if (!comment.trim()) {
-                      // Don't submit yet, let user add reason
                       return;
                     }
                     handleSubmit();
                   }}
                   disabled={submitting}
                   variant="destructive"
+                  data-mutating="true"
                 >
                   <XCircle className="h-4 w-4 mr-2" />
                   Reject
@@ -1714,6 +1718,7 @@ export default function Approvals() {
                   }}
                   disabled={submitting}
                   variant="default"
+                  data-mutating="true"
                 >
                   <CheckCircle className="h-4 w-4 mr-2" />
                   Approve
@@ -1724,6 +1729,7 @@ export default function Approvals() {
                 onClick={handleSubmit}
                 disabled={submitting || (actionType === "reject" && !comment.trim())}
                 variant={actionType === "approve" ? "default" : "destructive"}
+                data-mutating="true"
               >
                 {submitting ? "Processing..." : actionType === "approve" ? "Approve" : "Reject"}
               </Button>
@@ -1786,6 +1792,7 @@ export default function Approvals() {
               onClick={handleBulkSubmit}
               disabled={bulkSubmitting || (bulkAction === "reject" && !bulkComment.trim())}
               variant={bulkAction === "approve" ? "default" : "destructive"}
+              data-mutating="true"
             >
               {bulkSubmitting ? "Processing..." : bulkAction === "approve" ? "Approve All" : "Reject All"}
             </Button>
@@ -1808,7 +1815,7 @@ export default function Approvals() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setLeaveToDelete(null)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteLeave} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction onClick={handleDeleteLeave} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" data-mutating="true">
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
