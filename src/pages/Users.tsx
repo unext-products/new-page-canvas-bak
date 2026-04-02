@@ -1330,6 +1330,21 @@ export default function Users() {
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
+                      {/* Impersonate button - only for admin/super_admin, not on admin/super_admin targets */}
+                      {isRole(realUserWithRole?.role, "admin", "org_admin", "super_admin") && 
+                       !isRole(user.role, "admin", "org_admin", "super_admin") && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            startImpersonation(user.id);
+                            navigate("/dashboard");
+                          }}
+                          title={`View as ${user.full_name}`}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon"
