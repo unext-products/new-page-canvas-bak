@@ -886,7 +886,7 @@ export default function Timesheet() {
           )}
           <Dialog open={leaveDialogOpen} onOpenChange={setLeaveDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" className="w-full sm:w-auto" data-tour="mark-leave">
+              <Button variant="outline" className="w-full sm:w-auto" data-tour="mark-leave" data-mutating="true">
                 <Calendar className="mr-2 h-4 w-4" />
                 Mark Leave
               </Button>
