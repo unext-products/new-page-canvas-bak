@@ -73,15 +73,32 @@ export function useActivityCategories(_departmentId?: string | null) {
     }
   };
 
-  // Get parent categories (those without parent_id)
-  const parentCategories = useMemo(() => {
-    return categories.filter(c => c.parent_id === null);
-  }, [categories]);
+  // Determine the current user's role key for filtering
+  const userRoleKey = useMemo(() => {
+    const role = userWithRole?.role;
+    if (!role) return null;
+    if (isRole(role, 'l1', 'member', 'faculty')) return 'l1';
+    if (isRole(role, 'l2', 'program_manager')) return 'l2';
+    if (isRole(role, 'l3', 'manager', 'hod')) return 'l3';
+    // Admins and super admins see all categories
+    return null;
+  }, [userWithRole?.role]);
 
-  // Get child activities (those with parent_id)
+  // Get parent categories (those without parent_id), filtered by role_scope
+  const parentCategories = useMemo(() => {
+    return categories.filter(c => {
+      if (c.parent_id !== null) return false;
+      // If user is admin/super_admin (userRoleKey is null), show all
+      if (!userRoleKey) return true;
+      return c.role_scope.includes(userRoleKey);
+    });
+  }, [categories, userRoleKey]);
+
+  // Get child activities (those with parent_id) — only children of visible parents
   const childActivities = useMemo(() => {
-    return categories.filter(c => c.parent_id !== null);
-  }, [categories]);
+    const visibleParentIds = new Set(parentCategories.map(p => p.id));
+    return categories.filter(c => c.parent_id !== null && visibleParentIds.has(c.parent_id));
+  }, [categories, parentCategories]);
 
   // Get children for a specific parent
   const getChildren = (parentId: string) => {
