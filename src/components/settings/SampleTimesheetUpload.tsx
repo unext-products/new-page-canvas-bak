@@ -25,7 +25,23 @@ export default function SampleTimesheetUpload({ organizationId }: SampleTimeshee
   const [loading, setLoading] = useState(true);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({ l1: null, l2: null, l3: null });
 
-  const getOrgId = () => organizationId || userWithRole?.organizationId;
+  const [resolvedOrgId, setResolvedOrgId] = useState<string | null>(organizationId || null);
+
+  useEffect(() => {
+    const fetchOrgId = async () => {
+      if (organizationId) { setResolvedOrgId(organizationId); return; }
+      if (!userWithRole?.user?.id) return;
+      const { data } = await supabase
+        .from("user_roles")
+        .select("organization_id")
+        .eq("user_id", userWithRole.user.id)
+        .single();
+      if (data?.organization_id) setResolvedOrgId(data.organization_id);
+    };
+    fetchOrgId();
+  }, [organizationId, userWithRole?.user?.id]);
+
+  const getOrgId = () => resolvedOrgId;
 
   useEffect(() => {
     fetchExistingFiles();
