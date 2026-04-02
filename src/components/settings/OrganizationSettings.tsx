@@ -24,6 +24,8 @@ export default function OrganizationSettings() {
   const [saving, setSaving] = useState(false);
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [formData, setFormData] = useState({ name: "", code: "" });
+  const { isMaintenanceMode, loading: maintenanceLoading, refetch: refetchMaintenance } = useMaintenanceMode();
+  const [maintenanceToggling, setMaintenanceToggling] = useState(false);
 
   const isOrgAdmin = isRole(userWithRole?.role, "admin", "org_admin", "super_admin");
 
