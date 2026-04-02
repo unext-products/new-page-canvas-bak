@@ -40,7 +40,7 @@ const App = () => (
         <BrowserRouter>
           <AuthProvider>
             <LabelProvider>
-              <Routes>
+              <ImpersonationProvider>
                 {/* Public routes */}
                 <Route path="/" element={<Index />} />
                 <Route path="/auth" element={<Auth />} />
