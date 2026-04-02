@@ -89,6 +89,8 @@ export type DepartmentReportData = VerticalReportData;
 export interface FacultyBreakdown {
   userId: string;
   facultyName: string;
+  email: string;
+  verticalName: string;
   totalHours: number;
   completionRate: number;
   entryCount: number;
