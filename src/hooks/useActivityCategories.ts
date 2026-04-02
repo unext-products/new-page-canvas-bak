@@ -62,6 +62,7 @@ export function useActivityCategories(_departmentId?: string | null) {
         code: cat.name.toLowerCase().replace(/\s+/g, '_'),
         parent_id: cat.parent_id || null,
         sort_order: cat.sort_order || 0,
+        role_scope: (cat as any).role_scope || ['l1', 'l2', 'l3'],
       }));
       setCategories(categoriesWithCode);
     } catch (error) {
