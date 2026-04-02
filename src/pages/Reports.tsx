@@ -352,7 +352,7 @@ export default function Reports() {
                   <MemberSelect
                     value={selectedFaculty}
                     onValueChange={setSelectedFaculty}
-                    includeAll={false}
+                    includeAll={true}
                     departmentIds={isHod ? hodDepartmentIds : undefined}
                     includeInactive={true}
                   />
