@@ -244,9 +244,11 @@ export function exportDepartmentReportPDF(
   // Faculty Breakdown Table
   autoTable(doc, {
     startY: yPos + 10,
-    head: [["Faculty Name", "Hours", "Completion", "Entries", "Status"]],
+    head: [["Faculty Name", "Email", "Vertical", "Hours", "Completion", "Entries", "Status"]],
     body: report.facultyBreakdown.map((faculty: any) => [
       faculty.facultyName,
+      faculty.email || "",
+      faculty.verticalName || "",
       `${faculty.totalHours.toFixed(1)}h`,
       `${faculty.completionRate.toFixed(1)}%`,
       faculty.entryCount.toString(),
