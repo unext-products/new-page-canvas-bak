@@ -618,17 +618,21 @@ export default function CategorySettings({ organizationId }: CategorySettingsPro
         </CardContent>
       </Card>
 
-      {/* Add Category/Activity Dialog */}
+      {/* Add/Edit Category/Activity Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {dialogMode === "category" ? "Create New Category" : "Add Activity"}
+              {dialogAction === "edit" 
+                ? `Edit ${dialogMode === "category" ? "Category" : "Activity"}`
+                : dialogMode === "category" ? "Create New Category" : "Add Activity"}
             </DialogTitle>
             <DialogDescription>
-              {dialogMode === "category" 
-                ? "Create a category to group related activities" 
-                : `Add an activity under "${parentCategories.find(p => p.id === selectedParentId)?.name}"`
+              {dialogAction === "edit"
+                ? `Update the ${dialogMode === "category" ? "category" : "activity"} details`
+                : dialogMode === "category" 
+                  ? "Create a category to group related activities" 
+                  : `Add an activity under "${parentCategories.find(p => p.id === selectedParentId)?.name}"`
               }
             </DialogDescription>
           </DialogHeader>
@@ -682,9 +686,9 @@ export default function CategorySettings({ organizationId }: CategorySettingsPro
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleAdd} disabled={saving}>
+            <Button onClick={handleSave} disabled={saving}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {dialogMode === "category" ? "Create Category" : "Add Activity"}
+              {dialogAction === "edit" ? "Save Changes" : dialogMode === "category" ? "Create Category" : "Add Activity"}
             </Button>
           </DialogFooter>
         </DialogContent>
