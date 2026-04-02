@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { isRole } from "@/lib/roleMapping";
 
 // Match the actual database schema for activity_categories
 export interface ActivityCategory {
@@ -12,6 +13,7 @@ export interface ActivityCategory {
   organization_id: string | null;
   parent_id: string | null; // For 2-level hierarchy
   sort_order: number; // For ordering
+  role_scope: string[]; // Which roles can see this category
   created_at: string;
 }
 
