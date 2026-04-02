@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LabelProvider } from "@/contexts/LabelContext";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { ImpersonationProvider } from "@/contexts/ImpersonationContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
@@ -39,7 +40,8 @@ const App = () => (
         <BrowserRouter>
           <AuthProvider>
             <LabelProvider>
-              <Routes>
+              <ImpersonationProvider>
+                <Routes>
                 {/* Public routes */}
                 <Route path="/" element={<Index />} />
                 <Route path="/auth" element={<Auth />} />
@@ -65,7 +67,8 @@ const App = () => (
 
                 {/* Catch-all */}
                 <Route path="*" element={<NotFound />} />
-              </Routes>
+                </Routes>
+              </ImpersonationProvider>
             </LabelProvider>
           </AuthProvider>
         </BrowserRouter>

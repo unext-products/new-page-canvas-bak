@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
+import { createContext, useContext, useEffect, useRef, useState, useCallback, useSyncExternalStore } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 import { getUserWithRole, type UserWithRole } from "@/lib/supabase";
@@ -7,11 +7,30 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   userWithRole: UserWithRole | null;
+  realUserWithRole: UserWithRole | null;
   loading: boolean;
   refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// Impersonation override — module-level store so useAuth can react to it
+let _impersonationOverride: UserWithRole | null = null;
+let _impersonationListeners: Set<() => void> = new Set();
+
+export function setImpersonationOverride(override: UserWithRole | null) {
+  _impersonationOverride = override;
+  _impersonationListeners.forEach(l => l());
+}
+
+function subscribeImpersonation(callback: () => void) {
+  _impersonationListeners.add(callback);
+  return () => { _impersonationListeners.delete(callback); };
+}
+
+function getImpersonationSnapshot() {
+  return _impersonationOverride;
+}
 
 const AUTH_INIT_TIMEOUT_MS = 10000; // 10s watchdog
 
@@ -134,7 +153,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <AuthContext.Provider value={{ user, session, userWithRole, loading, refreshUser }}>
+    <AuthContext.Provider value={{ user, session, userWithRole, realUserWithRole: userWithRole, loading, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );
@@ -145,5 +164,16 @@ export function useAuth() {
   if (context === undefined) {
     throw new Error("useAuth must be used within an AuthProvider");
   }
+  
+  const impersonationOverride = useSyncExternalStore(subscribeImpersonation, getImpersonationSnapshot);
+  
+  if (impersonationOverride) {
+    return {
+      ...context,
+      userWithRole: impersonationOverride,
+      realUserWithRole: context.userWithRole,
+    };
+  }
+  
   return context;
 }
