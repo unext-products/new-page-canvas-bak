@@ -44,8 +44,10 @@ export default function SampleTimesheetUpload({ organizationId }: SampleTimeshee
   const getOrgId = () => resolvedOrgId;
 
   useEffect(() => {
-    fetchExistingFiles();
-  }, [organizationId]);
+    if (resolvedOrgId) {
+      fetchExistingFiles();
+    }
+  }, [resolvedOrgId]);
 
   const fetchExistingFiles = async () => {
     const orgId = getOrgId();
