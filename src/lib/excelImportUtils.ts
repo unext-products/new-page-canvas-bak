@@ -245,25 +245,33 @@ export async function validateMemberExcelRow(
   const programValueUpper = row.program.toUpperCase();
   
   if (userProgramsMap) {
-    // Check if user is assigned to this program by code
-    let programInfo = userProgramsMap.get(programValueUpper);
+    // Get all matching programs by code or name
+    let programEntries = userProgramsMap.get(programValueUpper);
     
-    // If not found by code, try to find by name
-    if (!programInfo) {
-      for (const [, info] of userProgramsMap.entries()) {
-        if (info.name?.toUpperCase() === programValueUpper) {
-          programInfo = info;
+    // If not found by code, try to find by name across all entries
+    if (!programEntries) {
+      for (const [, entries] of userProgramsMap.entries()) {
+        const nameMatch = entries.find(e => e.name?.toUpperCase() === programValueUpper);
+        if (nameMatch) {
+          programEntries = entries.filter(e => e.name?.toUpperCase() === programValueUpper);
           break;
         }
       }
     }
     
-    if (!programInfo) {
+    if (!programEntries || programEntries.length === 0) {
       errors.push(`You are not assigned to program '${row.program}'`);
-  } else if (programInfo.vertical_code && programInfo.vertical_code !== deptCodeUpper) {
-      errors.push(`Program '${row.program}' does not belong to vertical '${row.department_code}'`);
     } else {
-      programId = programInfo.id;
+      // Find the program entry that matches the specified vertical
+      const matchingProgram = programEntries.find(e => 
+        !e.vertical_code || e.vertical_code === deptCodeUpper
+      );
+      
+      if (matchingProgram) {
+        programId = matchingProgram.id;
+      } else {
+        errors.push(`Program '${row.program}' does not belong to vertical '${row.department_code}'`);
+      }
     }
   } else if (programsInVertical) {
     // Fallback: check if program exists in the selected vertical
