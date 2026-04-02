@@ -1332,6 +1332,7 @@ export default function Approvals() {
                       disabled={selectedEntries.size === 0}
                       variant="default"
                       size="sm"
+                      data-mutating="true"
                     >
                       <CheckCircle className="h-4 w-4 mr-2" />
                       Approve Selected
@@ -1341,6 +1342,7 @@ export default function Approvals() {
                       disabled={selectedEntries.size === 0}
                       variant="destructive"
                       size="sm"
+                      data-mutating="true"
                     >
                       <XCircle className="h-4 w-4 mr-2" />
                       Reject Selected
