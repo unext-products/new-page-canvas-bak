@@ -934,7 +934,7 @@ export default function Timesheet() {
                     placeholder="Any additional notes..."
                   />
                 </div>
-                <Button onClick={handleMarkLeave} disabled={loading} className="w-full">
+                <Button onClick={handleMarkLeave} disabled={loading} className="w-full" data-mutating="true">
                   {loading ? "Marking..." : "Mark Leave"}
                 </Button>
               </div>
