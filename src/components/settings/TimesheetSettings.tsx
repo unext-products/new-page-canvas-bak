@@ -12,6 +12,7 @@ import { useDepartmentSettings } from "@/hooks/useDepartmentSettings";
 import { Loader2, Info, RotateCcw } from "lucide-react";
 import { isRole } from "@/lib/roleMapping";
 import MemberTargetsSettings from "./MemberTargetsSettings";
+import SampleTimesheetUpload from "./SampleTimesheetUpload";
 import HolidaysSettings from "./HolidaysSettings";
 import ThresholdsSettings from "./ThresholdsSettings";
 
@@ -451,6 +452,9 @@ export default function TimesheetSettings({ organizationId }: TimesheetSettingsP
           )}
         </CardContent>
       </Card>
+
+      {/* Upload Sample Timesheet */}
+      {canEdit && <SampleTimesheetUpload organizationId={organizationId} />}
 
       {/* Member Targets Section */}
       {canEdit && <MemberTargetsSettings />}
