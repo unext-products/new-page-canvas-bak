@@ -1531,6 +1531,7 @@ export default function Approvals() {
                                 onClick={() => handleAction(item, "approve")}
                                 className="flex-1"
                                 variant="default"
+                                data-mutating="true"
                               >
                                 <CheckCircle className="h-4 w-4 mr-2" />
                                 Approve
@@ -1539,6 +1540,7 @@ export default function Approvals() {
                                 onClick={() => handleAction(item, "reject")}
                                 className="flex-1"
                                 variant="destructive"
+                                data-mutating="true"
                               >
                                 <XCircle className="h-4 w-4 mr-2" />
                                 Reject
