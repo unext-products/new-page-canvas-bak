@@ -117,7 +117,7 @@ export default function Timesheet() {
     const { data: userVerts } = await supabase
       .from("user_verticals")
       .select("vertical_id")
-      .eq("user_id", userWithRole.user.id);
+      .eq("user_id", effectiveUserId!);
     
     let vertIds = userVerts?.map(uv => uv.vertical_id) || [];
     
