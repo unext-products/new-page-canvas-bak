@@ -543,6 +543,7 @@ export default function CategorySettings({ organizationId }: CategorySettingsPro
                           onAddActivity={openAddActivityDialog}
                           isParent={true}
                           childCount={children.length}
+                          roleLabel={roleLabel}
                         />
                         {/* Child activities */}
                         {children.length > 0 && (
