@@ -619,6 +619,32 @@ export default function CategorySettings({ organizationId }: CategorySettingsPro
                 onChange={(e) => setNewDescription(e.target.value)}
               />
             </div>
+            {dialogMode === "category" && (
+              <div className="space-y-2">
+                <Label>Applicable Roles</Label>
+                <p className="text-xs text-muted-foreground">Select which roles can use this category in timesheets</p>
+                <div className="flex gap-4">
+                  {(["l1", "l2", "l3"] as const).map(role => (
+                    <div key={role} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`role-${role}`}
+                        checked={newRoleScope.includes(role)}
+                        onCheckedChange={(checked) => {
+                          setNewRoleScope(prev => 
+                            checked 
+                              ? [...prev, role] 
+                              : prev.filter(r => r !== role)
+                          );
+                        }}
+                      />
+                      <Label htmlFor={`role-${role}`} className="text-sm font-normal cursor-pointer">
+                        {roleLabel(role)}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
