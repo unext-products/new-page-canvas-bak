@@ -257,6 +257,7 @@ export default function CategorySettings({ organizationId }: CategorySettingsPro
         ...cat,
         parent_id: cat.parent_id || null,
         sort_order: cat.sort_order || 0,
+        role_scope: (cat as any).role_scope || ['l1', 'l2', 'l3'],
       }));
       
       setCategories(mappedData);
