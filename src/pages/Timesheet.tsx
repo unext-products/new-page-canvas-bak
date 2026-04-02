@@ -942,7 +942,7 @@ export default function Timesheet() {
           </Dialog>
           <Dialog open={dialogOpen} onOpenChange={handleDialogClose}>
               <DialogTrigger asChild>
-                <Button className="w-full sm:w-auto" data-tour="new-entry" data-mutating="true">
+                <Button className="w-full sm:w-auto" data-tour="new-entry">
                   <Plus className="mr-2 h-4 w-4" />
                   New Entry
                 </Button>
