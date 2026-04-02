@@ -459,11 +459,25 @@ export async function fetchVerticalReport(
   const uniqueFacultyIds = Array.from(new Set(entries?.map(e => e.user_id) || []));
   const { data: profiles } = await supabase
     .from("profiles")
-    .select("id, full_name, is_active, deactivated_at")
+    .select("id, full_name, email, is_active, deactivated_at")
     .in("id", uniqueFacultyIds.length > 0 ? uniqueFacultyIds : ["no-id"]);
 
   const profileMap = new Map(profiles?.map(p => [p.id, p.full_name]) || []);
+  const profileEmailMap = new Map(profiles?.map(p => [p.id, p.email || ""]) || []);
   const profileDataMap = new Map(profiles?.map(p => [p.id, p]) || []);
+
+  // Fetch vertical names for each faculty
+  const { data: userVerticalData } = await supabase
+    .from("user_verticals")
+    .select("user_id, vertical_id, verticals(name)")
+    .in("user_id", uniqueFacultyIds.length > 0 ? uniqueFacultyIds : ["no-id"]);
+
+  const userVerticalNameMap = new Map<string, string>();
+  userVerticalData?.forEach((uv: any) => {
+    const vName = uv.verticals?.name || "";
+    const existing = userVerticalNameMap.get(uv.user_id);
+    userVerticalNameMap.set(uv.user_id, existing ? `${existing}, ${vName}` : vName);
+  });
 
   const totalMinutes = entries?.reduce((sum, e) => sum + getEntryDuration(e), 0) || 0;
   const totalHours = totalMinutes / 60;
