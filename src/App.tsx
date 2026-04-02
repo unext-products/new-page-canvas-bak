@@ -67,8 +67,8 @@ const App = () => (
                 {/* Catch-all */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              </ImpersonationProvider>
             </LabelProvider>
-          </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>
     </ThemeProvider>
