@@ -1,0 +1,1 @@
+ALTER TABLE public.activity_categories ADD COLUMN role_scope text[] NOT NULL DEFAULT ARRAY['l1','l2','l3'];
