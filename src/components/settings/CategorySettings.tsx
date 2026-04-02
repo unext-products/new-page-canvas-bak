@@ -319,13 +319,20 @@ export default function CategorySettings({ organizationId }: CategorySettingsPro
         sortOrder = getChildren(selectedParentId).length;
       }
 
-      const { error } = await supabase.from("activity_categories").insert({
+      const insertData: any = {
         organization_id: orgId,
         name: newName.trim(),
         description: newDescription.trim() || null,
         parent_id: dialogMode === "activity" ? selectedParentId : null,
         sort_order: sortOrder,
-      });
+      };
+      
+      // Only set role_scope for parent categories
+      if (dialogMode === "category") {
+        insertData.role_scope = newRoleScope;
+      }
+
+      const { error } = await supabase.from("activity_categories").insert(insertData);
 
       if (error) throw error;
 
