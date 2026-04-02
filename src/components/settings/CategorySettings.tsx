@@ -179,6 +179,7 @@ interface CategorySettingsProps {
 
 export default function CategorySettings({ organizationId }: CategorySettingsProps) {
   const { userWithRole } = useAuth();
+  const { roleLabel } = useLabels();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -192,6 +193,7 @@ export default function CategorySettings({ organizationId }: CategorySettingsPro
   // New category/activity form
   const [newName, setNewName] = useState("");
   const [newDescription, setNewDescription] = useState("");
+  const [newRoleScope, setNewRoleScope] = useState<string[]>(["l1", "l2", "l3"]);
 
   const isOrgAdmin = isRole(userWithRole?.role, "admin", "org_admin", "super_admin");
 
