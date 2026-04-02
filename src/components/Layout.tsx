@@ -27,13 +27,8 @@ export function Layout({ children }: LayoutProps) {
           </header>
           
           <main className={`flex-1 p-3 sm:p-4 md:p-6 ${isReadOnly ? 'pb-16' : ''}`}>
-            <div className="max-w-7xl mx-auto">
-              {isReadOnly && (
-                <div className="pointer-events-none [&_button:not([data-nav])]:opacity-50 [&_button:not([data-nav])]:cursor-not-allowed [&_form]:pointer-events-none">
-                  {children}
-                </div>
-              )}
-              {!isReadOnly && children}
+            <div className={`max-w-7xl mx-auto ${isReadOnly ? 'impersonation-readonly' : ''}`}>
+              {children}
             </div>
           </main>
         </div>
