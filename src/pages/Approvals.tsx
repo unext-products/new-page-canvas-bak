@@ -1792,6 +1792,7 @@ export default function Approvals() {
               onClick={handleBulkSubmit}
               disabled={bulkSubmitting || (bulkAction === "reject" && !bulkComment.trim())}
               variant={bulkAction === "approve" ? "default" : "destructive"}
+              data-mutating="true"
             >
               {bulkSubmitting ? "Processing..." : bulkAction === "approve" ? "Approve All" : "Reject All"}
             </Button>
