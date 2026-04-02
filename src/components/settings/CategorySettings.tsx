@@ -587,6 +587,7 @@ export default function CategorySettings({ organizationId }: CategorySettingsPro
                                 category={child}
                                 onToggleActive={handleToggleActive}
                                 onDelete={handleDelete}
+                                onEdit={openEditDialog}
                                 isParent={false}
                                 roleLabel={roleLabel}
                               />
