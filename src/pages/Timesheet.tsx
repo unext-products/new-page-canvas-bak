@@ -32,10 +32,15 @@ import { fetchUserThresholds, validateAgainstThresholds } from "@/lib/thresholdV
 
 export default function Timesheet() {
   const { userWithRole } = useAuth();
+  const { impersonatedUser } = useImpersonation();
   const { toast } = useToast();
   const navigate = useNavigate();
   const { fireConfetti } = useConfetti();
   const { resetTour, hasSeen } = useOnboardingTour();
+  
+  // When impersonating, use the impersonated user's ID for data queries
+  const effectiveUserId = impersonatedUser?.userId || userWithRole?.user?.id;
+  
   const { categories, loading: categoriesLoading, parentCategories, getChildren, hasHierarchy, selectableActivities } = useActivityCategories(userWithRole?.verticalId || userWithRole?.departmentId);
   
   // Stable ref for userWithRole to prevent async handlers from seeing null during token refresh
