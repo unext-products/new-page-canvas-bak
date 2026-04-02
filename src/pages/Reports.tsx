@@ -197,9 +197,9 @@ export default function Reports() {
 
       if (reportType === "member") {
         if (selectedFaculty === "all") {
-          return;
-        }
-        const report = await fetchFacultyReport(selectedFaculty, reportPeriod);
+          const report = await fetchAllMembersReport(reportPeriod);
+          setFacultyReport(report);
+        } else {
         setFacultyReport(report);
       } else {
         const report = await fetchDepartmentReport(selectedDepartment, reportPeriod);
