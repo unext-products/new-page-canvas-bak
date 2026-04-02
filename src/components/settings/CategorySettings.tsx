@@ -286,8 +286,10 @@ export default function CategorySettings({ organizationId }: CategorySettingsPro
   };
 
   const openAddCategoryDialog = () => {
+    setDialogAction("create");
     setDialogMode("category");
     setSelectedParentId(null);
+    setEditingCategory(null);
     setNewName("");
     setNewDescription("");
     setNewRoleScope(["l1", "l2", "l3"]);
@@ -295,10 +297,23 @@ export default function CategorySettings({ organizationId }: CategorySettingsPro
   };
 
   const openAddActivityDialog = (parentId: string) => {
+    setDialogAction("create");
     setDialogMode("activity");
     setSelectedParentId(parentId);
+    setEditingCategory(null);
     setNewName("");
     setNewDescription("");
+    setDialogOpen(true);
+  };
+
+  const openEditDialog = (category: Category) => {
+    setDialogAction("edit");
+    setDialogMode(category.parent_id === null ? "category" : "activity");
+    setEditingCategory(category);
+    setSelectedParentId(category.parent_id);
+    setNewName(category.name);
+    setNewDescription(category.description || "");
+    setNewRoleScope(category.role_scope || ["l1", "l2", "l3"]);
     setDialogOpen(true);
   };
 
