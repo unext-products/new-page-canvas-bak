@@ -412,7 +412,7 @@ export default function CategorySettings({ organizationId }: CategorySettingsPro
       toast({ title: "Error", description: "Failed to update role scope", variant: "destructive" });
     }
   };
-
+  const handleToggleActive = async (category: Category) => {
     try {
       const { error } = await supabase
         .from("activity_categories")
