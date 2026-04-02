@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useImpersonation } from "@/contexts/ImpersonationContext";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
