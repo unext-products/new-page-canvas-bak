@@ -1729,6 +1729,7 @@ export default function Approvals() {
                 onClick={handleSubmit}
                 disabled={submitting || (actionType === "reject" && !comment.trim())}
                 variant={actionType === "approve" ? "default" : "destructive"}
+                data-mutating="true"
               >
                 {submitting ? "Processing..." : actionType === "approve" ? "Approve" : "Reject"}
               </Button>
