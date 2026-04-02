@@ -146,11 +146,5 @@ export function useAuth() {
   if (context === undefined) {
     throw new Error("useAuth must be used within an AuthProvider");
   }
-  
-  // Try to use impersonation context if available
-  try {
-    const { ImpersonationContext: _ic } = require("@/contexts/ImpersonationContext");
-  } catch {}
-  
   return context;
 }
