@@ -192,7 +192,7 @@ export default function Timesheet() {
     const { data } = await supabase
       .from('leave_days' as any)
       .select('*')
-      .eq('user_id', userWithRole.user.id)
+      .eq('user_id', effectiveUserId!)
       .order('leave_date', { ascending: false });
 
     if (data) {
