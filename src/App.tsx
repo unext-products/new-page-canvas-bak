@@ -41,6 +41,7 @@ const App = () => (
           <AuthProvider>
             <LabelProvider>
               <ImpersonationProvider>
+                <Routes>
                 {/* Public routes */}
                 <Route path="/" element={<Index />} />
                 <Route path="/auth" element={<Auth />} />
@@ -66,9 +67,10 @@ const App = () => (
 
                 {/* Catch-all */}
                 <Route path="*" element={<NotFound />} />
-              </Routes>
+                </Routes>
               </ImpersonationProvider>
             </LabelProvider>
+          </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>
     </ThemeProvider>
