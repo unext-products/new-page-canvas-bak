@@ -1,7 +1,8 @@
-import { createContext, useContext, useState, useCallback, useMemo } from "react";
+import { createContext, useContext, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toDisplayRole, type DbRole } from "@/lib/roleMapping";
 import type { UserWithRole } from "@/lib/supabase";
+import { setImpersonationOverride } from "@/contexts/AuthContext";
 
 interface ImpersonatedUser {
   userId: string;
@@ -45,28 +46,31 @@ export function ImpersonationProvider({ children }: { children: React.ReactNode 
     const role = toDisplayRole(roleResult.data?.role as DbRole | null);
     const verticalId = roleResult.data?.vertical_id || roleResult.data?.department_id || null;
 
-    // We need a User object - create a minimal one from profile data
     const { data: { user: currentUser } } = await supabase.auth.getUser();
     if (!currentUser) return;
 
     const fakeUserWithRole: UserWithRole = {
-      user: currentUser, // keep real user for session
+      user: currentUser,
       role,
       verticalId,
       departmentId: verticalId,
       profile: profileResult.data,
     };
 
-    setImpersonatedUser({
+    const impersonation: ImpersonatedUser = {
       userId,
       fullName: profileResult.data.full_name,
       role,
       userWithRole: fakeUserWithRole,
-    });
+    };
+
+    setImpersonatedUser(impersonation);
+    setImpersonationOverride(fakeUserWithRole);
   }, []);
 
   const stopImpersonation = useCallback(() => {
     setImpersonatedUser(null);
+    setImpersonationOverride(null);
   }, []);
 
   return (
