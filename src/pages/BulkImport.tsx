@@ -488,14 +488,46 @@ export default function BulkImport() {
     }
   };
 
-  const handleDownloadTemplate = () => {
+  const handleDownloadTemplate = async () => {
+    // Determine role key for sample lookup
+    const roleKey = isMember ? "l1" : isL2 ? "l2" : isHod ? "l3" : null;
+
+    // For non-admin users, try to download role-specific sample from storage first
+    if (roleKey && userWithRole?.user?.id) {
+      try {
+        const { data: roleData } = await supabase
+          .from("user_roles")
+          .select("organization_id")
+          .eq("user_id", userWithRole.user.id)
+          .single();
+
+        if (roleData?.organization_id) {
+          const { data: files } = await supabase.storage
+            .from("sample-timesheets")
+            .list(`${roleData.organization_id}/${roleKey}`, { limit: 1 });
+
+          if (files && files.length > 0) {
+            const { data: urlData } = supabase.storage
+              .from("sample-timesheets")
+              .getPublicUrl(`${roleData.organization_id}/${roleKey}/${files[0].name}`);
+
+            if (urlData?.publicUrl) {
+              window.open(urlData.publicUrl, "_blank");
+              return;
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to fetch sample from storage, falling back to default", err);
+      }
+    }
+
+    // Fallback to existing behavior
     if (isMember || isManager) {
-      // Member/Manager template - download from Google Drive
       const SPREADSHEET_ID = "1XcrQT-LZ9HX6czFZKGEdZvoRiuctSSbx";
       const exportUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=xlsx`;
       window.open(exportUrl, "_blank");
     } else {
-      // Admin template (with email column) - use local generation
       const blob = generateAdminExcelTemplate();
       const filename = "timesheet_import_template.xlsx";
       const url = window.URL.createObjectURL(blob);
