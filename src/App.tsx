@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LabelProvider } from "@/contexts/LabelContext";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { ImpersonationProvider } from "@/contexts/ImpersonationContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";

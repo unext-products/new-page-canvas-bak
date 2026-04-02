@@ -135,7 +135,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <AuthContext.Provider value={{ user, session, userWithRole, loading, refreshUser }}>
+    <AuthContext.Provider value={{ user, session, userWithRole, realUserWithRole: userWithRole, loading, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

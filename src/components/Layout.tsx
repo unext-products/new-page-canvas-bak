@@ -12,6 +12,7 @@ interface LayoutProps {
 
 export function Layout({ children }: LayoutProps) {
   const isMobile = useIsMobile();
+  const { isReadOnly } = useImpersonation();
 
   return (
     <SidebarProvider defaultOpen={!isMobile}>
@@ -25,13 +26,19 @@ export function Layout({ children }: LayoutProps) {
             <ThemeToggle />
           </header>
           
-          <main className="flex-1 p-3 sm:p-4 md:p-6">
+          <main className={`flex-1 p-3 sm:p-4 md:p-6 ${isReadOnly ? 'pb-16' : ''}`}>
             <div className="max-w-7xl mx-auto">
-              {children}
+              {isReadOnly && (
+                <div className="pointer-events-none [&_button:not([data-nav])]:opacity-50 [&_button:not([data-nav])]:cursor-not-allowed [&_form]:pointer-events-none">
+                  {children}
+                </div>
+              )}
+              {!isReadOnly && children}
             </div>
           </main>
         </div>
       </div>
+      <ImpersonationBar />
     </SidebarProvider>
   );
 }
