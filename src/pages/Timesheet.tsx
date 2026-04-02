@@ -97,18 +97,24 @@ export default function Timesheet() {
     return { from: start, to: end };
   });
 
+  // Reset and reload when effective user changes (e.g. impersonation starts/stops)
+  const prevEffectiveUserId = useRef<string | undefined>(undefined);
+  
   useEffect(() => {
-    if (!userWithRole) return;
+    if (!userWithRole || !effectiveUserId) return;
     if (userWithRole && !isRole(userWithRole.role, "l1", "l2", "l3", "member", "manager", "program_manager", "faculty")) {
       navigate("/dashboard");
       return;
     }
-    if (hasLoadedRef.current) return;
+    
+    // Reload if user changed (impersonation) or first load
+    if (prevEffectiveUserId.current === effectiveUserId && hasLoadedRef.current) return;
+    prevEffectiveUserId.current = effectiveUserId;
     hasLoadedRef.current = true;
     loadEntries();
     loadLeaveDays();
     loadUserVerticals();
-  }, [userWithRole, navigate]);
+  }, [userWithRole, effectiveUserId, navigate]);
 
   const loadUserVerticals = async () => {
     if (!userWithRole) return;
