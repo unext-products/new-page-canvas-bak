@@ -198,9 +198,11 @@ export default function CategorySettings({ organizationId }: CategorySettingsPro
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<"category" | "activity">("category");
+  const [dialogAction, setDialogAction] = useState<"create" | "edit">("create");
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
   
-  // New category/activity form
+  // Category/activity form
   const [newName, setNewName] = useState("");
   const [newDescription, setNewDescription] = useState("");
   const [newRoleScope, setNewRoleScope] = useState<string[]>(["l1", "l2", "l3"]);
