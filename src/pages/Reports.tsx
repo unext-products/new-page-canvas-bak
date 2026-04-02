@@ -200,7 +200,9 @@ export default function Reports() {
           const report = await fetchAllMembersReport(reportPeriod);
           setFacultyReport(report);
         } else {
-        setFacultyReport(report);
+          const report = await fetchFacultyReport(selectedFaculty, reportPeriod);
+          setFacultyReport(report);
+        }
       } else {
         const report = await fetchDepartmentReport(selectedDepartment, reportPeriod);
         setDepartmentReport(report);
