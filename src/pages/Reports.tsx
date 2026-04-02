@@ -639,15 +639,13 @@ export default function Reports() {
               </Tabs>
             )}
           </>
-        ) : (
+          <>
+          </>
+        ) : isLoading ? null : (
           <Card>
             <CardContent className="py-12">
               <div className="text-center text-muted-foreground">
-                {reportType === "member" && selectedFaculty === "all" ? (
-                  <p>Please select a team member to view their report</p>
-                ) : (
-                  <p>Select filters and generate a report</p>
-                )}
+                <p>Select filters and generate a report</p>
               </div>
             </CardContent>
           </Card>
