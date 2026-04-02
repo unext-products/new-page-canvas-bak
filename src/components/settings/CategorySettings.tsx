@@ -100,7 +100,7 @@ function SortableCategoryItem({
       {!isParent && <ChevronRight className="h-3 w-3 text-muted-foreground" />}
       
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <p className={cn("font-medium truncate", isParent && "text-primary")}>
             {category.name}
           </p>
@@ -108,6 +108,15 @@ function SortableCategoryItem({
             <span className="text-xs text-muted-foreground">
               ({childCount} {childCount === 1 ? 'activity' : 'activities'})
             </span>
+          )}
+          {isParent && category.role_scope && category.role_scope.length < 3 && (
+            <div className="flex gap-1">
+              {category.role_scope.map(role => (
+                <Badge key={role} variant="secondary" className="text-[10px] px-1.5 py-0">
+                  {roleLabel(role)}
+                </Badge>
+              ))}
+            </div>
           )}
         </div>
         {category.description && (
