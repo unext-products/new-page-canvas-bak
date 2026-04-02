@@ -1,59 +1,44 @@
 
 
-# Role-Based Category Mapping
+# Maintenance Mode
 
-## Problem
-All activity categories are shown to all roles (L1, L2, L3) when creating timesheet entries. The admin needs the ability to map each main category to specific roles so that only relevant categories appear for each user.
+## Overview
+Add a "Maintenance Mode" toggle in Settings → Organization. When enabled, all users except Admin and Super Admin see a full-screen maintenance page with only a logout option. Admins/Super Admins continue using the app normally.
 
-## Solution
+## Approach
+Store the maintenance mode flag in the existing `settings` table (key: `maintenance_mode`, value: `true`/`false`) scoped to the organization. Check this flag in `ProtectedRoute` and redirect non-admin users to a maintenance page.
 
-### 1. Database Migration
-Add a `role_scope` column to `activity_categories` table:
-```sql
-ALTER TABLE activity_categories 
-ADD COLUMN role_scope text[] DEFAULT ARRAY['l1', 'l2', 'l3'];
-```
-Default includes all roles so existing categories continue working for everyone (backward compatible).
+## Changes
 
-### 2. CategorySettings Updates (`src/components/settings/CategorySettings.tsx`)
-- Add a **multi-select role picker** to the "Create New Category" dialog (only for parent categories, not child activities)
-- Show role badges (e.g., L1, L2, L3 chips) on each parent category row in the list
-- Allow editing role_scope on existing categories (inline or via edit action)
-- Use `roleLabel()` from LabelContext so custom role names are displayed
+### 1. Maintenance Mode Toggle (OrganizationSettings.tsx)
+- Add a new Card section "Maintenance Mode" below the existing Organization Details card
+- Include a Switch toggle with description explaining the impact
+- On toggle, upsert a row in the `settings` table with `key = 'maintenance_mode'` and the org's ID
+- Fetch current state on mount
 
-### 3. useActivityCategories Hook (`src/hooks/useActivityCategories.ts`)
-- Read `role_scope` from the fetched data
-- Filter `parentCategories` (and their children) based on the current user's role
-- An L1 user only sees categories where `role_scope` contains `'l1'`, etc.
+### 2. Maintenance Page (new: `src/pages/Maintenance.tsx`)
+- Full-screen page with logo, maintenance message ("The system is currently under maintenance"), and a Logout button
+- Clean, simple design — no sidebar or navigation
 
-### 4. Timesheet & Calendar
-No changes needed — they already consume `parentCategories`/`selectableActivities` from the hook; filtering at the hook level propagates automatically.
+### 3. Maintenance Check in ProtectedRoute
+- After session is confirmed, query the `settings` table for `maintenance_mode`
+- If enabled and user role is NOT `admin`/`org_admin`/`super_admin`, render `<Maintenance />` instead of children
+- Cache the check to avoid repeated queries (use AuthContext or a lightweight hook)
 
-## Technical Details
+### 4. Hook: `useMaintenanceMode` (new: `src/hooks/useMaintenanceMode.ts`)
+- Fetches maintenance_mode from settings table for the user's organization
+- Returns `{ isMaintenanceMode: boolean, loading: boolean }`
+- Used in ProtectedRoute and OrganizationSettings
 
-**Migration SQL:**
-```sql
-ALTER TABLE public.activity_categories 
-  ADD COLUMN role_scope text[] NOT NULL DEFAULT ARRAY['l1','l2','l3'];
-```
+### Files
+1. **New**: `src/pages/Maintenance.tsx` — maintenance page with logout
+2. **New**: `src/hooks/useMaintenanceMode.ts` — fetch maintenance flag
+3. **Edit**: `src/components/settings/OrganizationSettings.tsx` — add toggle section
+4. **Edit**: `src/components/ProtectedRoute.tsx` — check maintenance mode, block non-admins
 
-**Category interface update** — add `role_scope: string[]` to both `Category` (in CategorySettings) and `ActivityCategory` (in hook).
-
-**Hook filtering logic:**
-```typescript
-const userRoleKey = isRole(role, 'l1', 'member', 'faculty') ? 'l1' 
-  : isRole(role, 'l2', 'program_manager') ? 'l2' 
-  : isRole(role, 'l3', 'manager', 'hod') ? 'l3' : null;
-
-// Filter parents by role_scope, then only include children of visible parents
-```
-
-**Create Category dialog** — add checkboxes for L1, L2, L3 (all checked by default). The role picker only appears for parent categories (dialogMode === "category").
-
-**Category list display** — show small colored badges next to each parent category name showing its assigned roles.
-
-### Files to Modify
-1. **Database migration** — add `role_scope` column
-2. `src/hooks/useActivityCategories.ts` — add role-based filtering
-3. `src/components/settings/CategorySettings.tsx` — add role picker in create dialog + display badges
+### Technical Notes
+- Uses existing `settings` table (no migration needed) with `key = 'maintenance_mode'`
+- The settings table has public SELECT RLS, so all authenticated users can read the flag
+- Only org_admin/super_admin can write to settings (existing RLS)
+- ProtectedRoute already has access to `useAuth()` for role checking via `userWithRole`
 
