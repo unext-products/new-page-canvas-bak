@@ -103,8 +103,6 @@ export default function OrganizationSettings() {
     );
   }
 
-  const { isMaintenanceMode, loading: maintenanceLoading, refetch: refetchMaintenance } = useMaintenanceMode();
-  const [maintenanceToggling, setMaintenanceToggling] = useState(false);
 
   const handleMaintenanceToggle = async (enabled: boolean) => {
     setMaintenanceToggling(true);
