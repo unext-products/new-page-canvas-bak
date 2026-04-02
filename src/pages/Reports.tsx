@@ -27,7 +27,8 @@ import { DepartmentCalendar } from "@/components/reports/DepartmentCalendar";
 import { PageHeader } from "@/components/PageHeader";
 import { PageSkeleton } from "@/components/PageSkeleton";
 import { 
-  fetchFacultyReport, 
+  fetchFacultyReport,
+  fetchAllMembersReport,
   fetchDepartmentReport, 
   ReportPeriod,
   FacultyReportData,
