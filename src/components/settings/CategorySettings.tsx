@@ -278,6 +278,7 @@ export default function CategorySettings({ organizationId }: CategorySettingsPro
     setSelectedParentId(null);
     setNewName("");
     setNewDescription("");
+    setNewRoleScope(["l1", "l2", "l3"]);
     setDialogOpen(true);
   };
 
