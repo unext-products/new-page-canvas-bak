@@ -170,7 +170,7 @@ export default function Timesheet() {
     const { data, error } = await supabase
       .from("timesheet_entries")
       .select("*")
-      .eq("user_id", userWithRole.user.id)
+      .eq("user_id", effectiveUserId!)
       .order("entry_date", { ascending: false })
       .order("created_at", { ascending: false });
 
