@@ -11,7 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLabels } from "@/contexts/LabelContext";
 import { isRole } from "@/lib/roleMapping";
-import { Loader2, Plus, Trash2, GripVertical, Info, ChevronRight, FolderPlus } from "lucide-react";
+import { Loader2, Plus, Trash2, GripVertical, Info, ChevronRight, FolderPlus, Pencil } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import {
@@ -51,6 +51,7 @@ function SortableCategoryItem({
   onToggleActive, 
   onDelete,
   onAddActivity,
+  onEdit,
   isParent,
   childCount,
   roleLabel,
@@ -59,6 +60,7 @@ function SortableCategoryItem({
   onToggleActive: (category: Category) => void;
   onDelete: (category: Category) => void;
   onAddActivity?: (parentId: string) => void;
+  onEdit: (category: Category) => void;
   isParent: boolean;
   childCount?: number;
   roleLabel: (role: string) => string;
@@ -138,6 +140,14 @@ function SortableCategoryItem({
             Add Activity
           </Button>
         )}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => onEdit(category)}
+          className="text-muted-foreground hover:text-foreground"
+        >
+          <Pencil className="h-4 w-4" />
+        </Button>
         <Switch
           checked={category.is_active}
           onCheckedChange={() => onToggleActive(category)}
@@ -188,9 +198,11 @@ export default function CategorySettings({ organizationId }: CategorySettingsPro
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<"category" | "activity">("category");
+  const [dialogAction, setDialogAction] = useState<"create" | "edit">("create");
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
   
-  // New category/activity form
+  // Category/activity form
   const [newName, setNewName] = useState("");
   const [newDescription, setNewDescription] = useState("");
   const [newRoleScope, setNewRoleScope] = useState<string[]>(["l1", "l2", "l3"]);
@@ -274,8 +286,10 @@ export default function CategorySettings({ organizationId }: CategorySettingsPro
   };
 
   const openAddCategoryDialog = () => {
+    setDialogAction("create");
     setDialogMode("category");
     setSelectedParentId(null);
+    setEditingCategory(null);
     setNewName("");
     setNewDescription("");
     setNewRoleScope(["l1", "l2", "l3"]);
@@ -283,72 +297,87 @@ export default function CategorySettings({ organizationId }: CategorySettingsPro
   };
 
   const openAddActivityDialog = (parentId: string) => {
+    setDialogAction("create");
     setDialogMode("activity");
     setSelectedParentId(parentId);
+    setEditingCategory(null);
     setNewName("");
     setNewDescription("");
     setDialogOpen(true);
   };
 
-  const handleAdd = async () => {
+  const openEditDialog = (category: Category) => {
+    setDialogAction("edit");
+    setDialogMode(category.parent_id === null ? "category" : "activity");
+    setEditingCategory(category);
+    setSelectedParentId(category.parent_id);
+    setNewName(category.name);
+    setNewDescription(category.description || "");
+    setNewRoleScope(category.role_scope || ["l1", "l2", "l3"]);
+    setDialogOpen(true);
+  };
+
+  const handleSave = async () => {
     if (!newName.trim()) {
-      toast({
-        title: "Error",
-        description: "Name is required",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Name is required", variant: "destructive" });
       return;
     }
 
     setSaving(true);
     try {
-      // Get organization_id - use passed prop or fetch from user
-      let orgId = organizationId;
-      if (!orgId) {
-        const { data: orgData } = await supabase.rpc("get_user_organization", {
-          user_id: userWithRole?.user.id,
-        });
-        orgId = orgData;
+      if (dialogAction === "edit" && editingCategory) {
+        // Update existing
+        const updateData: any = {
+          name: newName.trim(),
+          description: newDescription.trim() || null,
+        };
+        if (dialogMode === "category") {
+          updateData.role_scope = newRoleScope;
+        }
+        const { error } = await supabase
+          .from("activity_categories")
+          .update(updateData)
+          .eq("id", editingCategory.id);
+        if (error) throw error;
+        toast({ title: "Success", description: `${dialogMode === "category" ? "Category" : "Activity"} updated` });
+      } else {
+        // Create new
+        let orgId = organizationId;
+        if (!orgId) {
+          const { data: orgData } = await supabase.rpc("get_user_organization", {
+            user_id: userWithRole?.user.id,
+          });
+          orgId = orgData;
+        }
+
+        let sortOrder = 0;
+        if (dialogMode === "category") {
+          sortOrder = parentCategories.length;
+        } else if (selectedParentId) {
+          sortOrder = getChildren(selectedParentId).length;
+        }
+
+        const insertData: any = {
+          organization_id: orgId,
+          name: newName.trim(),
+          description: newDescription.trim() || null,
+          parent_id: dialogMode === "activity" ? selectedParentId : null,
+          sort_order: sortOrder,
+        };
+        if (dialogMode === "category") {
+          insertData.role_scope = newRoleScope;
+        }
+
+        const { error } = await supabase.from("activity_categories").insert(insertData);
+        if (error) throw error;
+        toast({ title: "Success", description: `${dialogMode === "category" ? "Category" : "Activity"} added` });
       }
 
-      // Calculate sort_order
-      let sortOrder = 0;
-      if (dialogMode === "category") {
-        sortOrder = parentCategories.length;
-      } else if (selectedParentId) {
-        sortOrder = getChildren(selectedParentId).length;
-      }
-
-      const insertData: any = {
-        organization_id: orgId,
-        name: newName.trim(),
-        description: newDescription.trim() || null,
-        parent_id: dialogMode === "activity" ? selectedParentId : null,
-        sort_order: sortOrder,
-      };
-      
-      // Only set role_scope for parent categories
-      if (dialogMode === "category") {
-        insertData.role_scope = newRoleScope;
-      }
-
-      const { error } = await supabase.from("activity_categories").insert(insertData);
-
-      if (error) throw error;
-
-      toast({ 
-        title: "Success", 
-        description: `${dialogMode === "category" ? "Category" : "Activity"} added` 
-      });
       setDialogOpen(false);
       fetchCategories();
     } catch (error: any) {
-      console.error("Error adding:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to add",
-        variant: "destructive",
-      });
+      console.error("Error saving:", error);
+      toast({ title: "Error", description: error.message || "Failed to save", variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -541,6 +570,7 @@ export default function CategorySettings({ organizationId }: CategorySettingsPro
                           onToggleActive={handleToggleActive}
                           onDelete={handleDelete}
                           onAddActivity={openAddActivityDialog}
+                          onEdit={openEditDialog}
                           isParent={true}
                           childCount={children.length}
                           roleLabel={roleLabel}
@@ -557,6 +587,7 @@ export default function CategorySettings({ organizationId }: CategorySettingsPro
                                 category={child}
                                 onToggleActive={handleToggleActive}
                                 onDelete={handleDelete}
+                                onEdit={openEditDialog}
                                 isParent={false}
                                 roleLabel={roleLabel}
                               />
@@ -576,6 +607,7 @@ export default function CategorySettings({ organizationId }: CategorySettingsPro
                     category={orphan}
                     onToggleActive={handleToggleActive}
                     onDelete={handleDelete}
+                    onEdit={openEditDialog}
                     isParent={false}
                     roleLabel={roleLabel}
                   />
@@ -586,17 +618,21 @@ export default function CategorySettings({ organizationId }: CategorySettingsPro
         </CardContent>
       </Card>
 
-      {/* Add Category/Activity Dialog */}
+      {/* Add/Edit Category/Activity Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {dialogMode === "category" ? "Create New Category" : "Add Activity"}
+              {dialogAction === "edit" 
+                ? `Edit ${dialogMode === "category" ? "Category" : "Activity"}`
+                : dialogMode === "category" ? "Create New Category" : "Add Activity"}
             </DialogTitle>
             <DialogDescription>
-              {dialogMode === "category" 
-                ? "Create a category to group related activities" 
-                : `Add an activity under "${parentCategories.find(p => p.id === selectedParentId)?.name}"`
+              {dialogAction === "edit"
+                ? `Update the ${dialogMode === "category" ? "category" : "activity"} details`
+                : dialogMode === "category" 
+                  ? "Create a category to group related activities" 
+                  : `Add an activity under "${parentCategories.find(p => p.id === selectedParentId)?.name}"`
               }
             </DialogDescription>
           </DialogHeader>
@@ -650,9 +686,9 @@ export default function CategorySettings({ organizationId }: CategorySettingsPro
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleAdd} disabled={saving}>
+            <Button onClick={handleSave} disabled={saving}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {dialogMode === "category" ? "Create Category" : "Add Activity"}
+              {dialogAction === "edit" ? "Save Changes" : dialogMode === "category" ? "Create Category" : "Add Activity"}
             </Button>
           </DialogFooter>
         </DialogContent>
