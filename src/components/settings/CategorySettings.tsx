@@ -317,65 +317,67 @@ export default function CategorySettings({ organizationId }: CategorySettingsPro
     setDialogOpen(true);
   };
 
-  const handleAdd = async () => {
+  const handleSave = async () => {
     if (!newName.trim()) {
-      toast({
-        title: "Error",
-        description: "Name is required",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Name is required", variant: "destructive" });
       return;
     }
 
     setSaving(true);
     try {
-      // Get organization_id - use passed prop or fetch from user
-      let orgId = organizationId;
-      if (!orgId) {
-        const { data: orgData } = await supabase.rpc("get_user_organization", {
-          user_id: userWithRole?.user.id,
-        });
-        orgId = orgData;
+      if (dialogAction === "edit" && editingCategory) {
+        // Update existing
+        const updateData: any = {
+          name: newName.trim(),
+          description: newDescription.trim() || null,
+        };
+        if (dialogMode === "category") {
+          updateData.role_scope = newRoleScope;
+        }
+        const { error } = await supabase
+          .from("activity_categories")
+          .update(updateData)
+          .eq("id", editingCategory.id);
+        if (error) throw error;
+        toast({ title: "Success", description: `${dialogMode === "category" ? "Category" : "Activity"} updated` });
+      } else {
+        // Create new
+        let orgId = organizationId;
+        if (!orgId) {
+          const { data: orgData } = await supabase.rpc("get_user_organization", {
+            user_id: userWithRole?.user.id,
+          });
+          orgId = orgData;
+        }
+
+        let sortOrder = 0;
+        if (dialogMode === "category") {
+          sortOrder = parentCategories.length;
+        } else if (selectedParentId) {
+          sortOrder = getChildren(selectedParentId).length;
+        }
+
+        const insertData: any = {
+          organization_id: orgId,
+          name: newName.trim(),
+          description: newDescription.trim() || null,
+          parent_id: dialogMode === "activity" ? selectedParentId : null,
+          sort_order: sortOrder,
+        };
+        if (dialogMode === "category") {
+          insertData.role_scope = newRoleScope;
+        }
+
+        const { error } = await supabase.from("activity_categories").insert(insertData);
+        if (error) throw error;
+        toast({ title: "Success", description: `${dialogMode === "category" ? "Category" : "Activity"} added` });
       }
 
-      // Calculate sort_order
-      let sortOrder = 0;
-      if (dialogMode === "category") {
-        sortOrder = parentCategories.length;
-      } else if (selectedParentId) {
-        sortOrder = getChildren(selectedParentId).length;
-      }
-
-      const insertData: any = {
-        organization_id: orgId,
-        name: newName.trim(),
-        description: newDescription.trim() || null,
-        parent_id: dialogMode === "activity" ? selectedParentId : null,
-        sort_order: sortOrder,
-      };
-      
-      // Only set role_scope for parent categories
-      if (dialogMode === "category") {
-        insertData.role_scope = newRoleScope;
-      }
-
-      const { error } = await supabase.from("activity_categories").insert(insertData);
-
-      if (error) throw error;
-
-      toast({ 
-        title: "Success", 
-        description: `${dialogMode === "category" ? "Category" : "Activity"} added` 
-      });
       setDialogOpen(false);
       fetchCategories();
     } catch (error: any) {
-      console.error("Error adding:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to add",
-        variant: "destructive",
-      });
+      console.error("Error saving:", error);
+      toast({ title: "Error", description: error.message || "Failed to save", variant: "destructive" });
     } finally {
       setSaving(false);
     }
