@@ -164,5 +164,16 @@ export function useAuth() {
   if (context === undefined) {
     throw new Error("useAuth must be used within an AuthProvider");
   }
+  
+  const impersonationOverride = useSyncExternalStore(subscribeImpersonation, getImpersonationSnapshot);
+  
+  if (impersonationOverride) {
+    return {
+      ...context,
+      userWithRole: impersonationOverride,
+      realUserWithRole: context.userWithRole,
+    };
+  }
+  
   return context;
 }
