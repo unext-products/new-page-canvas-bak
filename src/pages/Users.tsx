@@ -59,7 +59,8 @@ interface UserProfile {
 }
 
 export default function Users() {
-  const { userWithRole, loading } = useAuth();
+  const { userWithRole, realUserWithRole, loading } = useAuth();
+  const { startImpersonation } = useImpersonation();
   const { roleLabel, entityLabel } = useLabels();
   const navigate = useNavigate();
   const { toast } = useToast();
