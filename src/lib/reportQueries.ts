@@ -555,6 +555,8 @@ export async function fetchVerticalReport(
     return {
       userId,
       facultyName: profileMap.get(userId) || "Unknown",
+      email: profileEmailMap.get(userId) || "",
+      verticalName: userVerticalNameMap.get(userId) || "",
       totalHours: userMinutes / 60,
       completionRate: calculateCompletionRate(userMinutes, userExpectedMinutes),
       entryCount: userEntries.length,
