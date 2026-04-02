@@ -3,11 +3,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Loader2, Building2 } from "lucide-react";
+import { Loader2, Building2, AlertTriangle } from "lucide-react";
 import { isRole } from "@/lib/roleMapping";
+import { useMaintenanceMode } from "@/hooks/useMaintenanceMode";
 
 interface Organization {
   id: string;
