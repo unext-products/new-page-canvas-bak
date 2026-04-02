@@ -327,11 +327,10 @@ All colors MUST be HSL.
   }
 }
 
-/* Impersonation read-only mode — disable mutating actions but allow viewing dialogs/popups */
-.impersonation-readonly [data-mutating],
-.impersonation-readonly button[type="submit"],
-.impersonation-readonly form button:last-of-type:not([data-nav]):not([data-filter]):not([data-view]) {
-  opacity: 0.5;
-  pointer-events: none;
-  cursor: not-allowed;
+/* Impersonation read-only mode — disable mutating actions but allow viewing dialogs/popups/reports */
+body.impersonation-readonly button[type="submit"],
+body.impersonation-readonly [data-mutating="true"] {
+  opacity: 0.5 !important;
+  pointer-events: none !important;
+  cursor: not-allowed !important;
 }
