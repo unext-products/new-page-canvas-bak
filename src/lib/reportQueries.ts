@@ -587,6 +587,151 @@ export async function fetchVerticalReport(
 /** @deprecated Use fetchVerticalReport instead */
 export const fetchDepartmentReport = fetchVerticalReport;
 
+/**
+ * Fetch aggregated report for ALL members (used when "All Members" is selected in member view).
+ * Returns a FacultyReportData with all entries combined.
+ */
+export async function fetchAllMembersReport(
+  period: ReportPeriod
+): Promise<FacultyReportData> {
+  const dateFrom = format(period.dateFrom, "yyyy-MM-dd");
+  const dateTo = format(period.dateTo, "yyyy-MM-dd");
+
+  // Fetch all entries for the period
+  const entriesQuery = supabase
+    .from("timesheet_entries")
+    .select("*")
+    .gte("entry_date", dateFrom)
+    .lte("entry_date", dateTo)
+    .order("entry_date", { ascending: false });
+
+  const entries = await fetchAllRows(entriesQuery);
+
+  const uniqueUserIds = [...new Set(entries.map(e => e.user_id))];
+
+  // Fetch profiles for all users
+  const { data: profiles } = uniqueUserIds.length > 0
+    ? await supabase.from("profiles").select("id, full_name, email, is_active, deactivated_at").in("id", uniqueUserIds)
+    : { data: [] };
+
+  const profileMap = new Map((profiles || []).map(p => [p.id, p]));
+
+  // Resolve program, vertical, and approver names
+  const programIds = [...new Set(entries.map(e => e.program_id).filter(Boolean))];
+  const verticalIds = [...new Set(entries.map(e => e.vertical_id).filter(Boolean))];
+  const approverIds = [...new Set(entries.map(e => e.approved_by).filter(Boolean))];
+
+  const [programsRes, verticalsRes, approversRes] = await Promise.all([
+    programIds.length > 0
+      ? supabase.from("programs").select("id, name").in("id", programIds)
+      : Promise.resolve({ data: [] }),
+    verticalIds.length > 0
+      ? supabase.from("verticals").select("id, name").in("id", verticalIds)
+      : Promise.resolve({ data: [] }),
+    approverIds.length > 0
+      ? supabase.from("profiles").select("id, full_name").in("id", approverIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const programNameMap = new Map((programsRes.data || []).map(p => [p.id, p.name]));
+  const verticalNameMap = new Map((verticalsRes.data || []).map(v => [v.id, v.name]));
+  const approverNameMap = new Map((approversRes.data || []).map(a => [a.id, a.full_name]));
+
+  const enrichedEntries = entries.map(e => ({
+    ...e,
+    _programName: e.program_id ? (programNameMap.get(e.program_id) || "N/A") : "N/A",
+    _verticalName: e.vertical_id ? (verticalNameMap.get(e.vertical_id) || "N/A") : "N/A",
+    _approvedByName: e.approved_by ? (approverNameMap.get(e.approved_by) || "") : "",
+    _facultyName: profileMap.get(e.user_id)?.full_name || "Unknown",
+  }));
+
+  const totalMinutes = entries.reduce((sum, e) => sum + getEntryDuration(e), 0);
+  const totalHours = totalMinutes / 60;
+
+  // Calculate expected hours: sum across all unique users
+  let totalExpectedMinutes = 0;
+  for (const userId of uniqueUserIds) {
+    const targetBreakdown = await calculateUserTotalDailyTargetMinutes(userId);
+    const userDailyTarget = targetBreakdown.totalDailyTargetMinutes;
+
+    const profile = profileMap.get(userId);
+    let effectiveEnd = period.dateTo;
+    if (profile && !profile.is_active && profile.deactivated_at) {
+      const deactivatedDate = new Date(profile.deactivated_at);
+      if (deactivatedDate < effectiveEnd) effectiveEnd = deactivatedDate;
+    }
+
+    const { data: userLeaves } = await supabase
+      .from("leave_days")
+      .select("leave_date, leave_type")
+      .eq("user_id", userId)
+      .gte("leave_date", dateFrom)
+      .lte("leave_date", dateTo);
+
+    const leaveMap = new Map<string, string>();
+    const leaveDates = new Set<string>();
+    (userLeaves || []).forEach((l: any) => {
+      leaveMap.set(l.leave_date, l.leave_type || "other");
+      leaveDates.add(l.leave_date);
+    });
+
+    // Get org holidays (use first user's org for simplicity since all are typically same org)
+    let holidayDates = new Set<string>();
+    if (userId === uniqueUserIds[0]) {
+      const { data: orgData } = await supabase
+        .from("user_roles")
+        .select("organization_id")
+        .eq("user_id", userId)
+        .single();
+      if (orgData?.organization_id) {
+        const { data: holidays } = await supabase
+          .from("holidays")
+          .select("holiday_date")
+          .eq("organization_id", orgData.organization_id)
+          .gte("holiday_date", dateFrom)
+          .lte("holiday_date", dateTo);
+        holidayDates = new Set(holidays?.map(h => h.holiday_date) || []);
+        // Store for reuse
+        (fetchAllMembersReport as any)._cachedHolidays = holidayDates;
+      }
+    } else {
+      holidayDates = (fetchAllMembersReport as any)._cachedHolidays || new Set<string>();
+    }
+
+    const effectiveStart = period.dateFrom > effectiveEnd ? effectiveEnd : period.dateFrom;
+    const workingDays = effectiveEnd >= period.dateFrom
+      ? countWorkingDays(effectiveStart, effectiveEnd, leaveDates, leaveMap, holidayDates)
+      : 0;
+    totalExpectedMinutes += workingDays * userDailyTarget;
+  }
+
+  // Clean up cached holidays
+  delete (fetchAllMembersReport as any)._cachedHolidays;
+
+  const expectedHours = totalExpectedMinutes / 60;
+  const completionRate = calculateCompletionRate(totalMinutes, totalExpectedMinutes);
+  const activityBreakdown = generateActivityBreakdown(entries);
+  const approvedCount = entries.filter(e => e.status === "approved").length;
+  const pendingCount = entries.filter(e => e.status === "submitted").length;
+
+  const workingDayCount = differenceInCalendarDays(period.dateTo, period.dateFrom) + 1;
+  const averageDailyHours = workingDayCount > 0 ? totalHours / workingDayCount : 0;
+
+  return {
+    userId: "all",
+    facultyName: "All Members",
+    department: "All",
+    totalHours,
+    expectedHours,
+    completionRate,
+    activityBreakdown,
+    entries: enrichedEntries,
+    averageDailyHours,
+    approvedCount,
+    pendingCount,
+  };
+}
+
 // Helper to count working days (excluding weekends, holidays, and leave days, with half-day support)
 export function countWorkingDays(
   dateFrom: Date, 

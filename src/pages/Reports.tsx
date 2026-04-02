@@ -27,7 +27,8 @@ import { DepartmentCalendar } from "@/components/reports/DepartmentCalendar";
 import { PageHeader } from "@/components/PageHeader";
 import { PageSkeleton } from "@/components/PageSkeleton";
 import { 
-  fetchFacultyReport, 
+  fetchFacultyReport,
+  fetchAllMembersReport,
   fetchDepartmentReport, 
   ReportPeriod,
   FacultyReportData,
@@ -196,10 +197,12 @@ export default function Reports() {
 
       if (reportType === "member") {
         if (selectedFaculty === "all") {
-          return;
+          const report = await fetchAllMembersReport(reportPeriod);
+          setFacultyReport(report);
+        } else {
+          const report = await fetchFacultyReport(selectedFaculty, reportPeriod);
+          setFacultyReport(report);
         }
-        const report = await fetchFacultyReport(selectedFaculty, reportPeriod);
-        setFacultyReport(report);
       } else {
         const report = await fetchDepartmentReport(selectedDepartment, reportPeriod);
         setDepartmentReport(report);
@@ -351,7 +354,7 @@ export default function Reports() {
                   <MemberSelect
                     value={selectedFaculty}
                     onValueChange={setSelectedFaculty}
-                    includeAll={false}
+                    includeAll={true}
                     departmentIds={isHod ? hodDepartmentIds : undefined}
                     includeInactive={true}
                   />
@@ -441,6 +444,7 @@ export default function Reports() {
                           <Table>
                             <TableHeader>
                               <TableRow>
+                                {selectedFaculty === "all" && <TableHead>Member</TableHead>}
                                 <TableHead>Date</TableHead>
                                 <TableHead>Program</TableHead>
                                 <TableHead>Vertical</TableHead>
@@ -455,6 +459,9 @@ export default function Reports() {
                             <TableBody>
                               {facultyReport.entries.map((entry) => (
                                 <TableRow key={entry.id}>
+                                  {selectedFaculty === "all" && (
+                                    <TableCell className="font-medium text-sm">{entry._facultyName || "Unknown"}</TableCell>
+                                  )}
                                   <TableCell>{format(new Date(entry.entry_date), "MMM dd, yyyy")}</TableCell>
                                   <TableCell className="text-sm">{entry._programName || "N/A"}</TableCell>
                                   <TableCell className="text-sm">{entry._verticalName || "N/A"}</TableCell>
@@ -642,11 +649,7 @@ export default function Reports() {
           <Card>
             <CardContent className="py-12">
               <div className="text-center text-muted-foreground">
-                {reportType === "member" && selectedFaculty === "all" ? (
-                  <p>Please select a team member to view their report</p>
-                ) : (
-                  <p>Select filters and generate a report</p>
-                )}
+                <p>Select filters and generate a report</p>
               </div>
             </CardContent>
           </Card>
