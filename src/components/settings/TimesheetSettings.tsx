@@ -453,6 +453,9 @@ export default function TimesheetSettings({ organizationId }: TimesheetSettingsP
         </CardContent>
       </Card>
 
+      {/* Upload Sample Timesheet */}
+      {canEdit && <SampleTimesheetUpload organizationId={organizationId} />}
+
       {/* Member Targets Section */}
       {canEdit && <MemberTargetsSettings />}
 
