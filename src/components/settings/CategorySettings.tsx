@@ -393,7 +393,26 @@ export default function CategorySettings({ organizationId }: CategorySettingsPro
     }
   };
 
-  const handleToggleActive = async (category: Category) => {
+  const handleUpdateRoleScope = async (categoryId: string, roleScope: string[]) => {
+    try {
+      const { error } = await supabase
+        .from("activity_categories")
+        .update({ role_scope: roleScope } as any)
+        .eq("id", categoryId);
+
+      if (error) throw error;
+
+      setCategories(prev =>
+        prev.map(c => c.id === categoryId ? { ...c, role_scope: roleScope } : c)
+      );
+
+      toast({ title: "Success", description: "Role scope updated" });
+    } catch (error) {
+      console.error("Error updating role scope:", error);
+      toast({ title: "Error", description: "Failed to update role scope", variant: "destructive" });
+    }
+  };
+
     try {
       const { error } = await supabase
         .from("activity_categories")
