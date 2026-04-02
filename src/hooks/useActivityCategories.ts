@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { isRole } from "@/lib/roleMapping";
 
 // Match the actual database schema for activity_categories
 export interface ActivityCategory {
@@ -12,6 +13,7 @@ export interface ActivityCategory {
   organization_id: string | null;
   parent_id: string | null; // For 2-level hierarchy
   sort_order: number; // For ordering
+  role_scope: string[]; // Which roles can see this category
   created_at: string;
 }
 
@@ -60,6 +62,7 @@ export function useActivityCategories(_departmentId?: string | null) {
         code: cat.name.toLowerCase().replace(/\s+/g, '_'),
         parent_id: cat.parent_id || null,
         sort_order: cat.sort_order || 0,
+        role_scope: (cat as any).role_scope || ['l1', 'l2', 'l3'],
       }));
       setCategories(categoriesWithCode);
     } catch (error) {
@@ -70,15 +73,32 @@ export function useActivityCategories(_departmentId?: string | null) {
     }
   };
 
-  // Get parent categories (those without parent_id)
-  const parentCategories = useMemo(() => {
-    return categories.filter(c => c.parent_id === null);
-  }, [categories]);
+  // Determine the current user's role key for filtering
+  const userRoleKey = useMemo(() => {
+    const role = userWithRole?.role;
+    if (!role) return null;
+    if (isRole(role, 'l1', 'member', 'faculty')) return 'l1';
+    if (isRole(role, 'l2', 'program_manager')) return 'l2';
+    if (isRole(role, 'l3', 'manager', 'hod')) return 'l3';
+    // Admins and super admins see all categories
+    return null;
+  }, [userWithRole?.role]);
 
-  // Get child activities (those with parent_id)
+  // Get parent categories (those without parent_id), filtered by role_scope
+  const parentCategories = useMemo(() => {
+    return categories.filter(c => {
+      if (c.parent_id !== null) return false;
+      // If user is admin/super_admin (userRoleKey is null), show all
+      if (!userRoleKey) return true;
+      return c.role_scope.includes(userRoleKey);
+    });
+  }, [categories, userRoleKey]);
+
+  // Get child activities (those with parent_id) — only children of visible parents
   const childActivities = useMemo(() => {
-    return categories.filter(c => c.parent_id !== null);
-  }, [categories]);
+    const visibleParentIds = new Set(parentCategories.map(p => p.id));
+    return categories.filter(c => c.parent_id !== null && visibleParentIds.has(c.parent_id));
+  }, [categories, parentCategories]);
 
   // Get children for a specific parent
   const getChildren = (parentId: string) => {

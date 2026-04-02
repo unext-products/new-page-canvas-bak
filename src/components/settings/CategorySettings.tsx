@@ -4,9 +4,12 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLabels } from "@/contexts/LabelContext";
 import { isRole } from "@/lib/roleMapping";
 import { Loader2, Plus, Trash2, GripVertical, Info, ChevronRight, FolderPlus } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -38,6 +41,7 @@ interface Category {
   organization_id: string | null;
   parent_id: string | null;
   sort_order: number;
+  role_scope: string[];
   created_at: string;
 }
 
@@ -49,6 +53,7 @@ function SortableCategoryItem({
   onAddActivity,
   isParent,
   childCount,
+  roleLabel,
 }: { 
   category: Category;
   onToggleActive: (category: Category) => void;
@@ -56,6 +61,7 @@ function SortableCategoryItem({
   onAddActivity?: (parentId: string) => void;
   isParent: boolean;
   childCount?: number;
+  roleLabel: (role: string) => string;
 }) {
   const {
     attributes,
@@ -94,7 +100,7 @@ function SortableCategoryItem({
       {!isParent && <ChevronRight className="h-3 w-3 text-muted-foreground" />}
       
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <p className={cn("font-medium truncate", isParent && "text-primary")}>
             {category.name}
           </p>
@@ -102,6 +108,15 @@ function SortableCategoryItem({
             <span className="text-xs text-muted-foreground">
               ({childCount} {childCount === 1 ? 'activity' : 'activities'})
             </span>
+          )}
+          {isParent && category.role_scope && category.role_scope.length < 3 && (
+            <div className="flex gap-1">
+              {category.role_scope.map(role => (
+                <Badge key={role} variant="secondary" className="text-[10px] px-1.5 py-0">
+                  {roleLabel(role)}
+                </Badge>
+              ))}
+            </div>
           )}
         </div>
         {category.description && (
@@ -164,6 +179,7 @@ interface CategorySettingsProps {
 
 export default function CategorySettings({ organizationId }: CategorySettingsProps) {
   const { userWithRole } = useAuth();
+  const { roleLabel } = useLabels();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -177,6 +193,7 @@ export default function CategorySettings({ organizationId }: CategorySettingsPro
   // New category/activity form
   const [newName, setNewName] = useState("");
   const [newDescription, setNewDescription] = useState("");
+  const [newRoleScope, setNewRoleScope] = useState<string[]>(["l1", "l2", "l3"]);
 
   const isOrgAdmin = isRole(userWithRole?.role, "admin", "org_admin", "super_admin");
 
@@ -240,6 +257,7 @@ export default function CategorySettings({ organizationId }: CategorySettingsPro
         ...cat,
         parent_id: cat.parent_id || null,
         sort_order: cat.sort_order || 0,
+        role_scope: (cat as any).role_scope || ['l1', 'l2', 'l3'],
       }));
       
       setCategories(mappedData);
@@ -260,6 +278,7 @@ export default function CategorySettings({ organizationId }: CategorySettingsPro
     setSelectedParentId(null);
     setNewName("");
     setNewDescription("");
+    setNewRoleScope(["l1", "l2", "l3"]);
     setDialogOpen(true);
   };
 
@@ -300,13 +319,20 @@ export default function CategorySettings({ organizationId }: CategorySettingsPro
         sortOrder = getChildren(selectedParentId).length;
       }
 
-      const { error } = await supabase.from("activity_categories").insert({
+      const insertData: any = {
         organization_id: orgId,
         name: newName.trim(),
         description: newDescription.trim() || null,
         parent_id: dialogMode === "activity" ? selectedParentId : null,
         sort_order: sortOrder,
-      });
+      };
+      
+      // Only set role_scope for parent categories
+      if (dialogMode === "category") {
+        insertData.role_scope = newRoleScope;
+      }
+
+      const { error } = await supabase.from("activity_categories").insert(insertData);
 
       if (error) throw error;
 
@@ -517,6 +543,7 @@ export default function CategorySettings({ organizationId }: CategorySettingsPro
                           onAddActivity={openAddActivityDialog}
                           isParent={true}
                           childCount={children.length}
+                          roleLabel={roleLabel}
                         />
                         {/* Child activities */}
                         {children.length > 0 && (
@@ -531,6 +558,7 @@ export default function CategorySettings({ organizationId }: CategorySettingsPro
                                 onToggleActive={handleToggleActive}
                                 onDelete={handleDelete}
                                 isParent={false}
+                                roleLabel={roleLabel}
                               />
                             ))}
                           </SortableContext>
@@ -549,6 +577,7 @@ export default function CategorySettings({ organizationId }: CategorySettingsPro
                     onToggleActive={handleToggleActive}
                     onDelete={handleDelete}
                     isParent={false}
+                    roleLabel={roleLabel}
                   />
                 ))}
               </div>
@@ -590,6 +619,32 @@ export default function CategorySettings({ organizationId }: CategorySettingsPro
                 onChange={(e) => setNewDescription(e.target.value)}
               />
             </div>
+            {dialogMode === "category" && (
+              <div className="space-y-2">
+                <Label>Applicable Roles</Label>
+                <p className="text-xs text-muted-foreground">Select which roles can use this category in timesheets</p>
+                <div className="flex gap-4">
+                  {(["l1", "l2", "l3"] as const).map(role => (
+                    <div key={role} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`role-${role}`}
+                        checked={newRoleScope.includes(role)}
+                        onCheckedChange={(checked) => {
+                          setNewRoleScope(prev => 
+                            checked 
+                              ? [...prev, role] 
+                              : prev.filter(r => r !== role)
+                          );
+                        }}
+                      />
+                      <Label htmlFor={`role-${role}`} className="text-sm font-normal cursor-pointer">
+                        {roleLabel(role)}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>

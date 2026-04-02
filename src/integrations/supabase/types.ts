@@ -23,6 +23,7 @@ export type Database = {
           name: string
           organization_id: string | null
           parent_id: string | null
+          role_scope: string[]
           sort_order: number | null
         }
         Insert: {
@@ -33,6 +34,7 @@ export type Database = {
           name: string
           organization_id?: string | null
           parent_id?: string | null
+          role_scope?: string[]
           sort_order?: number | null
         }
         Update: {
@@ -43,6 +45,7 @@ export type Database = {
           name?: string
           organization_id?: string | null
           parent_id?: string | null
+          role_scope?: string[]
           sort_order?: number | null
         }
         Relationships: [
