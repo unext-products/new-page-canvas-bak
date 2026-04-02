@@ -641,9 +641,7 @@ export default function Reports() {
               </Tabs>
             )}
           </>
-          <>
-          </>
-        ) : isLoading ? null : (
+        ) : (
           <Card>
             <CardContent className="py-12">
               <div className="text-center text-muted-foreground">
