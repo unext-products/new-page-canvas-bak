@@ -1232,6 +1232,7 @@ export default function Timesheet() {
                               size="sm"
                               onClick={() => handleEdit(item)}
                               title="Edit entry"
+                              data-mutating="true"
                             >
                               <Pencil className="h-4 w-4" />
                             </Button>
@@ -1240,6 +1241,7 @@ export default function Timesheet() {
                               size="sm"
                               onClick={() => handleDelete(item.id)}
                               title="Delete entry"
+                              data-mutating="true"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
