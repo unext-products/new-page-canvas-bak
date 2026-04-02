@@ -112,14 +112,50 @@ function SortableCategoryItem({
               ({childCount} {childCount === 1 ? 'activity' : 'activities'})
             </span>
           )}
-          {isParent && category.role_scope && category.role_scope.length < 3 && (
-            <div className="flex gap-1">
-              {category.role_scope.map(role => (
-                <Badge key={role} variant="secondary" className="text-[10px] px-1.5 py-0">
-                  {roleLabel(role)}
-                </Badge>
-              ))}
-            </div>
+          {isParent && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                  {category.role_scope && category.role_scope.length < 3 ? (
+                    <span className="flex gap-1">
+                      {category.role_scope.map(role => (
+                        <Badge key={role} variant="secondary" className="text-[10px] px-1.5 py-0">
+                          {roleLabel(role)}
+                        </Badge>
+                      ))}
+                    </span>
+                  ) : (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0">All Roles</Badge>
+                  )}
+                  <Pencil className="h-3 w-3 ml-0.5" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-48 p-3" align="start">
+                <p className="text-xs font-medium mb-2">Applicable Roles</p>
+                <div className="space-y-2">
+                  {(["l1", "l2", "l3"] as const).map(role => (
+                    <div key={role} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`edit-role-${category.id}-${role}`}
+                        checked={category.role_scope?.includes(role) ?? true}
+                        onCheckedChange={(checked) => {
+                          const current = category.role_scope || ['l1', 'l2', 'l3'];
+                          const updated = checked
+                            ? [...current, role]
+                            : current.filter(r => r !== role);
+                          if (updated.length > 0 && onUpdateRoleScope) {
+                            onUpdateRoleScope(category.id, updated);
+                          }
+                        }}
+                      />
+                      <Label htmlFor={`edit-role-${category.id}-${role}`} className="text-sm font-normal cursor-pointer">
+                        {roleLabel(role)}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
           )}
         </div>
         {category.description && (
