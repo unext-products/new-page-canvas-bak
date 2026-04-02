@@ -140,6 +140,14 @@ function SortableCategoryItem({
             Add Activity
           </Button>
         )}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => onEdit(category)}
+          className="text-muted-foreground hover:text-foreground"
+        >
+          <Pencil className="h-4 w-4" />
+        </Button>
         <Switch
           checked={category.is_active}
           onCheckedChange={() => onToggleActive(category)}
