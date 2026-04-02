@@ -444,6 +444,7 @@ export default function Reports() {
                           <Table>
                             <TableHeader>
                               <TableRow>
+                                {selectedFaculty === "all" && <TableHead>Member</TableHead>}
                                 <TableHead>Date</TableHead>
                                 <TableHead>Program</TableHead>
                                 <TableHead>Vertical</TableHead>
@@ -458,6 +459,9 @@ export default function Reports() {
                             <TableBody>
                               {facultyReport.entries.map((entry) => (
                                 <TableRow key={entry.id}>
+                                  {selectedFaculty === "all" && (
+                                    <TableCell className="font-medium text-sm">{entry._facultyName || "Unknown"}</TableCell>
+                                  )}
                                   <TableCell>{format(new Date(entry.entry_date), "MMM dd, yyyy")}</TableCell>
                                   <TableCell className="text-sm">{entry._programName || "N/A"}</TableCell>
                                   <TableCell className="text-sm">{entry._verticalName || "N/A"}</TableCell>
