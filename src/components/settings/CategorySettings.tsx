@@ -558,6 +558,7 @@ export default function CategorySettings({ organizationId }: CategorySettingsPro
                                 onToggleActive={handleToggleActive}
                                 onDelete={handleDelete}
                                 isParent={false}
+                                roleLabel={roleLabel}
                               />
                             ))}
                           </SortableContext>
