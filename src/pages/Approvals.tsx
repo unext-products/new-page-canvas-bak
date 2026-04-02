@@ -1700,13 +1700,13 @@ export default function Approvals() {
                   onClick={() => {
                     setActionType("reject");
                     if (!comment.trim()) {
-                      // Don't submit yet, let user add reason
                       return;
                     }
                     handleSubmit();
                   }}
                   disabled={submitting}
                   variant="destructive"
+                  data-mutating="true"
                 >
                   <XCircle className="h-4 w-4 mr-2" />
                   Reject
@@ -1718,6 +1718,7 @@ export default function Approvals() {
                   }}
                   disabled={submitting}
                   variant="default"
+                  data-mutating="true"
                 >
                   <CheckCircle className="h-4 w-4 mr-2" />
                   Approve
