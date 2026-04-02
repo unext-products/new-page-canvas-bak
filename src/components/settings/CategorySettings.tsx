@@ -11,8 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLabels } from "@/contexts/LabelContext";
 import { isRole } from "@/lib/roleMapping";
-import { Loader2, Plus, Trash2, GripVertical, Info, ChevronRight, FolderPlus, Pencil } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Loader2, Plus, Trash2, GripVertical, Info, ChevronRight, FolderPlus } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import {
@@ -52,7 +51,6 @@ function SortableCategoryItem({
   onToggleActive, 
   onDelete,
   onAddActivity,
-  onUpdateRoleScope,
   isParent,
   childCount,
   roleLabel,
@@ -61,7 +59,6 @@ function SortableCategoryItem({
   onToggleActive: (category: Category) => void;
   onDelete: (category: Category) => void;
   onAddActivity?: (parentId: string) => void;
-  onUpdateRoleScope?: (categoryId: string, roleScope: string[]) => void;
   isParent: boolean;
   childCount?: number;
   roleLabel: (role: string) => string;
@@ -112,50 +109,14 @@ function SortableCategoryItem({
               ({childCount} {childCount === 1 ? 'activity' : 'activities'})
             </span>
           )}
-          {isParent && (
-            <Popover>
-              <PopoverTrigger asChild>
-                <button className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
-                  {category.role_scope && category.role_scope.length < 3 ? (
-                    <span className="flex gap-1">
-                      {category.role_scope.map(role => (
-                        <Badge key={role} variant="secondary" className="text-[10px] px-1.5 py-0">
-                          {roleLabel(role)}
-                        </Badge>
-                      ))}
-                    </span>
-                  ) : (
-                    <Badge variant="outline" className="text-[10px] px-1.5 py-0">All Roles</Badge>
-                  )}
-                  <Pencil className="h-3 w-3 ml-0.5" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-48 p-3" align="start">
-                <p className="text-xs font-medium mb-2">Applicable Roles</p>
-                <div className="space-y-2">
-                  {(["l1", "l2", "l3"] as const).map(role => (
-                    <div key={role} className="flex items-center gap-2">
-                      <Checkbox
-                        id={`edit-role-${category.id}-${role}`}
-                        checked={category.role_scope?.includes(role) ?? true}
-                        onCheckedChange={(checked) => {
-                          const current = category.role_scope || ['l1', 'l2', 'l3'];
-                          const updated = checked
-                            ? [...current, role]
-                            : current.filter(r => r !== role);
-                          if (updated.length > 0 && onUpdateRoleScope) {
-                            onUpdateRoleScope(category.id, updated);
-                          }
-                        }}
-                      />
-                      <Label htmlFor={`edit-role-${category.id}-${role}`} className="text-sm font-normal cursor-pointer">
-                        {roleLabel(role)}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-              </PopoverContent>
-            </Popover>
+          {isParent && category.role_scope && category.role_scope.length < 3 && (
+            <div className="flex gap-1">
+              {category.role_scope.map(role => (
+                <Badge key={role} variant="secondary" className="text-[10px] px-1.5 py-0">
+                  {roleLabel(role)}
+                </Badge>
+              ))}
+            </div>
           )}
         </div>
         {category.description && (
@@ -393,25 +354,6 @@ export default function CategorySettings({ organizationId }: CategorySettingsPro
     }
   };
 
-  const handleUpdateRoleScope = async (categoryId: string, roleScope: string[]) => {
-    try {
-      const { error } = await supabase
-        .from("activity_categories")
-        .update({ role_scope: roleScope } as any)
-        .eq("id", categoryId);
-
-      if (error) throw error;
-
-      setCategories(prev =>
-        prev.map(c => c.id === categoryId ? { ...c, role_scope: roleScope } : c)
-      );
-
-      toast({ title: "Success", description: "Role scope updated" });
-    } catch (error) {
-      console.error("Error updating role scope:", error);
-      toast({ title: "Error", description: "Failed to update role scope", variant: "destructive" });
-    }
-  };
   const handleToggleActive = async (category: Category) => {
     try {
       const { error } = await supabase
@@ -599,7 +541,6 @@ export default function CategorySettings({ organizationId }: CategorySettingsPro
                           onToggleActive={handleToggleActive}
                           onDelete={handleDelete}
                           onAddActivity={openAddActivityDialog}
-                          onUpdateRoleScope={handleUpdateRoleScope}
                           isParent={true}
                           childCount={children.length}
                           roleLabel={roleLabel}
