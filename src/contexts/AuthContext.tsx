@@ -7,6 +7,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   userWithRole: UserWithRole | null;
+  realUserWithRole: UserWithRole | null;
   loading: boolean;
   refreshUser: () => Promise<void>;
 }

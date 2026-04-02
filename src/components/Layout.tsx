@@ -3,6 +3,8 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { AppSidebar } from "@/components/AppSidebar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { ImpersonationBar } from "@/components/ImpersonationBar";
+import { useImpersonation } from "@/contexts/ImpersonationContext";
 
 interface LayoutProps {
   children: ReactNode;
