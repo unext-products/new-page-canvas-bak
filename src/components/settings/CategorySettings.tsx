@@ -41,6 +41,7 @@ interface Category {
   organization_id: string | null;
   parent_id: string | null;
   sort_order: number;
+  role_scope: string[];
   created_at: string;
 }
 
