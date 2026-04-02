@@ -1153,6 +1153,7 @@ export default function Timesheet() {
                   className="flex-1"
                   onClick={() => handleSubmit("submitted")}
                   disabled={loading}
+                  data-mutating="true"
                 >
                   Submit
                 </Button>
