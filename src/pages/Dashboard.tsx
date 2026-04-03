@@ -149,7 +149,7 @@ export default function Dashboard() {
       const { data: roleData } = await supabase
         .from("user_roles")
         .select("organization_id")
-        .eq("user_id", userWithRole.user.id)
+        .eq("user_id", effectiveUserId!)
         .single();
       const userOrgId = roleData?.organization_id;
       
