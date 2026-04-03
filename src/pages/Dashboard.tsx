@@ -862,7 +862,7 @@ export default function Dashboard() {
               </Card>
             </div>
 
-            <EnhancedCompletionCard userId={userWithRole.user.id} />
+            <EnhancedCompletionCard userId={effectiveUserId!} />
 
             <Card>
               <CardHeader>
