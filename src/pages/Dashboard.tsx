@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useImpersonation } from "@/contexts/ImpersonationContext";
 import { isRole } from "@/lib/roleMapping";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,7 +39,9 @@ const getEntryDuration = (e: { start_time: string; end_time: string }) =>
 
 export default function Dashboard() {
   const { userWithRole } = useAuth();
+  const { impersonatedUser } = useImpersonation();
   const navigate = useNavigate();
+  const effectiveUserId = impersonatedUser?.userId || userWithRole?.user?.id;
   const [stats, setStats] = useState({
     todayMinutes: 0,
     targetMinutes: 480,
@@ -82,6 +85,7 @@ export default function Dashboard() {
   });
   const [loading, setLoading] = useState(true);
   const hasLoadedRef = useRef(false);
+  const prevEffectiveUserId = useRef<string | undefined>(undefined);
   
   const isSuperAdmin = isRole(userWithRole?.role, "super_admin");
 
@@ -89,14 +93,18 @@ export default function Dashboard() {
   useEffect(() => {
     if (!userWithRole) {
       hasLoadedRef.current = false;
+      prevEffectiveUserId.current = undefined;
     }
   }, [userWithRole]);
 
   useEffect(() => {
-    if (!userWithRole || hasLoadedRef.current) return;
+    if (!userWithRole || !effectiveUserId) return;
+    // Reload when effectiveUserId changes (impersonation start/stop)
+    if (prevEffectiveUserId.current === effectiveUserId && hasLoadedRef.current) return;
+    prevEffectiveUserId.current = effectiveUserId;
     hasLoadedRef.current = true;
     loadDashboardData();
-  }, [userWithRole]);
+  }, [userWithRole, effectiveUserId]);
 
   const loadDashboardData = async () => {
     if (!userWithRole) return;
@@ -120,7 +128,7 @@ export default function Dashboard() {
 
     // Load HOD/Manager dashboard data (L3, L2)
     if (isRole(userWithRole.role, "l3", "l2", "manager", "program_manager")) {
-      await loadHodDashboardData(userWithRole.user.id);
+      await loadHodDashboardData(effectiveUserId!);
       setLoading(false);
       return;
     }
@@ -128,7 +136,7 @@ export default function Dashboard() {
     // Load today's total minutes for members (L1)
     if (isRole(userWithRole.role, "l1", "member", "faculty")) {
       // Fetch user's resolved daily target (sum across all departments)
-      const targetBreakdown = await calculateUserTotalDailyTargetMinutes(userWithRole.user.id);
+      const targetBreakdown = await calculateUserTotalDailyTargetMinutes(effectiveUserId!);
       const resolvedDailyTargetMinutes = targetBreakdown.totalDailyTargetMinutes;
       
       // Calculate this week's date range
@@ -141,7 +149,7 @@ export default function Dashboard() {
       const { data: roleData } = await supabase
         .from("user_roles")
         .select("organization_id")
-        .eq("user_id", userWithRole.user.id)
+        .eq("user_id", effectiveUserId!)
         .single();
       const userOrgId = roleData?.organization_id;
       
@@ -150,7 +158,7 @@ export default function Dashboard() {
         supabase
           .from("leave_days")
           .select("leave_date, leave_type")
-          .eq("user_id", userWithRole.user.id)
+          .eq("user_id", effectiveUserId!)
           .gte("leave_date", formatLocalDate(weekStartDate))
           .lte("leave_date", formatLocalDate(weekEndDate)),
         userOrgId
@@ -174,8 +182,8 @@ export default function Dashboard() {
 
       // Fetch user's departments from BOTH user_departments AND user_verticals tables
       const [userDepsRes, userVertsRes] = await Promise.all([
-        supabase.from("user_departments").select("department_id").eq("user_id", userWithRole.user.id),
-        supabase.from("user_verticals").select("vertical_id").eq("user_id", userWithRole.user.id),
+        supabase.from("user_departments").select("department_id").eq("user_id", effectiveUserId!),
+        supabase.from("user_verticals").select("vertical_id").eq("user_id", effectiveUserId!),
       ]);
 
       let deptIds: string[] = userDepsRes.data?.map((ud) => ud.department_id) || [];
@@ -205,7 +213,7 @@ export default function Dashboard() {
       const { data: entries } = await supabase
         .from("timesheet_entries")
         .select("start_time, end_time, status")
-        .eq("user_id", userWithRole.user.id)
+        .eq("user_id", effectiveUserId!)
         .eq("entry_date", today);
 
       // Fetch leaves for this month
@@ -218,7 +226,7 @@ export default function Dashboard() {
       const { data: leavesData } = await supabase
         .from("leave_days")
         .select("id")
-        .eq("user_id", userWithRole.user.id)
+        .eq("user_id", effectiveUserId!)
         .gte("leave_date", monthStartStr)
         .lte("leave_date", monthEndStr);
 
@@ -226,7 +234,7 @@ export default function Dashboard() {
       const { data: allPendingEntries } = await supabase
         .from("timesheet_entries")
         .select("id")
-        .eq("user_id", userWithRole.user.id)
+        .eq("user_id", effectiveUserId!)
         .eq("status", "submitted");
 
       if (entries) {
@@ -264,7 +272,7 @@ export default function Dashboard() {
       const { data: weekEntries } = await supabase
         .from("timesheet_entries")
         .select("start_time, end_time, status")
-        .eq("user_id", userWithRole.user.id)
+        .eq("user_id", effectiveUserId!)
         .gte("entry_date", weekStart)
         .lte("entry_date", weekEnd);
 
@@ -288,7 +296,7 @@ export default function Dashboard() {
       const { data: recent } = await supabase
         .from("timesheet_entries")
         .select("*")
-        .eq("user_id", userWithRole.user.id)
+        .eq("user_id", effectiveUserId!)
         .order("entry_date", { ascending: false })
         .order("created_at", { ascending: false })
         .limit(5);
@@ -854,7 +862,7 @@ export default function Dashboard() {
               </Card>
             </div>
 
-            <EnhancedCompletionCard userId={userWithRole.user.id} />
+            <EnhancedCompletionCard userId={effectiveUserId!} />
 
             <Card>
               <CardHeader>

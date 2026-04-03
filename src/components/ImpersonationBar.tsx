@@ -2,12 +2,19 @@ import { useImpersonation } from "@/contexts/ImpersonationContext";
 import { Button } from "@/components/ui/button";
 import { X, Eye } from "lucide-react";
 import { useLabels } from "@/contexts/LabelContext";
+import { useNavigate } from "react-router-dom";
 
 export function ImpersonationBar() {
   const { impersonatedUser, isImpersonating, stopImpersonation } = useImpersonation();
   const { roleLabel } = useLabels();
+  const navigate = useNavigate();
 
   if (!isImpersonating || !impersonatedUser) return null;
+
+  const handleEndImpersonation = () => {
+    stopImpersonation();
+    navigate("/users");
+  };
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-amber-500 dark:bg-amber-600 text-amber-950 px-4 py-2.5 flex items-center justify-between shadow-lg">
@@ -25,7 +32,7 @@ export function ImpersonationBar() {
       <Button
         variant="ghost"
         size="sm"
-        onClick={stopImpersonation}
+        onClick={handleEndImpersonation}
         className="text-amber-950 hover:bg-amber-600 dark:hover:bg-amber-700 gap-1"
       >
         <X className="h-4 w-4" />

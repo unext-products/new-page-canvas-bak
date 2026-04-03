@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { isHalfDayLeave, isTimeBlockedByHalfDayLeave } from "@/lib/leaveUtils";
+import { useImpersonation } from "@/contexts/ImpersonationContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,6 +52,8 @@ interface LeaveEntry {
 
 export default function CalendarPage() {
   const { userWithRole } = useAuth();
+  const { impersonatedUser, isReadOnly } = useImpersonation();
+  const effectiveUserId = impersonatedUser?.userId || userWithRole?.user?.id;
   const { toast } = useToast();
   const navigate = useNavigate();
   const { fireConfetti } = useConfetti();
@@ -96,11 +99,11 @@ export default function CalendarPage() {
   useEffect(() => {
     if (userWithRole && !isRole(userWithRole.role, "l1", "l2", "l3", "member", "manager", "program_manager", "faculty")) {
       navigate("/dashboard");
-    } else if (userWithRole) {
+    } else if (userWithRole && effectiveUserId) {
       loadMonthData();
       loadUserVerticals();
     }
-  }, [userWithRole, navigate, currentMonth]);
+  }, [userWithRole, effectiveUserId, navigate, currentMonth]);
 
   const loadUserVerticals = async () => {
     if (!userWithRole) return;
@@ -109,7 +112,7 @@ export default function CalendarPage() {
     const { data: userVerts } = await supabase
       .from("user_verticals")
       .select("vertical_id")
-      .eq("user_id", userWithRole.user.id);
+      .eq("user_id", effectiveUserId!);
     
     let vertIds = userVerts?.map(uv => uv.vertical_id) || [];
     
@@ -118,7 +121,7 @@ export default function CalendarPage() {
       const { data: userDepts } = await supabase
         .from("user_departments")
         .select("department_id")
-        .eq("user_id", userWithRole.user.id);
+        .eq("user_id", effectiveUserId!);
       vertIds = userDepts?.map(ud => ud.department_id) || [];
     }
     
@@ -175,14 +178,14 @@ export default function CalendarPage() {
       supabase
         .from("timesheet_entries")
         .select("*")
-        .eq("user_id", userWithRole.user.id)
+        .eq("user_id", effectiveUserId!)
         .gte("entry_date", monthStart)
         .lte("entry_date", monthEnd)
         .order("entry_date", { ascending: true }),
       supabase
         .from("leave_days" as any)
         .select("*")
-        .eq("user_id", userWithRole.user.id)
+        .eq("user_id", effectiveUserId!)
         .gte("leave_date", monthStart)
         .lte("leave_date", monthEnd),
     ]);
@@ -518,7 +521,7 @@ export default function CalendarPage() {
     const { data: userProgs } = await supabase
       .from("user_programs")
       .select("program_id")
-      .eq("user_id", userWithRole.user.id);
+      .eq("user_id", effectiveUserId!);
     
     const userProgIds = userProgs?.map(p => p.program_id) || [];
     
@@ -1090,14 +1093,16 @@ export default function CalendarPage() {
                 variant="outline"
                 className="flex-1"
                 onClick={() => handleSubmit("draft")}
-                disabled={submitting}
+                disabled={submitting || isReadOnly}
+                data-mutating="true"
               >
                 Save Draft
               </Button>
               <Button
                 className="flex-1"
                 onClick={() => handleSubmit("submitted")}
-                disabled={submitting}
+                disabled={submitting || isReadOnly}
+                data-mutating="true"
               >
                 Submit
               </Button>
