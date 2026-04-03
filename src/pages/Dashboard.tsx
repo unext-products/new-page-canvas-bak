@@ -234,7 +234,7 @@ export default function Dashboard() {
       const { data: allPendingEntries } = await supabase
         .from("timesheet_entries")
         .select("id")
-        .eq("user_id", userWithRole.user.id)
+        .eq("user_id", effectiveUserId!)
         .eq("status", "submitted");
 
       if (entries) {
