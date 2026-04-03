@@ -25,7 +25,9 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/" replace />;
   }
 
-  if (isMaintenanceMode && !isRole(userWithRole?.role, "admin", "org_admin", "super_admin")) {
+  // Use realUserWithRole (the actual logged-in admin) to bypass maintenance during impersonation
+  const actualRole = realUserWithRole?.role || userWithRole?.role;
+  if (isMaintenanceMode && !isRole(actualRole, "admin", "org_admin", "super_admin")) {
     return <Maintenance />;
   }
 
