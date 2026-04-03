@@ -52,6 +52,8 @@ interface LeaveEntry {
 
 export default function CalendarPage() {
   const { userWithRole } = useAuth();
+  const { impersonatedUser, isReadOnly } = useImpersonation();
+  const effectiveUserId = impersonatedUser?.userId || userWithRole?.user?.id;
   const { toast } = useToast();
   const navigate = useNavigate();
   const { fireConfetti } = useConfetti();

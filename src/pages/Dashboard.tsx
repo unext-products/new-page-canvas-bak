@@ -39,7 +39,9 @@ const getEntryDuration = (e: { start_time: string; end_time: string }) =>
 
 export default function Dashboard() {
   const { userWithRole } = useAuth();
+  const { impersonatedUser } = useImpersonation();
   const navigate = useNavigate();
+  const effectiveUserId = impersonatedUser?.userId || userWithRole?.user?.id;
   const [stats, setStats] = useState({
     todayMinutes: 0,
     targetMinutes: 480,
@@ -83,6 +85,7 @@ export default function Dashboard() {
   });
   const [loading, setLoading] = useState(true);
   const hasLoadedRef = useRef(false);
+  const prevEffectiveUserId = useRef<string | undefined>(undefined);
   
   const isSuperAdmin = isRole(userWithRole?.role, "super_admin");
 
@@ -90,14 +93,18 @@ export default function Dashboard() {
   useEffect(() => {
     if (!userWithRole) {
       hasLoadedRef.current = false;
+      prevEffectiveUserId.current = undefined;
     }
   }, [userWithRole]);
 
   useEffect(() => {
-    if (!userWithRole || hasLoadedRef.current) return;
+    if (!userWithRole || !effectiveUserId) return;
+    // Reload when effectiveUserId changes (impersonation start/stop)
+    if (prevEffectiveUserId.current === effectiveUserId && hasLoadedRef.current) return;
+    prevEffectiveUserId.current = effectiveUserId;
     hasLoadedRef.current = true;
     loadDashboardData();
-  }, [userWithRole]);
+  }, [userWithRole, effectiveUserId]);
 
   const loadDashboardData = async () => {
     if (!userWithRole) return;
