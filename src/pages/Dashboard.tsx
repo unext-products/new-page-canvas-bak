@@ -272,7 +272,7 @@ export default function Dashboard() {
       const { data: weekEntries } = await supabase
         .from("timesheet_entries")
         .select("start_time, end_time, status")
-        .eq("user_id", userWithRole.user.id)
+        .eq("user_id", effectiveUserId!)
         .gte("entry_date", weekStart)
         .lte("entry_date", weekEnd);
 
