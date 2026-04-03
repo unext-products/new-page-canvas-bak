@@ -226,7 +226,7 @@ export default function Dashboard() {
       const { data: leavesData } = await supabase
         .from("leave_days")
         .select("id")
-        .eq("user_id", userWithRole.user.id)
+        .eq("user_id", effectiveUserId!)
         .gte("leave_date", monthStartStr)
         .lte("leave_date", monthEndStr);
 
