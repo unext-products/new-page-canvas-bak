@@ -296,7 +296,7 @@ export default function Dashboard() {
       const { data: recent } = await supabase
         .from("timesheet_entries")
         .select("*")
-        .eq("user_id", userWithRole.user.id)
+        .eq("user_id", effectiveUserId!)
         .order("entry_date", { ascending: false })
         .order("created_at", { ascending: false })
         .limit(5);
