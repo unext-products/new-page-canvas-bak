@@ -2,6 +2,7 @@ import { useImpersonation } from "@/contexts/ImpersonationContext";
 import { Button } from "@/components/ui/button";
 import { X, Eye } from "lucide-react";
 import { useLabels } from "@/contexts/LabelContext";
+import { useNavigate } from "react-router-dom";
 
 export function ImpersonationBar() {
   const { impersonatedUser, isImpersonating, stopImpersonation } = useImpersonation();
