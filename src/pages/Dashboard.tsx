@@ -182,8 +182,8 @@ export default function Dashboard() {
 
       // Fetch user's departments from BOTH user_departments AND user_verticals tables
       const [userDepsRes, userVertsRes] = await Promise.all([
-        supabase.from("user_departments").select("department_id").eq("user_id", userWithRole.user.id),
-        supabase.from("user_verticals").select("vertical_id").eq("user_id", userWithRole.user.id),
+        supabase.from("user_departments").select("department_id").eq("user_id", effectiveUserId!),
+        supabase.from("user_verticals").select("vertical_id").eq("user_id", effectiveUserId!),
       ]);
 
       let deptIds: string[] = userDepsRes.data?.map((ud) => ud.department_id) || [];
