@@ -6,7 +6,7 @@ import { isRole } from "@/lib/roleMapping";
 import Maintenance from "@/pages/Maintenance";
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { session, loading, userWithRole } = useAuth();
+  const { session, loading, userWithRole, realUserWithRole } = useAuth();
   const { isMaintenanceMode, loading: maintenanceLoading } = useMaintenanceMode();
 
   if (loading || maintenanceLoading) {
