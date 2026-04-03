@@ -32,7 +32,7 @@ export function ImpersonationBar() {
       <Button
         variant="ghost"
         size="sm"
-        onClick={stopImpersonation}
+        onClick={handleEndImpersonation}
         className="text-amber-950 hover:bg-amber-600 dark:hover:bg-amber-700 gap-1"
       >
         <X className="h-4 w-4" />
