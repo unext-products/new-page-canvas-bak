@@ -128,7 +128,7 @@ export default function Dashboard() {
 
     // Load HOD/Manager dashboard data (L3, L2)
     if (isRole(userWithRole.role, "l3", "l2", "manager", "program_manager")) {
-      await loadHodDashboardData(userWithRole.user.id);
+      await loadHodDashboardData(effectiveUserId!);
       setLoading(false);
       return;
     }
