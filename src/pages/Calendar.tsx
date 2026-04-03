@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { isHalfDayLeave, isTimeBlockedByHalfDayLeave } from "@/lib/leaveUtils";
+import { useImpersonation } from "@/contexts/ImpersonationContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
