@@ -1093,14 +1093,16 @@ export default function CalendarPage() {
                 variant="outline"
                 className="flex-1"
                 onClick={() => handleSubmit("draft")}
-                disabled={submitting}
+                disabled={submitting || isReadOnly}
+                data-mutating="true"
               >
                 Save Draft
               </Button>
               <Button
                 className="flex-1"
                 onClick={() => handleSubmit("submitted")}
-                disabled={submitting}
+                disabled={submitting || isReadOnly}
+                data-mutating="true"
               >
                 Submit
               </Button>
