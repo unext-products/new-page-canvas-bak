@@ -136,7 +136,7 @@ export default function Dashboard() {
     // Load today's total minutes for members (L1)
     if (isRole(userWithRole.role, "l1", "member", "faculty")) {
       // Fetch user's resolved daily target (sum across all departments)
-      const targetBreakdown = await calculateUserTotalDailyTargetMinutes(userWithRole.user.id);
+      const targetBreakdown = await calculateUserTotalDailyTargetMinutes(effectiveUserId!);
       const resolvedDailyTargetMinutes = targetBreakdown.totalDailyTargetMinutes;
       
       // Calculate this week's date range
