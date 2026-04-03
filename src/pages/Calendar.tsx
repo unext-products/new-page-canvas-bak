@@ -99,11 +99,11 @@ export default function CalendarPage() {
   useEffect(() => {
     if (userWithRole && !isRole(userWithRole.role, "l1", "l2", "l3", "member", "manager", "program_manager", "faculty")) {
       navigate("/dashboard");
-    } else if (userWithRole) {
+    } else if (userWithRole && effectiveUserId) {
       loadMonthData();
       loadUserVerticals();
     }
-  }, [userWithRole, navigate, currentMonth]);
+  }, [userWithRole, effectiveUserId, navigate, currentMonth]);
 
   const loadUserVerticals = async () => {
     if (!userWithRole) return;
