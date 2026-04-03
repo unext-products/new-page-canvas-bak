@@ -7,8 +7,14 @@ import { useNavigate } from "react-router-dom";
 export function ImpersonationBar() {
   const { impersonatedUser, isImpersonating, stopImpersonation } = useImpersonation();
   const { roleLabel } = useLabels();
+  const navigate = useNavigate();
 
   if (!isImpersonating || !impersonatedUser) return null;
+
+  const handleEndImpersonation = () => {
+    stopImpersonation();
+    navigate("/users");
+  };
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-amber-500 dark:bg-amber-600 text-amber-950 px-4 py-2.5 flex items-center justify-between shadow-lg">
