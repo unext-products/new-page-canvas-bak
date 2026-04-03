@@ -28,6 +28,7 @@ import { fetchExtendedValidationContext, fetchUserLeaveDays } from "@/lib/thresh
 import { supabase } from "@/integrations/supabase/client";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { useImpersonation } from "@/contexts/ImpersonationContext";
 
 type ValidationResult = ExcelValidationResult & { rowNumber?: number; rowData?: any };
 
@@ -39,6 +40,7 @@ interface DepartmentMember {
 
 export default function BulkImport() {
   const { userWithRole, loading: authLoading } = useAuth();
+  const { isReadOnly } = useImpersonation();
   const { toast } = useToast();
   const [file, setFile] = useState<File | null>(null);
   const [validationResults, setValidationResults] = useState<ValidationResult[]>([]);
@@ -197,7 +199,7 @@ export default function BulkImport() {
   };
 
   const handleParseAndValidate = async () => {
-    if (!file) return;
+    if (isReadOnly || !file) return;
 
     setIsValidating(true);
     try {
@@ -661,7 +663,7 @@ export default function BulkImport() {
                 </Alert>
               )}
               {file && !validationResults.length && (
-                <Button onClick={handleParseAndValidate} disabled={isValidating}>
+                <Button onClick={handleParseAndValidate} disabled={isValidating || isReadOnly} data-mutating="true">
                   {isValidating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                   Validate File
                 </Button>

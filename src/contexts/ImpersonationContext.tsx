@@ -34,7 +34,7 @@ export function ImpersonationProvider({ children }: { children: React.ReactNode 
         .maybeSingle(),
       supabase
         .from("profiles")
-        .select("full_name, phone, avatar_url, is_active")
+        .select("full_name, phone, avatar_url, is_active, email")
         .eq("id", userId)
         .maybeSingle(),
     ]);
