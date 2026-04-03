@@ -121,7 +121,7 @@ export default function CalendarPage() {
       const { data: userDepts } = await supabase
         .from("user_departments")
         .select("department_id")
-        .eq("user_id", userWithRole.user.id);
+        .eq("user_id", effectiveUserId!);
       vertIds = userDepts?.map(ud => ud.department_id) || [];
     }
     
