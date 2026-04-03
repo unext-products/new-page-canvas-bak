@@ -213,7 +213,7 @@ export default function Dashboard() {
       const { data: entries } = await supabase
         .from("timesheet_entries")
         .select("start_time, end_time, status")
-        .eq("user_id", userWithRole.user.id)
+        .eq("user_id", effectiveUserId!)
         .eq("entry_date", today);
 
       // Fetch leaves for this month
