@@ -158,7 +158,7 @@ export default function Dashboard() {
         supabase
           .from("leave_days")
           .select("leave_date, leave_type")
-          .eq("user_id", userWithRole.user.id)
+          .eq("user_id", effectiveUserId!)
           .gte("leave_date", formatLocalDate(weekStartDate))
           .lte("leave_date", formatLocalDate(weekEndDate)),
         userOrgId
