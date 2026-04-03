@@ -178,14 +178,14 @@ export default function CalendarPage() {
       supabase
         .from("timesheet_entries")
         .select("*")
-        .eq("user_id", userWithRole.user.id)
+        .eq("user_id", effectiveUserId!)
         .gte("entry_date", monthStart)
         .lte("entry_date", monthEnd)
         .order("entry_date", { ascending: true }),
       supabase
         .from("leave_days" as any)
         .select("*")
-        .eq("user_id", userWithRole.user.id)
+        .eq("user_id", effectiveUserId!)
         .gte("leave_date", monthStart)
         .lte("leave_date", monthEnd),
     ]);
