@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback } from "react";
+import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { toDisplayRole, type DbRole } from "@/lib/roleMapping";
 import type { UserWithRole } from "@/lib/supabase";
@@ -33,7 +34,7 @@ export function ImpersonationProvider({ children }: { children: React.ReactNode 
         .maybeSingle(),
       supabase
         .from("profiles")
-        .select("full_name, phone, avatar_url, is_active")
+        .select("full_name, phone, avatar_url, is_active, email")
         .eq("id", userId)
         .maybeSingle(),
     ]);
@@ -49,8 +50,18 @@ export function ImpersonationProvider({ children }: { children: React.ReactNode 
     const { data: { user: currentUser } } = await supabase.auth.getUser();
     if (!currentUser) return;
 
+    const impersonatedAuthUser: User = {
+      ...currentUser,
+      id: userId,
+      email: profileResult.data.email ?? currentUser.email,
+      user_metadata: {
+        ...currentUser.user_metadata,
+        full_name: profileResult.data.full_name,
+      },
+    };
+
     const fakeUserWithRole: UserWithRole = {
-      user: currentUser,
+      user: impersonatedAuthUser,
       role,
       verticalId,
       departmentId: verticalId,
