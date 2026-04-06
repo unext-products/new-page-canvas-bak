@@ -53,6 +53,7 @@ export default function Timesheet() {
   const [leaveEntries, setLeaveEntries] = useState<any[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const submittingRef = useRef(false);
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [runTour, setRunTour] = useState(false);
   
@@ -247,6 +248,9 @@ export default function Timesheet() {
   };
 
   const handleSubmit = async (status: "draft" | "submitted") => {
+    if (loading || submittingRef.current) return;
+    submittingRef.current = true;
+    setLoading(true);
     const currentUser = userRef.current;
     if (!currentUser?.user?.id) {
       toast({
@@ -254,8 +258,11 @@ export default function Timesheet() {
         description: "You must be logged in to create timesheet entries",
         variant: "destructive",
       });
+      setLoading(false);
       return;
     }
+
+    const resetSubmit = () => { setLoading(false); submittingRef.current = false; };
 
     // Validate vertical code is selected
     if (!verticalCode || verticalCode.trim() === "") {
@@ -264,6 +271,7 @@ export default function Timesheet() {
         description: "Please select a vertical for this entry",
         variant: "destructive",
       });
+      resetSubmit();
       return;
     }
     
@@ -274,6 +282,7 @@ export default function Timesheet() {
         description: "Please select a program for this entry",
         variant: "destructive",
       });
+      resetSubmit();
       return;
     }
 
@@ -291,6 +300,7 @@ export default function Timesheet() {
               description: `You have a ${halfLabel} leave on this day. You can only add entries in the other half.`,
               variant: "destructive",
             });
+            resetSubmit();
             return;
           }
           // Entry is in the free half — allow it through
@@ -301,6 +311,7 @@ export default function Timesheet() {
             description: "Cannot add timesheet entries on leave days",
             variant: "destructive",
           });
+          resetSubmit();
           return;
         }
       }
@@ -315,6 +326,7 @@ export default function Timesheet() {
         description: "Cannot create timesheet entries for future dates",
         variant: "destructive",
       });
+      resetSubmit();
       return;
     }
 
@@ -326,6 +338,7 @@ export default function Timesheet() {
         description: `Cannot create entries on holidays (${holiday.name})`,
         variant: "destructive",
       });
+      resetSubmit();
       return;
     }
 
@@ -336,6 +349,7 @@ export default function Timesheet() {
         description: "Cannot create entries on non-working days",
         variant: "destructive",
       });
+      resetSubmit();
       return;
     }
 
@@ -360,6 +374,7 @@ export default function Timesheet() {
         description: "This time slot overlaps with an existing entry. Please choose a different time.",
         variant: "destructive",
       });
+      resetSubmit();
       return; // Dialog remains open
     }
 
@@ -375,6 +390,7 @@ export default function Timesheet() {
             description: thresholdResult.error,
             variant: "destructive",
           });
+          resetSubmit();
           return;
         }
 
@@ -399,6 +415,7 @@ export default function Timesheet() {
               description: `Cannot exceed ${maxH}h ${maxM}m per day. Current total would be ${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m.`,
               variant: "destructive",
             });
+            resetSubmit();
             return;
           }
         }
@@ -412,6 +429,7 @@ export default function Timesheet() {
       const thresholdValidation = await validateEntry(entryDate, normalizedStart, normalizedEnd, existingEntriesForDate);
       if (!thresholdValidation.valid) {
         toast({ title: "Threshold Exceeded", description: thresholdValidation.error, variant: "destructive" });
+        resetSubmit();
         return;
       }
     }
@@ -493,6 +511,7 @@ export default function Timesheet() {
       }
 
       setLoading(false);
+      submittingRef.current = false;
 
       if (error) throw error;
 
@@ -507,6 +526,7 @@ export default function Timesheet() {
       loadEntries();
     } catch (error: any) {
       setLoading(false);
+      submittingRef.current = false;
       
       if (error.errors) {
         toast({
