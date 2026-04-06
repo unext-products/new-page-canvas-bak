@@ -512,6 +512,7 @@ export default function Timesheet() {
       loadEntries();
     } catch (error: any) {
       setLoading(false);
+      submittingRef.current = false;
       
       if (error.errors) {
         toast({
