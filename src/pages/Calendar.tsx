@@ -161,11 +161,7 @@ export default function CalendarPage() {
     }
   };
 
-  useEffect(() => {
-    if (categories.length > 0 && !activityType) {
-      setActivityType(categories[0].code);
-    }
-  }, [categories]);
+  // No auto-selection — user must explicitly choose an activity type
 
   const loadMonthData = async () => {
     if (!userWithRole) return;
