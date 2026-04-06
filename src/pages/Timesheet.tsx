@@ -497,6 +497,7 @@ export default function Timesheet() {
       }
 
       setLoading(false);
+      submittingRef.current = false;
 
       if (error) throw error;
 
