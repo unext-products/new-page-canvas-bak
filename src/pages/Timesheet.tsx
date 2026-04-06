@@ -256,6 +256,7 @@ export default function Timesheet() {
         description: "You must be logged in to create timesheet entries",
         variant: "destructive",
       });
+      setLoading(false);
       return;
     }
 
