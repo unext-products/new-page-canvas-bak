@@ -53,6 +53,7 @@ export default function Timesheet() {
   const [leaveEntries, setLeaveEntries] = useState<any[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const submittingRef = useRef(false);
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [runTour, setRunTour] = useState(false);
   
