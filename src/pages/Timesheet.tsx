@@ -248,8 +248,8 @@ export default function Timesheet() {
   };
 
   const handleSubmit = async (status: "draft" | "submitted") => {
-    if (loading) return;
-    setLoading(true);
+    if (loading || submittingRef.current) return;
+    submittingRef.current = true;
     const currentUser = userRef.current;
     if (!currentUser?.user?.id) {
       toast({
