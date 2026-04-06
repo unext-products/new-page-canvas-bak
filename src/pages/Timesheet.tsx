@@ -165,11 +165,7 @@ export default function Timesheet() {
   };
 
   // Set initial activity type when categories load
-  useEffect(() => {
-    if (selectableActivities.length > 0 && !activityType) {
-      setActivityType(selectableActivities[0].code);
-    }
-  }, [selectableActivities]);
+  // No auto-selection — user must explicitly choose an activity type
 
   const loadEntries = async () => {
     if (!userWithRole) return;
