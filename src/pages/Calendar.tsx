@@ -486,7 +486,7 @@ export default function CalendarPage() {
   const resetForm = () => {
     setStartTime("09:00");
     setEndTime("10:00");
-    setActivityType(categories[0]?.code || "");
+    setActivityType("");
     setActivitySubtype("");
     setNotes("");
     setSelectedDate(null);

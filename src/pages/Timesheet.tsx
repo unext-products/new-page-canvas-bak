@@ -598,7 +598,7 @@ export default function Timesheet() {
     setEntryDate(formatLocalDate(new Date()));
     setStartTime("09:00");
     setEndTime("10:00");
-    setActivityType(selectableActivities[0]?.code || "");
+    setActivityType("");
     setActivitySubtype("");
     setNotes("");
     setVerticalCode("");
