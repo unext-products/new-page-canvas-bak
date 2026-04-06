@@ -262,6 +262,8 @@ export default function Timesheet() {
       return;
     }
 
+    const resetSubmit = () => { setLoading(false); submittingRef.current = false; };
+
     // Validate vertical code is selected
     if (!verticalCode || verticalCode.trim() === "") {
       toast({
@@ -269,6 +271,7 @@ export default function Timesheet() {
         description: "Please select a vertical for this entry",
         variant: "destructive",
       });
+      resetSubmit();
       return;
     }
     
@@ -279,6 +282,7 @@ export default function Timesheet() {
         description: "Please select a program for this entry",
         variant: "destructive",
       });
+      resetSubmit();
       return;
     }
 
@@ -296,6 +300,7 @@ export default function Timesheet() {
               description: `You have a ${halfLabel} leave on this day. You can only add entries in the other half.`,
               variant: "destructive",
             });
+            resetSubmit();
             return;
           }
           // Entry is in the free half — allow it through
@@ -306,6 +311,7 @@ export default function Timesheet() {
             description: "Cannot add timesheet entries on leave days",
             variant: "destructive",
           });
+          resetSubmit();
           return;
         }
       }
@@ -320,6 +326,7 @@ export default function Timesheet() {
         description: "Cannot create timesheet entries for future dates",
         variant: "destructive",
       });
+      resetSubmit();
       return;
     }
 
@@ -331,6 +338,7 @@ export default function Timesheet() {
         description: `Cannot create entries on holidays (${holiday.name})`,
         variant: "destructive",
       });
+      resetSubmit();
       return;
     }
 
@@ -341,6 +349,7 @@ export default function Timesheet() {
         description: "Cannot create entries on non-working days",
         variant: "destructive",
       });
+      resetSubmit();
       return;
     }
 
@@ -365,6 +374,7 @@ export default function Timesheet() {
         description: "This time slot overlaps with an existing entry. Please choose a different time.",
         variant: "destructive",
       });
+      resetSubmit();
       return; // Dialog remains open
     }
 
@@ -380,6 +390,7 @@ export default function Timesheet() {
             description: thresholdResult.error,
             variant: "destructive",
           });
+          resetSubmit();
           return;
         }
 
@@ -404,6 +415,7 @@ export default function Timesheet() {
               description: `Cannot exceed ${maxH}h ${maxM}m per day. Current total would be ${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m.`,
               variant: "destructive",
             });
+            resetSubmit();
             return;
           }
         }
@@ -417,6 +429,7 @@ export default function Timesheet() {
       const thresholdValidation = await validateEntry(entryDate, normalizedStart, normalizedEnd, existingEntriesForDate);
       if (!thresholdValidation.valid) {
         toast({ title: "Threshold Exceeded", description: thresholdValidation.error, variant: "destructive" });
+        resetSubmit();
         return;
       }
     }
