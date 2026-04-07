@@ -156,7 +156,7 @@ export function exportMemberReportPDF(
     body: report.entries.map((entry: any) => [
       entry._programName || "N/A",
       entry._verticalName || "N/A",
-      report.facultyName || "N/A",
+      entry._facultyName || report.facultyName || "N/A",
       format(new Date(entry.entry_date), "MMM dd, yyyy"),
       `${entry.activity_type}${entry.activity_subtype ? ` - ${entry.activity_subtype}` : ""}`,
       `${entry.start_time} - ${entry.end_time}`,
