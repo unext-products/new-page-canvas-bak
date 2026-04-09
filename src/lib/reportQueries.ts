@@ -502,7 +502,7 @@ export async function fetchVerticalReport(
     nonStarterVertNameMap.set(uv.user_id, existing ? `${existing}, ${vName}` : vName);
   });
 
-  const nonStarters: NonStarterEntry[] = (nonStarterProfiles || []).map(p => ({
+  const nonStarters: NonStarterEntry[] = (filteredNonStarterProfiles || []).map(p => ({
     userId: p.id,
     facultyName: p.full_name,
     email: p.email || "",
