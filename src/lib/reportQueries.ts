@@ -470,10 +470,25 @@ export async function fetchVerticalReport(
   const facultyIdSet = new Set(uniqueFacultyIds);
   const nonStarterIds = userIds.filter(id => !facultyIdSet.has(id));
 
-  // Fetch profiles for non-starters
+  // Fetch profiles for non-starters (only active users)
   const { data: nonStarterProfiles } = nonStarterIds.length > 0
-    ? await supabase.from("profiles").select("id, full_name, email").in("id", nonStarterIds)
+    ? await supabase.from("profiles").select("id, full_name, email, is_active").in("id", nonStarterIds).eq("is_active", true)
     : { data: [] };
+
+  // Exclude admin/super_admin roles from non-starters (they don't submit timesheets)
+  let filteredNonStarterProfiles = nonStarterProfiles || [];
+  if (filteredNonStarterProfiles.length > 0) {
+    const { data: nonStarterRoles } = await supabase
+      .from("user_roles")
+      .select("user_id, role")
+      .in("user_id", filteredNonStarterProfiles.map(p => p.id));
+    const adminUserIds = new Set(
+      (nonStarterRoles || [])
+        .filter(r => r.role === 'org_admin' || r.role === 'super_admin')
+        .map(r => r.user_id)
+    );
+    filteredNonStarterProfiles = filteredNonStarterProfiles.filter(p => !adminUserIds.has(p.id));
+  }
 
   // Fetch vertical names for non-starters
   const { data: nonStarterVertData } = nonStarterIds.length > 0
@@ -487,7 +502,7 @@ export async function fetchVerticalReport(
     nonStarterVertNameMap.set(uv.user_id, existing ? `${existing}, ${vName}` : vName);
   });
 
-  const nonStarters: NonStarterEntry[] = (nonStarterProfiles || []).map(p => ({
+  const nonStarters: NonStarterEntry[] = (filteredNonStarterProfiles || []).map(p => ({
     userId: p.id,
     facultyName: p.full_name,
     email: p.email || "",
