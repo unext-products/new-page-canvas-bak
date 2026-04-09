@@ -71,6 +71,13 @@ export interface FacultyReportData {
   expectedHoursBreakdown?: ExpectedHoursBreakdown;
 }
 
+export interface NonStarterEntry {
+  userId: string;
+  facultyName: string;
+  email: string;
+  verticalName: string;
+}
+
 export interface VerticalReportData {
   verticalId: string;
   verticalName: string;
@@ -80,6 +87,7 @@ export interface VerticalReportData {
   completionRate: number;
   activityBreakdown: ActivityBreakdown[];
   facultyBreakdown: FacultyBreakdown[];
+  nonStarters: NonStarterEntry[];
   averageDailyHours: number;
 }
 
