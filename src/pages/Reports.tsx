@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { isRole } from "@/lib/roleMapping";
 import { useNavigate } from "react-router-dom";
@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Download, Filter, ChevronDown, ChevronLeft, ChevronRight, BarChart3 } from "lucide-react";
+import { Download, Filter, ChevronDown, ChevronLeft, ChevronRight, BarChart3, ArrowUpDown } from "lucide-react";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { DepartmentSelect } from "@/components/DepartmentSelect";
 import { MemberSelect } from "@/components/MemberSelect";
@@ -67,6 +67,12 @@ export default function Reports() {
   // Calendar view state
   const [viewMode, setViewMode] = useState<"table" | "calendar">("table");
   const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
+
+  // Sort state for department view
+  const [facultySortKey, setFacultySortKey] = useState<string>("name");
+  const [facultySortAsc, setFacultySortAsc] = useState(true);
+  const [nonStarterSortKey, setNonStarterSortKey] = useState<string>("name");
+  const [nonStarterSortAsc, setNonStarterSortAsc] = useState(true);
 
   // HOD department filter
   const [hodDepartmentIds, setHodDepartmentIds] = useState<string[]>([]);
@@ -250,7 +256,7 @@ export default function Reports() {
   const hasData = currentReport && (
     reportType === "member" 
       ? facultyReport?.entries.length > 0 
-      : departmentReport?.facultyBreakdown.length > 0
+      : (departmentReport?.facultyBreakdown.length > 0 || (departmentReport?.nonStarters?.length ?? 0) > 0)
   );
 
   if (loading) {
@@ -545,12 +551,72 @@ export default function Reports() {
                   <TabsTrigger value="calendar">Calendar View</TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="table">
+                <TabsContent value="table" className="space-y-6">
+                  {/* Non-Starters Section */}
+                  {departmentReport.nonStarters && departmentReport.nonStarters.length > 0 && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-destructive">Non-Starters</CardTitle>
+                        <CardDescription>
+                          {departmentReport.nonStarters.length} member(s) with no timesheet entries in this period
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="border rounded-lg">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="cursor-pointer select-none" onClick={() => { if (nonStarterSortKey === "name") setNonStarterSortAsc(!nonStarterSortAsc); else { setNonStarterSortKey("name"); setNonStarterSortAsc(true); } }}>
+                                  <div className="flex items-center gap-1">Faculty Name <ArrowUpDown className="h-3 w-3" /></div>
+                                </TableHead>
+                                <TableHead className="cursor-pointer select-none" onClick={() => { if (nonStarterSortKey === "email") setNonStarterSortAsc(!nonStarterSortAsc); else { setNonStarterSortKey("email"); setNonStarterSortAsc(true); } }}>
+                                  <div className="flex items-center gap-1">Email <ArrowUpDown className="h-3 w-3" /></div>
+                                </TableHead>
+                                <TableHead className="cursor-pointer select-none" onClick={() => { if (nonStarterSortKey === "vertical") setNonStarterSortAsc(!nonStarterSortAsc); else { setNonStarterSortKey("vertical"); setNonStarterSortAsc(true); } }}>
+                                  <div className="flex items-center gap-1">Vertical <ArrowUpDown className="h-3 w-3" /></div>
+                                </TableHead>
+                                <TableHead>Hours Logged</TableHead>
+                                <TableHead>Completion Rate</TableHead>
+                                <TableHead>Total Entries</TableHead>
+                                <TableHead>Status</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {[...departmentReport.nonStarters]
+                                .sort((a, b) => {
+                                  const key = nonStarterSortKey;
+                                  const valA = key === "name" ? a.facultyName : key === "email" ? a.email : a.verticalName;
+                                  const valB = key === "name" ? b.facultyName : key === "email" ? b.email : b.verticalName;
+                                  return nonStarterSortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                                })
+                                .map((ns) => (
+                                  <TableRow key={ns.userId}>
+                                    <TableCell className="font-medium">{ns.facultyName}</TableCell>
+                                    <TableCell className="text-sm text-muted-foreground">{ns.email || "-"}</TableCell>
+                                    <TableCell className="text-sm">{ns.verticalName || "-"}</TableCell>
+                                    <TableCell>0.0h</TableCell>
+                                    <TableCell>0.0%</TableCell>
+                                    <TableCell>0</TableCell>
+                                    <TableCell>
+                                      <span className="text-xs font-medium px-2 py-1 rounded bg-destructive/10 text-destructive">
+                                        Not Started
+                                      </span>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Faculty Breakdown */}
                   <Card>
                     <CardHeader>
                       <CardTitle>Faculty Breakdown</CardTitle>
                       <CardDescription>
-                        Performance summary for {departmentReport.totalFaculty} faculty members
+                        Performance summary for {departmentReport.facultyBreakdown.length} active faculty members
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -558,17 +624,41 @@ export default function Reports() {
                          <Table>
                           <TableHeader>
                             <TableRow>
-                              <TableHead>Faculty Name</TableHead>
-                              <TableHead>Email</TableHead>
-                              <TableHead>Vertical</TableHead>
-                              <TableHead>Hours Logged</TableHead>
-                              <TableHead>Completion Rate</TableHead>
-                              <TableHead>Total Entries</TableHead>
+                              <TableHead className="cursor-pointer select-none" onClick={() => { if (facultySortKey === "name") setFacultySortAsc(!facultySortAsc); else { setFacultySortKey("name"); setFacultySortAsc(true); } }}>
+                                <div className="flex items-center gap-1">Faculty Name <ArrowUpDown className="h-3 w-3" /></div>
+                              </TableHead>
+                              <TableHead className="cursor-pointer select-none" onClick={() => { if (facultySortKey === "email") setFacultySortAsc(!facultySortAsc); else { setFacultySortKey("email"); setFacultySortAsc(true); } }}>
+                                <div className="flex items-center gap-1">Email <ArrowUpDown className="h-3 w-3" /></div>
+                              </TableHead>
+                              <TableHead className="cursor-pointer select-none" onClick={() => { if (facultySortKey === "vertical") setFacultySortAsc(!facultySortAsc); else { setFacultySortKey("vertical"); setFacultySortAsc(true); } }}>
+                                <div className="flex items-center gap-1">Vertical <ArrowUpDown className="h-3 w-3" /></div>
+                              </TableHead>
+                              <TableHead className="cursor-pointer select-none" onClick={() => { if (facultySortKey === "hours") setFacultySortAsc(!facultySortAsc); else { setFacultySortKey("hours"); setFacultySortAsc(false); } }}>
+                                <div className="flex items-center gap-1">Hours Logged <ArrowUpDown className="h-3 w-3" /></div>
+                              </TableHead>
+                              <TableHead className="cursor-pointer select-none" onClick={() => { if (facultySortKey === "completion") setFacultySortAsc(!facultySortAsc); else { setFacultySortKey("completion"); setFacultySortAsc(false); } }}>
+                                <div className="flex items-center gap-1">Completion Rate <ArrowUpDown className="h-3 w-3" /></div>
+                              </TableHead>
+                              <TableHead className="cursor-pointer select-none" onClick={() => { if (facultySortKey === "entries") setFacultySortAsc(!facultySortAsc); else { setFacultySortKey("entries"); setFacultySortAsc(false); } }}>
+                                <div className="flex items-center gap-1">Total Entries <ArrowUpDown className="h-3 w-3" /></div>
+                              </TableHead>
                               <TableHead>Status</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {departmentReport.facultyBreakdown.map((faculty) => (
+                            {[...departmentReport.facultyBreakdown]
+                              .sort((a, b) => {
+                                const key = facultySortKey;
+                                let cmp = 0;
+                                if (key === "name") cmp = a.facultyName.localeCompare(b.facultyName);
+                                else if (key === "email") cmp = (a.email || "").localeCompare(b.email || "");
+                                else if (key === "vertical") cmp = (a.verticalName || "").localeCompare(b.verticalName || "");
+                                else if (key === "hours") cmp = a.totalHours - b.totalHours;
+                                else if (key === "completion") cmp = a.completionRate - b.completionRate;
+                                else if (key === "entries") cmp = a.entryCount - b.entryCount;
+                                return facultySortAsc ? cmp : -cmp;
+                              })
+                              .map((faculty) => (
                               <TableRow key={faculty.userId}>
                                 <TableCell className="font-medium">{faculty.facultyName}</TableCell>
                                 <TableCell className="text-sm text-muted-foreground">{faculty.email || "-"}</TableCell>

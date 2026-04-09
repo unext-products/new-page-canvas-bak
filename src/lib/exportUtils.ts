@@ -237,7 +237,32 @@ export function exportDepartmentReportCSV(
       `${activity.hours.toFixed(1)} hours (${activity.percentage.toFixed(1)}%)`,
     ]),
     [""],
-    ["Member Breakdown:"],
+    ["Non-Starters (No Entries):"],
+  ];
+
+  const nonStarterHeaders = [
+    "Member Name",
+    "Email",
+    "Vertical",
+    "Hours Logged",
+    "Completion Rate",
+    "Total Entries",
+    "Status",
+  ];
+
+  const nonStarterRows = (report.nonStarters || []).map((ns: any) => [
+    ns.facultyName,
+    ns.email || "",
+    ns.verticalName || "",
+    "0.0 hours",
+    "0.0%",
+    "0",
+    "Not Started",
+  ]);
+
+  const memberBreakdownHeader = [
+    "",
+    "Member Breakdown:",
   ];
 
   const headers = [
@@ -260,7 +285,14 @@ export function exportDepartmentReportCSV(
     faculty.completionRate >= 100 ? "Exceeded" : faculty.completionRate >= 70 ? "On Track" : "Behind",
   ]);
 
-  const csvContent = [...metadataRows, headers, ...dataRows]
+  const csvContent = [
+    ...metadataRows,
+    nonStarterHeaders,
+    ...nonStarterRows,
+    ...memberBreakdownHeader.map(r => [r]),
+    headers,
+    ...dataRows,
+  ]
     .map((row) => row.map((cell) => `"${cell}"`).join(","))
     .join("\n");
 
