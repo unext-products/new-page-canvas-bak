@@ -241,9 +241,43 @@ export function exportDepartmentReportPDF(
     yPos += 6;
   });
 
+  // Non-Starters Table
+  if (report.nonStarters && report.nonStarters.length > 0) {
+    doc.setFontSize(12);
+    doc.setTextColor(220, 53, 69);
+    doc.text(`Non-Starters (${report.nonStarters.length})`, 14, yPos + 10);
+
+    autoTable(doc, {
+      startY: yPos + 16,
+      head: [["Faculty Name", "Email", "Vertical", "Hours", "Completion", "Entries", "Status"]],
+      body: report.nonStarters.map((ns: any) => [
+        ns.facultyName,
+        ns.email || "",
+        ns.verticalName || "",
+        "0.0h",
+        "0.0%",
+        "0",
+        "Not Started",
+      ]),
+      theme: "striped",
+      styles: { fontSize: 8, cellPadding: 3 },
+      headStyles: {
+        fillColor: [220, 53, 69],
+        textColor: [255, 255, 255],
+        fontStyle: "bold",
+      },
+    });
+
+    yPos = (doc as any).lastAutoTable?.finalY || yPos + 30;
+  }
+
   // Faculty Breakdown Table
+  doc.setFontSize(12);
+  doc.setTextColor(41, 128, 185);
+  doc.text("Faculty Breakdown", 14, yPos + 10);
+
   autoTable(doc, {
-    startY: yPos + 10,
+    startY: yPos + 16,
     head: [["Faculty Name", "Email", "Vertical", "Hours", "Completion", "Entries", "Status"]],
     body: report.facultyBreakdown.map((faculty: any) => [
       faculty.facultyName,
