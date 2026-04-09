@@ -1,61 +1,41 @@
 
 
-# User Impersonation (View-Only)
+# Fix Non-Starters Visibility for L3 and L2 Roles
 
-## Overview
-Allow Admin and Super Admin users to "impersonate" an L1, L2, or L3 user from the Users page. Impersonation is view-only — all mutating actions (Add/Edit/Delete/Approve) are disabled. A bottom bar shows who is being impersonated with a close button to end it.
+## Problem
+When L3 or L2 users log into Reports > Department View, the "Non-Starters" section does not display. The data queries rely on RLS-protected tables, and there are profile visibility gaps for L2 users specifically.
 
-## Approach
-Create an `ImpersonationContext` that holds the impersonated user's data. When active, it overrides the role/profile returned by `useAuth` throughout the app without changing the actual authenticated session. All components already use `useAuth()` for role checks, so a thin wrapper approach works cleanly.
+## Root Cause Analysis
+
+1. **L2 Profile RLS restriction**: The `profiles` table RLS for L2 only allows viewing **L1 profiles in their programs**. When the non-starters query fetches profiles for users who haven't submitted timesheets, L2 users cannot see L2/L3 profiles or profiles outside their program scope — those rows are silently filtered out by RLS, resulting in an empty or incomplete Non-Starters list.
+
+2. **L3 should work in theory** since L3's profile RLS allows viewing all profiles in their verticals. However, if no non-starters exist for the selected period/vertical, the section correctly won't render. We should verify and add defensive handling.
 
 ## Changes
 
-### 1. New: `src/contexts/ImpersonationContext.tsx`
-- Stores impersonated user state: `{ userId, fullName, role, profile, verticalId }` or null
-- Provides `startImpersonation(userId)` — fetches the target user's role/profile from DB and sets state
-- Provides `stopImpersonation()` — clears state
-- Provides `isImpersonating: boolean` and `isReadOnly: boolean` (same as isImpersonating)
-- Export a `useImpersonation()` hook
+### 1. Add L2 profile visibility RLS policy (Database Migration)
+Add a new RLS SELECT policy on `profiles` so L2 can view profiles of users in their assigned verticals (not just L1 in programs). This mirrors the L3 policy pattern.
 
-### 2. Edit: `src/contexts/AuthContext.tsx`
-- When impersonation is active, `useAuth()` returns the impersonated user's `userWithRole` (role, profile, verticalId) instead of the real one, but keeps the real `user` and `session` intact
-- Add `realUserWithRole` to the context so components can check the actual admin role when needed (e.g., to show the impersonate button)
-- Alternatively: create a wrapper hook `useEffectiveAuth()` that merges impersonation — but modifying `useAuth` directly is simpler since all pages already use it
+```sql
+CREATE POLICY "L2 can view profiles in their verticals"
+ON public.profiles FOR SELECT
+USING (
+  (get_user_role(auth.uid()) = 'l2'::app_role) 
+  AND EXISTS (
+    SELECT 1 FROM user_verticals uv 
+    WHERE uv.user_id = profiles.id 
+    AND uv.vertical_id = ANY(get_user_verticals(auth.uid()))
+  )
+);
+```
 
-### 3. New: `src/components/ImpersonationBar.tsx`
-- Fixed bottom bar (z-50) showing: "Viewing as [Name] ([Role])" with a Close/End button
-- Only renders when `isImpersonating` is true
-- Styled distinctly (e.g., amber/warning background) so it's clearly visible
+### 2. Filter non-starters to exclude inactive users (Code)
+In `src/lib/reportQueries.ts`, update the non-starter profiles query to filter out inactive users (`is_active = true`), matching the faculty breakdown behavior. Also exclude admin/super_admin roles from the non-starters list since they don't submit timesheets.
 
-### 4. Edit: `src/pages/Users.tsx`
-- Add an "Impersonate" button (eye icon) in the user row actions
-- Only visible for Admin/Super Admin
-- Hidden for users with Admin/Super Admin roles (can't impersonate admins)
-- Calls `startImpersonation(userId)`
-
-### 5. Edit: `src/components/Layout.tsx`
-- Render `<ImpersonationBar />` at the bottom of the layout
-
-### 6. Read-Only Mode
-- The `isReadOnly` flag from ImpersonationContext will be used to disable mutating UI:
-  - Disable all Button components with mutating actions by checking `useImpersonation().isReadOnly` in key pages (Timesheet, Approvals, Settings, etc.)
-  - A pragmatic approach: add a CSS `pointer-events: none` overlay or disable submit buttons in forms
-  - Best approach: add a global check — in `Layout.tsx`, when `isReadOnly`, apply a class that disables form submissions and button clicks except navigation
-
-### 7. Edit: `src/main.tsx` or `src/App.tsx`
-- Wrap the app with `<ImpersonationProvider>`
-
-## Technical Details
-- No database changes needed — impersonation is purely client-side view switching
-- The actual Supabase session remains the admin's, so RLS still applies as admin (data visibility matches admin, which is fine for view-only)
-- The sidebar navigation will update to show the impersonated role's menu items since it reads from `useAuth()`
-- Security: impersonation state is in-memory only (not persisted to localStorage), so refreshing ends it
+### 3. No UI changes needed
+The existing Non-Starters section rendering logic in `Reports.tsx` already handles the case — it renders when `nonStarters.length > 0`. The fix is purely at the data/RLS layer.
 
 ## Files
-1. **New**: `src/contexts/ImpersonationContext.tsx` — impersonation state & logic
-2. **New**: `src/components/ImpersonationBar.tsx` — bottom bar UI
-3. **Edit**: `src/contexts/AuthContext.tsx` — expose `realUserWithRole` and merge impersonation into `userWithRole`
-4. **Edit**: `src/pages/Users.tsx` — add impersonate button per user row
-5. **Edit**: `src/components/Layout.tsx` — render ImpersonationBar + read-only overlay
-6. **Edit**: `src/App.tsx` — wrap with ImpersonationProvider
+1. **Database migration** — Add L2 profile visibility policy for verticals
+2. **Edit**: `src/lib/reportQueries.ts` — Filter non-starters by `is_active` and exclude admin roles
 
