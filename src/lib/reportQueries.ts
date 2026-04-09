@@ -611,12 +611,13 @@ export async function fetchVerticalReport(
   return {
     verticalId,
     verticalName: vertical?.name || "Unknown",
-    totalFaculty: uniqueFacultyIds.length,
+    totalFaculty: uniqueFacultyIds.length + nonStarters.length,
     totalHours,
     expectedHours: totalExpectedHours,
     completionRate,
     activityBreakdown,
     facultyBreakdown,
+    nonStarters,
     averageDailyHours,
   };
 }
