@@ -256,7 +256,7 @@ export default function Reports() {
   const hasData = currentReport && (
     reportType === "member" 
       ? facultyReport?.entries.length > 0 
-      : departmentReport?.facultyBreakdown.length > 0
+      : (departmentReport?.facultyBreakdown.length > 0 || (departmentReport?.nonStarters?.length ?? 0) > 0)
   );
 
   if (loading) {
