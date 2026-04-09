@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { isRole } from "@/lib/roleMapping";
 import { useNavigate } from "react-router-dom";
@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Download, Filter, ChevronDown, ChevronLeft, ChevronRight, BarChart3 } from "lucide-react";
+import { Download, Filter, ChevronDown, ChevronLeft, ChevronRight, BarChart3, ArrowUpDown } from "lucide-react";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { DepartmentSelect } from "@/components/DepartmentSelect";
 import { MemberSelect } from "@/components/MemberSelect";
@@ -67,6 +67,12 @@ export default function Reports() {
   // Calendar view state
   const [viewMode, setViewMode] = useState<"table" | "calendar">("table");
   const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
+
+  // Sort state for department view
+  const [facultySortKey, setFacultySortKey] = useState<string>("name");
+  const [facultySortAsc, setFacultySortAsc] = useState(true);
+  const [nonStarterSortKey, setNonStarterSortKey] = useState<string>("name");
+  const [nonStarterSortAsc, setNonStarterSortAsc] = useState(true);
 
   // HOD department filter
   const [hodDepartmentIds, setHodDepartmentIds] = useState<string[]>([]);
