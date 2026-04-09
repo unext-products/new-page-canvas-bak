@@ -464,6 +464,8 @@ export async function fetchVerticalReport(
         .single()
     : { data: { name: "All Verticals" } };
 
+  const uniqueFacultyIds = Array.from(new Set(entries?.map(e => e.user_id) || []));
+
   // Identify non-starters: users in userIds but not in uniqueFacultyIds (no entries)
   const facultyIdSet = new Set(uniqueFacultyIds);
   const nonStarterIds = userIds.filter(id => !facultyIdSet.has(id));
