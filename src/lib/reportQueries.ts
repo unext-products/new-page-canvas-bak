@@ -464,7 +464,34 @@ export async function fetchVerticalReport(
         .single()
     : { data: { name: "All Verticals" } };
 
-  const uniqueFacultyIds = Array.from(new Set(entries?.map(e => e.user_id) || []));
+  // Identify non-starters: users in userIds but not in uniqueFacultyIds (no entries)
+  const facultyIdSet = new Set(uniqueFacultyIds);
+  const nonStarterIds = userIds.filter(id => !facultyIdSet.has(id));
+
+  // Fetch profiles for non-starters
+  const { data: nonStarterProfiles } = nonStarterIds.length > 0
+    ? await supabase.from("profiles").select("id, full_name, email").in("id", nonStarterIds)
+    : { data: [] };
+
+  // Fetch vertical names for non-starters
+  const { data: nonStarterVertData } = nonStarterIds.length > 0
+    ? await supabase.from("user_verticals").select("user_id, vertical_id, verticals(name)").in("user_id", nonStarterIds)
+    : { data: [] };
+
+  const nonStarterVertNameMap = new Map<string, string>();
+  (nonStarterVertData || []).forEach((uv: any) => {
+    const vName = uv.verticals?.name || "";
+    const existing = nonStarterVertNameMap.get(uv.user_id);
+    nonStarterVertNameMap.set(uv.user_id, existing ? `${existing}, ${vName}` : vName);
+  });
+
+  const nonStarters: NonStarterEntry[] = (nonStarterProfiles || []).map(p => ({
+    userId: p.id,
+    facultyName: p.full_name,
+    email: p.email || "",
+    verticalName: nonStarterVertNameMap.get(p.id) || "",
+  }));
+
   const { data: profiles } = await supabase
     .from("profiles")
     .select("id, full_name, email, is_active, deactivated_at")
