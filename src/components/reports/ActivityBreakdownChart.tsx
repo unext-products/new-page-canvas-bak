@@ -85,7 +85,6 @@ export function ActivityBreakdownChart({ data }: ActivityBreakdownChartProps) {
                 tickLine={false}
                 axisLine={false}
               />
-              />
               <Tooltip content={<CustomTooltip />} cursor={{ fill: "hsl(var(--muted))" }} />
               <Bar
                 dataKey="hours"
