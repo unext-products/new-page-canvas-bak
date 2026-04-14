@@ -80,10 +80,11 @@ export function ActivityBreakdownChart({ data }: ActivityBreakdownChartProps) {
               <YAxis
                 type="category"
                 dataKey="name"
-                width={140}
-                tick={{ fontSize: 11, fill: "hsl(var(--foreground))" }}
+                width={200}
+                tick={{ fontSize: 10, fill: "hsl(var(--foreground))" }}
                 tickLine={false}
                 axisLine={false}
+              />
               />
               <Tooltip content={<CustomTooltip />} cursor={{ fill: "hsl(var(--muted))" }} />
               <Bar
