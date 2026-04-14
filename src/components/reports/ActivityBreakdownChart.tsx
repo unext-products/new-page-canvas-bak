@@ -1,4 +1,4 @@
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface ActivityBreakdown {
@@ -12,35 +12,28 @@ interface ActivityBreakdownChartProps {
   data: ActivityBreakdown[];
 }
 
-const COLORS = [
-  "hsl(var(--primary))",
-  "hsl(var(--success))",
-  "hsl(var(--warning))",
-  "hsl(var(--destructive))",
-  "hsl(var(--secondary))",
-  "hsl(var(--accent))",
-];
-
 export function ActivityBreakdownChart({ data }: ActivityBreakdownChartProps) {
   const chartData = data
-    .filter((item) => item.activityType) // Filter out items with undefined/null activityType
+    .filter((item) => item.activityType)
     .map((item) => ({
       name: item.activityType.charAt(0).toUpperCase() + item.activityType.slice(1),
-      value: item.hours,
+      hours: item.hours,
       percentage: item.percentage,
       count: item.count,
-    }));
+    }))
+    .sort((a, b) => b.hours - a.hours);
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
+      const d = payload[0].payload;
       return (
         <div className="bg-popover border border-border rounded-lg shadow-lg p-3">
-          <p className="font-semibold text-foreground">{payload[0].name}</p>
+          <p className="font-semibold text-foreground">{d.name}</p>
           <p className="text-sm text-muted-foreground">
-            {payload[0].value.toFixed(1)} hours ({payload[0].payload.percentage.toFixed(1)}%)
+            {d.hours.toFixed(1)} hours ({d.percentage.toFixed(1)}%)
           </p>
           <p className="text-sm text-muted-foreground">
-            {payload[0].payload.count} {payload[0].payload.count === 1 ? 'entry' : 'entries'}
+            {d.count} {d.count === 1 ? "entry" : "entries"}
           </p>
         </div>
       );
@@ -63,32 +56,48 @@ export function ActivityBreakdownChart({ data }: ActivityBreakdownChartProps) {
     );
   }
 
+  const barHeight = 50;
+  const chartHeight = Math.max(200, chartData.length * barHeight);
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Activity Breakdown</CardTitle>
       </CardHeader>
       <CardContent>
-        <ResponsiveContainer width="100%" height={300}>
-          <PieChart>
-            <Pie
+        <div className="max-h-[400px] overflow-y-auto">
+          <ResponsiveContainer width="100%" height={chartHeight}>
+            <BarChart
               data={chartData}
-              cx="50%"
-              cy="50%"
-              labelLine={false}
-              label={({ percentage }) => `${percentage.toFixed(0)}%`}
-              outerRadius={80}
-              fill="hsl(var(--primary))"
-              dataKey="value"
+              layout="vertical"
+              margin={{ top: 5, right: 40, left: 10, bottom: 5 }}
             >
-              {chartData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-              ))}
-            </Pie>
-            <Tooltip content={<CustomTooltip />} />
-            <Legend />
-          </PieChart>
-        </ResponsiveContainer>
+              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
+              <XAxis type="number" hide />
+              <YAxis
+                type="category"
+                dataKey="name"
+                width={120}
+                tick={{ fontSize: 12, fill: "hsl(var(--foreground))" }}
+                tickLine={false}
+                axisLine={false}
+              />
+              <Tooltip content={<CustomTooltip />} cursor={{ fill: "hsl(var(--muted))" }} />
+              <Bar
+                dataKey="hours"
+                fill="hsl(var(--primary))"
+                radius={[0, 4, 4, 0]}
+                barSize={24}
+                label={{
+                  position: "right",
+                  formatter: (val: number) => `${val.toFixed(1)}h`,
+                  fontSize: 11,
+                  fill: "hsl(var(--muted-foreground))",
+                }}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </CardContent>
     </Card>
   );
