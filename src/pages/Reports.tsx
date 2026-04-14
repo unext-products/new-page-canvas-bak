@@ -63,6 +63,7 @@ export default function Reports() {
   const [facultyReport, setFacultyReport] = useState<FacultyReportData | null>(null);
   const [departmentReport, setDepartmentReport] = useState<DepartmentReportData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
 
   // Calendar view state
   const [viewMode, setViewMode] = useState<"table" | "calendar">("table");
@@ -224,11 +225,10 @@ export default function Reports() {
     }
   };
 
-  useEffect(() => {
-    if (userWithRole && hasReportsAccess) {
-      generateReport();
-    }
-  }, [userWithRole, reportType, period, dateFrom, dateTo, selectedFaculty, selectedDepartment, hasReportsAccess]);
+  const handleSubmit = () => {
+    setHasSubmitted(true);
+    generateReport();
+  };
 
   const handleExportCSV = () => {
     const reportPeriod = `${format(dateFrom, "MMM dd, yyyy")} - ${format(dateTo, "MMM dd, yyyy")}`;
@@ -338,7 +338,7 @@ export default function Reports() {
               onDateRangeChange={handleDateRangeChange}
             />
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
               <div>
                 <Label>Date From</Label>
                 <DateRangePicker
@@ -376,11 +376,24 @@ export default function Reports() {
                   />
                 </div>
               )}
+              <div>
+                <Button onClick={handleSubmit} disabled={isLoading} className="w-full">
+                  {isLoading ? "Loading..." : "Submit"}
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {isLoading ? (
+        {!hasSubmitted ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+              <Filter className="h-10 w-10 mb-3 opacity-40" />
+              <p className="text-lg font-medium">Select your filters and click Submit</p>
+              <p className="text-sm">Choose the date range, period, and member/department to generate a report</p>
+            </CardContent>
+          </Card>
+        ) : isLoading ? (
           <div className="flex justify-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
           </div>
