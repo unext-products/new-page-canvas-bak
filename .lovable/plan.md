@@ -1,25 +1,35 @@
 
 
-# Replace Activity Breakdown Pie Chart with Scrollable Horizontal Bar Chart
+# Fix Activity Breakdown: Normalize Names, Widen Labels, Group by Category
 
 ## Problem
-The pie chart has too many activity labels that overlap each other and block UI elements like the Submit button (visible in screenshot). With many activity types, pie charts become unreadable.
+1. **Duplicate entries**: `activity_type` in timesheet entries uses inconsistent formats — some with underscores (`handling_sessions`), some with spaces (`handling sessions`), some with different casing. These show as separate bars.
+2. **Names truncated**: Y-axis width (140px) is too narrow for long activity names like "Co-ordination for cultural / sports activities".
+3. **No category grouping**: Activity types belong to parent categories (e.g., "Class preparation" belongs to "Academic Support Activities"), but the chart shows flat individual activities without grouping context.
 
 ## Solution
-Replace the `PieChart` with a horizontal `BarChart` inside a scrollable container. Each activity type gets its own row with the label above the bar (like the reference screenshot). The container has a fixed max height with vertical scroll.
 
-## Changes
+### 1. Normalize activity type keys in `src/lib/reportQueries.ts`
+In `groupEntriesByActivityType`, normalize the key:
+- Replace underscores with spaces
+- Trim whitespace
+- Convert to lowercase for grouping, then title-case for display
+- This merges duplicates like `handling_sessions` / `handling sessions` / `Handling Sessions` into one bar
 
-### `src/components/reports/ActivityBreakdownChart.tsx` — Full rewrite
-- Replace `PieChart/Pie/Cell/Legend` imports with `BarChart, Bar, XAxis, YAxis, CartesianGrid`
-- Sort data descending by hours
-- Use a vertical layout: activity name as label above each bar, hours value displayed at bar end
-- Wrap in a scrollable `div` with `max-h-[400px] overflow-y-auto`
-- Dynamic height based on number of items (e.g., `items * 60px`) so bars aren't cramped
-- Keep the same Card wrapper, tooltip with hours/percentage/entries
-- Use `hsl(var(--primary))` as bar color (single color like the reference)
-- Remove the Legend entirely — labels are inline
+### 2. Widen Y-axis and clean display names in `src/components/reports/ActivityBreakdownChart.tsx`
+- Increase YAxis `width` from 140 to 200
+- Replace underscores with spaces in display names
+- Title-case all names for consistency
+- Reduce font size slightly if needed to fit more text
 
-### No other file changes needed
-The component is used in `Reports.tsx` and `Dashboard.tsx` with the same `data` prop — the interface stays identical.
+### 3. (Optional enhancement) Group bars by parent category
+- Look up each activity's parent category from `activity_categories` table
+- Add category grouping headers or color-code bars by category
+- This requires passing categories data to the chart component
+
+**Recommendation**: Implement items 1 and 2 first (fixes the immediate issues). Item 3 can be a follow-up if you want category-level grouping in the chart.
+
+## Files changed
+- `src/lib/reportQueries.ts` — normalize `activity_type` key in `groupEntriesByActivityType`
+- `src/components/reports/ActivityBreakdownChart.tsx` — widen YAxis, clean display names
 
