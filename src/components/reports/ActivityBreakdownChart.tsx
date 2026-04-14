@@ -16,7 +16,10 @@ export function ActivityBreakdownChart({ data }: ActivityBreakdownChartProps) {
   const chartData = data
     .filter((item) => item.activityType)
     .map((item) => ({
-      name: item.activityType.charAt(0).toUpperCase() + item.activityType.slice(1),
+      name: item.activityType
+        .replace(/_/g, ' ')
+        .trim()
+        .replace(/\b\w/g, (c: string) => c.toUpperCase()),
       hours: item.hours,
       percentage: item.percentage,
       count: item.count,
@@ -77,8 +80,8 @@ export function ActivityBreakdownChart({ data }: ActivityBreakdownChartProps) {
               <YAxis
                 type="category"
                 dataKey="name"
-                width={140}
-                tick={{ fontSize: 11, fill: "hsl(var(--foreground))" }}
+                width={200}
+                tick={{ fontSize: 10, fill: "hsl(var(--foreground))" }}
                 tickLine={false}
                 axisLine={false}
               />

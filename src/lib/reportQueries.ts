@@ -173,9 +173,18 @@ export function groupEntriesByDepartment(entries: any[]) {
   return grouped;
 }
 
+function normalizeActivityType(type: string): string {
+  return type
+    .replace(/_/g, ' ')
+    .trim()
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export function groupEntriesByActivityType(entries: any[]) {
   const grouped = entries.reduce((acc, entry) => {
-    const type = entry.activity_type;
+    const rawType = entry.activity_type || '';
+    const type = normalizeActivityType(rawType);
     if (!acc[type]) {
       acc[type] = {
         count: 0,
