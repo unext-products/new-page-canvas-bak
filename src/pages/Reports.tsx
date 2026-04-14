@@ -385,7 +385,15 @@ export default function Reports() {
           </CardContent>
         </Card>
 
-        {isLoading ? (
+        {!hasSubmitted ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+              <Filter className="h-10 w-10 mb-3 opacity-40" />
+              <p className="text-lg font-medium">Select your filters and click Submit</p>
+              <p className="text-sm">Choose the date range, period, and member/department to generate a report</p>
+            </CardContent>
+          </Card>
+        ) : isLoading ? (
           <div className="flex justify-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
           </div>
