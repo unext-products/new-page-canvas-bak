@@ -43,12 +43,12 @@ export function ActivityBreakdownChart({ data }: ActivityBreakdownChartProps) {
 
   if (data.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Activity Breakdown</CardTitle>
+      <Card className="h-full">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Activity Breakdown</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+          <div className="flex items-center justify-center h-[200px] text-muted-foreground">
             No activity data available
           </div>
         </CardContent>
@@ -56,29 +56,29 @@ export function ActivityBreakdownChart({ data }: ActivityBreakdownChartProps) {
     );
   }
 
-  const barHeight = 50;
-  const chartHeight = Math.max(200, chartData.length * barHeight);
+  const barHeight = 32;
+  const chartHeight = Math.max(150, chartData.length * barHeight);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Activity Breakdown</CardTitle>
+    <Card className="h-full flex flex-col">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base">Activity Breakdown</CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="max-h-[400px] overflow-y-auto">
+      <CardContent className="flex-1 min-h-0 pb-4">
+        <div className="h-full max-h-[280px] overflow-y-auto">
           <ResponsiveContainer width="100%" height={chartHeight}>
             <BarChart
               data={chartData}
               layout="vertical"
-              margin={{ top: 5, right: 40, left: 10, bottom: 5 }}
+              margin={{ top: 0, right: 45, left: 0, bottom: 0 }}
             >
               <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
               <XAxis type="number" hide />
               <YAxis
                 type="category"
                 dataKey="name"
-                width={120}
-                tick={{ fontSize: 12, fill: "hsl(var(--foreground))" }}
+                width={140}
+                tick={{ fontSize: 11, fill: "hsl(var(--foreground))" }}
                 tickLine={false}
                 axisLine={false}
               />
@@ -87,11 +87,11 @@ export function ActivityBreakdownChart({ data }: ActivityBreakdownChartProps) {
                 dataKey="hours"
                 fill="hsl(var(--primary))"
                 radius={[0, 4, 4, 0]}
-                barSize={24}
+                barSize={16}
                 label={{
                   position: "right",
                   formatter: (val: number) => `${val.toFixed(1)}h`,
-                  fontSize: 11,
+                  fontSize: 10,
                   fill: "hsl(var(--muted-foreground))",
                 }}
               />
