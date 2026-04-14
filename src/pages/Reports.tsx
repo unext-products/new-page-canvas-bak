@@ -63,6 +63,7 @@ export default function Reports() {
   const [facultyReport, setFacultyReport] = useState<FacultyReportData | null>(null);
   const [departmentReport, setDepartmentReport] = useState<DepartmentReportData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
 
   // Calendar view state
   const [viewMode, setViewMode] = useState<"table" | "calendar">("table");
@@ -224,11 +225,10 @@ export default function Reports() {
     }
   };
 
-  useEffect(() => {
-    if (userWithRole && hasReportsAccess) {
-      generateReport();
-    }
-  }, [userWithRole, reportType, period, dateFrom, dateTo, selectedFaculty, selectedDepartment, hasReportsAccess]);
+  const handleSubmit = () => {
+    setHasSubmitted(true);
+    generateReport();
+  };
 
   const handleExportCSV = () => {
     const reportPeriod = `${format(dateFrom, "MMM dd, yyyy")} - ${format(dateTo, "MMM dd, yyyy")}`;
@@ -338,7 +338,7 @@ export default function Reports() {
               onDateRangeChange={handleDateRangeChange}
             />
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
               <div>
                 <Label>Date From</Label>
                 <DateRangePicker
@@ -376,6 +376,11 @@ export default function Reports() {
                   />
                 </div>
               )}
+              <div>
+                <Button onClick={handleSubmit} disabled={isLoading} className="w-full">
+                  {isLoading ? "Loading..." : "Submit"}
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
