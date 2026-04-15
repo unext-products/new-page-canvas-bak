@@ -5,174 +5,130 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-interface SuperAdminData {
-  email: string;
-  password: string;
-  full_name: string;
-}
-
-const superAdmins: SuperAdminData[] = [
-  {
-    email: "shreyas.patil@u-next.com",
-    password: "Sclockwise@3",
-    full_name: "Shreyas Patil",
-  },
-  {
-    email: "unext.product.team@gmail.com",
-    password: "Manipal@577",
-    full_name: "UNext Product Team",
-  },
-];
-
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Create admin client with service role key
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
-    );
-
-    const results: { email: string; status: string; error?: string }[] = [];
-
-    for (const admin of superAdmins) {
-      console.log(`Processing super admin: ${admin.email}`);
-
-      try {
-        // Check if user already exists
-        const { data: existingUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers();
-        
-        if (listError) {
-          console.error(`Error listing users:`, listError);
-          results.push({ email: admin.email, status: "error", error: listError.message });
-          continue;
-        }
-
-        const existingUser = existingUsers?.users?.find(u => u.email === admin.email);
-
-        if (existingUser) {
-          console.log(`User ${admin.email} already exists, checking role...`);
-          
-          // Check if they already have super_admin role
-          const { data: existingRole } = await supabaseAdmin
-            .from("user_roles")
-            .select("id, role")
-            .eq("user_id", existingUser.id)
-            .single();
-
-          if (existingRole?.role === "super_admin") {
-            results.push({ email: admin.email, status: "already_exists" });
-            continue;
-          }
-
-          // Update or insert role to super_admin
-          if (existingRole) {
-            await supabaseAdmin
-              .from("user_roles")
-              .update({ role: "super_admin", organization_id: null })
-              .eq("user_id", existingUser.id);
-          } else {
-            await supabaseAdmin
-              .from("user_roles")
-              .insert({
-                user_id: existingUser.id,
-                role: "super_admin",
-                organization_id: null,
-              });
-          }
-
-          results.push({ email: admin.email, status: "role_updated" });
-          continue;
-        }
-
-        // Create new auth user with email confirmed
-        const { data: authData, error: createError } = await supabaseAdmin.auth.admin.createUser({
-          email: admin.email,
-          password: admin.password,
-          email_confirm: true,
-          user_metadata: {
-            full_name: admin.full_name,
-          },
-        });
-
-        if (createError) {
-          console.error(`Error creating user ${admin.email}:`, createError);
-          results.push({ email: admin.email, status: "error", error: createError.message });
-          continue;
-        }
-
-        if (!authData.user) {
-          results.push({ email: admin.email, status: "error", error: "No user returned" });
-          continue;
-        }
-
-        console.log(`Created auth user: ${authData.user.id}`);
-
-        // Update profile with full name (profile should be auto-created by trigger)
-        const { error: profileError } = await supabaseAdmin
-          .from("profiles")
-          .update({ full_name: admin.full_name })
-          .eq("id", authData.user.id);
-
-        if (profileError) {
-          console.log(`Profile update note: ${profileError.message}`);
-          // Try insert if update fails (in case trigger didn't create it)
-          await supabaseAdmin
-            .from("profiles")
-            .insert({
-              id: authData.user.id,
-              full_name: admin.full_name,
-            });
-        }
-
-        // Create super_admin role
-        const { error: roleError } = await supabaseAdmin
-          .from("user_roles")
-          .insert({
-            user_id: authData.user.id,
-            role: "super_admin",
-            organization_id: null,
-          });
-
-        if (roleError) {
-          console.error(`Error creating role for ${admin.email}:`, roleError);
-          results.push({ email: admin.email, status: "partial", error: `Role error: ${roleError.message}` });
-          continue;
-        }
-
-        console.log(`Successfully created super admin: ${admin.email}`);
-        results.push({ email: admin.email, status: "created" });
-      } catch (err) {
-        console.error(`Unexpected error for ${admin.email}:`, err);
-        results.push({ email: admin.email, status: "error", error: String(err) });
-      }
+    // Require authentication - only existing super admins can run this
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    return new Response(
-      JSON.stringify({ success: true, results }),
-      {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+
+    // Validate caller is a super_admin
+    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const { data: { user }, error: authError } = await userClient.auth.getUser();
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
+      });
+    }
+
+    const adminClient = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+
+    const { data: callerRole } = await adminClient
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .single();
+
+    if (callerRole?.role !== "super_admin") {
+      return new Response(JSON.stringify({ error: "Forbidden: super_admin role required" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Read super admin data from request body (no hardcoded credentials)
+    const body = await req.json();
+    const { email, full_name } = body;
+
+    if (!email || !full_name) {
+      return new Response(JSON.stringify({ error: "email and full_name are required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Generate a secure random temporary password
+    const tempPassword = crypto.randomUUID().slice(0, 8) + "A@1x";
+
+    // Check if user already exists
+    const { data: existingUsers } = await adminClient.auth.admin.listUsers();
+    const existingUser = existingUsers?.users?.find(u => u.email === email);
+
+    if (existingUser) {
+      // Update role if needed
+      const { data: existingRole } = await adminClient
+        .from("user_roles")
+        .select("id, role")
+        .eq("user_id", existingUser.id)
+        .single();
+
+      if (existingRole?.role === "super_admin") {
+        return new Response(JSON.stringify({ status: "already_exists", email }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
-    );
-  } catch (error) {
-    console.error("Fatal error:", error);
-    return new Response(
-      JSON.stringify({ success: false, error: String(error) }),
-      {
+
+      if (existingRole) {
+        await adminClient.from("user_roles").update({ role: "super_admin", organization_id: null }).eq("user_id", existingUser.id);
+      } else {
+        await adminClient.from("user_roles").insert({ user_id: existingUser.id, role: "super_admin", organization_id: null });
+      }
+
+      return new Response(JSON.stringify({ status: "role_updated", email }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Create new user with temporary password
+    const { data: authData, error: createError } = await adminClient.auth.admin.createUser({
+      email,
+      password: tempPassword,
+      email_confirm: true,
+      user_metadata: { full_name },
+    });
+
+    if (createError || !authData.user) {
+      return new Response(JSON.stringify({ error: createError?.message || "Failed to create user" }), {
         status: 500,
-      }
-    );
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    await adminClient.from("profiles").update({ full_name }).eq("id", authData.user.id);
+    await adminClient.from("user_roles").insert({ user_id: authData.user.id, role: "super_admin", organization_id: null });
+
+    // Note: In production, send a password reset email instead of returning the temp password
+    return new Response(JSON.stringify({ 
+      status: "created", 
+      email,
+      message: "User created. Please trigger a password reset email for this user."
+    }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+
+  } catch (error) {
+    console.error("Error:", error);
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
