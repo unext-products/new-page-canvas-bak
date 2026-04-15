@@ -1,35 +1,37 @@
 
 
-# Fix Activity Breakdown: Normalize Names, Widen Labels, Group by Category
+# Only Count Approved Entries in Completion Rate
 
 ## Problem
-1. **Duplicate entries**: `activity_type` in timesheet entries uses inconsistent formats — some with underscores (`handling_sessions`), some with spaces (`handling sessions`), some with different casing. These show as separate bars.
-2. **Names truncated**: Y-axis width (140px) is too narrow for long activity names like "Co-ordination for cultural / sports activities".
-3. **No category grouping**: Activity types belong to parent categories (e.g., "Class preparation" belongs to "Academic Support Activities"), but the chart shows flat individual activities without grouping context.
+Completion rate currently counts both "submitted" and "approved" entries (and in some places, ALL entries regardless of status). The user expects completion rate to reflect only **approved** entries, since unapproved work shouldn't count toward progress.
 
-## Solution
+This affects L1 dashboard, HOD/Admin dashboard, and all Reports views.
 
-### 1. Normalize activity type keys in `src/lib/reportQueries.ts`
-In `groupEntriesByActivityType`, normalize the key:
-- Replace underscores with spaces
-- Trim whitespace
-- Convert to lowercase for grouping, then title-case for display
-- This merges duplicates like `handling_sessions` / `handling sessions` / `Handling Sessions` into one bar
+## Changes
 
-### 2. Widen Y-axis and clean display names in `src/components/reports/ActivityBreakdownChart.tsx`
-- Increase YAxis `width` from 140 to 200
-- Replace underscores with spaces in display names
-- Title-case all names for consistency
-- Reduce font size slightly if needed to fit more text
+### 1. `src/components/dashboard/EnhancedCompletionCard.tsx`
+- Line 86: Change filter from `status === "approved" || status === "submitted"` to only `status === "approved"`
 
-### 3. (Optional enhancement) Group bars by parent category
-- Look up each activity's parent category from `activity_categories` table
-- Add category grouping headers or color-code bars by category
-- This requires passing categories data to the chart component
+### 2. `src/pages/Dashboard.tsx`
+- **L1 today's hours** (line 242): Filter only `approved` entries
+- **L1 weekly completion** (line 281): Filter only `approved` entries  
+- **HOD weekly minutes** (line 475): Filter only `approved` entries (currently no status filter at all)
+- **HOD per-member minutes** (~line 500-530): Filter only `approved` entries
+- **Admin weekly minutes** (~line 666): Filter only `approved` entries
+- **Admin vertical performance** (~line 700): Filter only `approved` entries
 
-**Recommendation**: Implement items 1 and 2 first (fixes the immediate issues). Item 3 can be a follow-up if you want category-level grouping in the chart.
+### 3. `src/lib/reportQueries.ts`
+- **Member view totalMinutes** (line 286): Filter `entries` to only `approved` before summing
+- **Department view totalMinutes** (line 543): Same filter
+- **Per-faculty userMinutes** (line 594): Filter only `approved` entries
+- **All-members totalMinutes** (line 710): Same filter
+- **Activity breakdown** (line 845): Only count `approved` entries in breakdown
 
-## Files changed
-- `src/lib/reportQueries.ts` — normalize `activity_type` key in `groupEntriesByActivityType`
-- `src/components/reports/ActivityBreakdownChart.tsx` — widen YAxis, clean display names
+### Impact
+All completion rates, actual hours, and activity breakdowns across Dashboard and Reports will only reflect approved entries. Pending/submitted entries will still show in pending counts but won't inflate progress metrics.
+
+### Files changed
+- `src/components/dashboard/EnhancedCompletionCard.tsx`
+- `src/pages/Dashboard.tsx`
+- `src/lib/reportQueries.ts`
 
