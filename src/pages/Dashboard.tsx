@@ -239,7 +239,7 @@ export default function Dashboard() {
 
       if (entries) {
         const todayTotal = entries
-          .filter((e) => e.status === "approved" || e.status === "submitted")
+          .filter((e) => e.status === "approved")
           .reduce((sum, e) => sum + getEntryDuration(e), 0);
 
         setStats((prev) => ({
@@ -278,7 +278,7 @@ export default function Dashboard() {
 
       if (weekEntries) {
         const weeklyActualMinutes = weekEntries
-          .filter((e) => e.status === "approved" || e.status === "submitted")
+          .filter((e) => e.status === "approved")
           .reduce((sum, e) => sum + getEntryDuration(e), 0);
 
         const weeklyCompletionRate =
@@ -449,11 +449,14 @@ export default function Dashboard() {
     const weekEntries = await fetchAllRows(
       supabase
         .from("timesheet_entries")
-        .select("id, start_time, end_time, user_id, activity_type")
+        .select("id, start_time, end_time, user_id, activity_type, status")
         .in("user_id", activeTeamUserIds.length > 0 ? activeTeamUserIds : ["no-id"])
         .gte("entry_date", weekStart)
         .lte("entry_date", weekEnd)
     );
+
+    // Filter to only approved entries for metrics
+    const approvedWeekEntries = weekEntries.filter((e: any) => e.status === "approved");
 
     // Fetch today's leaves for active team members
     const { data: todayLeavesRaw } = await supabase
@@ -471,15 +474,15 @@ export default function Dashboard() {
 
     const leaveProfileMap = new Map(leaveProfiles?.map((p) => [p.id, p.full_name]) || []);
 
-    // Calculate weekly hours using start_time/end_time
-    const totalWeeklyMinutes = weekEntries.reduce((sum, e) => sum + getEntryDuration(e), 0);
+    // Calculate weekly hours using only approved entries
+    const totalWeeklyMinutes = approvedWeekEntries.reduce((sum: number, e: any) => sum + getEntryDuration(e), 0);
     const teamCount = activeTeamUserIds.length;
     const expectedMinutes = teamCount * hodWorkingDaysThisWeek * 480; // working days * 8 hours per team member
     const completionRate = expectedMinutes > 0 ? (totalWeeklyMinutes / expectedMinutes) * 100 : 0;
 
-    // Activity breakdown
+    // Activity breakdown (approved only)
     const activityMap = new Map();
-    weekEntries.forEach((entry) => {
+    approvedWeekEntries.forEach((entry: any) => {
       const type = entry.activity_type;
       if (!type) return;
       if (!activityMap.has(type)) {
@@ -512,7 +515,7 @@ export default function Dashboard() {
       });
     });
 
-    weekEntries.forEach((entry) => {
+    approvedWeekEntries.forEach((entry: any) => {
       const userId = entry.user_id;
       if (memberStatsMap.has(userId)) {
         const current = memberStatsMap.get(userId);
@@ -657,21 +660,24 @@ export default function Dashboard() {
     const weekEntries = await fetchAllRows(
       supabase
         .from("timesheet_entries")
-        .select("id, start_time, end_time, user_id, activity_type")
+        .select("id, start_time, end_time, user_id, activity_type, status")
         .gte("entry_date", weekStart)
         .lte("entry_date", weekEnd)
     );
 
-    // Calculate weekly hours and activity breakdown
-    const totalWeeklyMinutes = weekEntries.reduce((sum, e) => sum + getEntryDuration(e), 0);
+    // Filter to only approved entries for metrics
+    const approvedWeekEntries = weekEntries.filter((e: any) => e.status === "approved");
+
+    // Calculate weekly hours and activity breakdown (approved only)
+    const totalWeeklyMinutes = approvedWeekEntries.reduce((sum: number, e: any) => sum + getEntryDuration(e), 0);
     const expectedMinutes = (users?.length || 0) * 5 * 480; // 5 days * 8 hours
     const completionRate = expectedMinutes > 0 ? (totalWeeklyMinutes / expectedMinutes) * 100 : 0;
 
-    // Activity breakdown
+    // Activity breakdown (approved only)
     const activityMap = new Map();
-    weekEntries.forEach((entry) => {
+    approvedWeekEntries.forEach((entry: any) => {
       const type = entry.activity_type;
-      if (!type) return; // Skip entries without activity type
+      if (!type) return;
       if (!activityMap.has(type)) {
         activityMap.set(type, { minutes: 0, count: 0 });
       }
@@ -690,9 +696,9 @@ export default function Dashboard() {
       count: data.count,
     }));
 
-    // Vertical performance - get vertical from user_roles mapping
+    // Vertical performance - get vertical from user_roles mapping (approved only)
     const vertMap = new Map();
-    weekEntries.forEach((entry) => {
+    approvedWeekEntries.forEach((entry: any) => {
       const vertId = userVertMap.get(entry.user_id);
       if (!vertId) return; // Skip if user has no vertical
       const vertName = vertNameMap.get(vertId) || "Unknown";

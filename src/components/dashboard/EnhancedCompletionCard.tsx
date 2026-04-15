@@ -83,7 +83,7 @@ export function EnhancedCompletionCard({ userId }: EnhancedCompletionCardProps) 
     const holidayDates = new Set(holidaysRes.data?.map(h => h.holiday_date) || []);
 
     const actualMinutes = entries
-      ?.filter((e) => e.status === "approved" || e.status === "submitted")
+      ?.filter((e) => e.status === "approved")
       .reduce((sum, e) => sum + calculateDurationMinutes(e.start_time, e.end_time), 0) || 0;
 
     // Build leave map and compute total leave weight

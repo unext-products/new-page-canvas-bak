@@ -283,7 +283,8 @@ export async function fetchFacultyReport(
   // Join vertical names for display (e.g., "Banking, Mathematics")
   const verticalNames = verticals?.map(v => v.name).join(", ") || "N/A";
 
-  const totalMinutes = entries?.reduce((sum, e) => sum + getEntryDuration(e), 0) || 0;
+  const approvedEntries = entries?.filter((e: any) => e.status === "approved") || [];
+  const totalMinutes = approvedEntries.reduce((sum, e) => sum + getEntryDuration(e), 0);
   const totalHours = totalMinutes / 60;
   
   // Cap period end at deactivated_at for inactive users
@@ -540,7 +541,8 @@ export async function fetchVerticalReport(
     userVerticalNameMap.set(uv.user_id, existing ? `${existing}, ${vName}` : vName);
   });
 
-  const totalMinutes = entries?.reduce((sum, e) => sum + getEntryDuration(e), 0) || 0;
+  const approvedEntries = entries?.filter((e: any) => e.status === "approved") || [];
+  const totalMinutes = approvedEntries.reduce((sum, e) => sum + getEntryDuration(e), 0);
   const totalHours = totalMinutes / 60;
 
   // Fetch org holidays once for all faculty
@@ -591,7 +593,7 @@ export async function fetchVerticalReport(
   let totalExpectedHours = 0;
   const facultyBreakdown: FacultyBreakdown[] = uniqueFacultyIds.map(userId => {
     const userEntries = entries?.filter(e => e.user_id === userId) || [];
-    const userMinutes = userEntries.reduce((sum, e) => sum + getEntryDuration(e), 0);
+    const userMinutes = userEntries.filter((e: any) => e.status === "approved").reduce((sum, e) => sum + getEntryDuration(e), 0);
     
     // Cap period end at deactivation date for inactive users
     const profileData = profileDataMap.get(userId);
@@ -707,7 +709,8 @@ export async function fetchAllMembersReport(
     _facultyName: profileMap.get(e.user_id)?.full_name || "Unknown",
   }));
 
-  const totalMinutes = entries.reduce((sum, e) => sum + getEntryDuration(e), 0);
+  const approvedEntries = entries.filter((e: any) => e.status === "approved");
+  const totalMinutes = approvedEntries.reduce((sum, e) => sum + getEntryDuration(e), 0);
   const totalHours = totalMinutes / 60;
 
   // Calculate expected hours: sum across all unique users
@@ -840,10 +843,11 @@ export function calculateCompletionRate(actualMinutes: number, expectedMinutes: 
 }
 
 export function generateActivityBreakdown(entries: any[]): ActivityBreakdown[] {
-  if (entries.length === 0) return [];
+  const approvedEntries = entries.filter((e: any) => e.status === "approved");
+  if (approvedEntries.length === 0) return [];
 
-  const totalMinutes = entries.reduce((sum, e) => sum + getEntryDuration(e), 0);
-  const grouped = groupEntriesByActivityType(entries);
+  const totalMinutes = approvedEntries.reduce((sum, e) => sum + getEntryDuration(e), 0);
+  const grouped = groupEntriesByActivityType(approvedEntries);
 
   return Object.entries(grouped).map(([activityType, data]) => {
     const typedData = data as { count: number; totalHours: number };
