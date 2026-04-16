@@ -89,6 +89,7 @@ export default function Dashboard() {
   const prevEffectiveUserId = useRef<string | undefined>(undefined);
   
   const isSuperAdmin = isRole(userWithRole?.role, "super_admin");
+  const { settings: approvalSettings, loading: approvalSettingsLoading, getApprovableRoles } = useApprovalSettings();
 
   // Reset load guard on sign-out so re-login works
   useEffect(() => {
