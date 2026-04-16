@@ -1,37 +1,35 @@
 
 
-# Only Count Approved Entries in Completion Rate
+# Add CSV Download to Hierarchy Pages
 
-## Problem
-Completion rate currently counts both "submitted" and "approved" entries (and in some places, ALL entries regardless of status). The user expects completion rate to reflect only **approved** entries, since unapproved work shouldn't count toward progress.
-
-This affects L1 dashboard, HOD/Admin dashboard, and all Reports views.
+## Summary
+Add a "Download" button (matching the User Management page style) to Verticals, Programs, Batches, Terms, and Subjects pages. Each will export the currently displayed data as a CSV file.
 
 ## Changes
 
-### 1. `src/components/dashboard/EnhancedCompletionCard.tsx`
-- Line 86: Change filter from `status === "approved" || status === "submitted"` to only `status === "approved"`
+### All 5 pages follow the same pattern:
+1. Import `Download` from lucide-react and `format` from date-fns
+2. Add a `downloadCSV` function that converts the page's data array to CSV
+3. Add a `Download` button in the `PageHeader` `actions` prop, next to the existing "Add" button
 
-### 2. `src/pages/Dashboard.tsx`
-- **L1 today's hours** (line 242): Filter only `approved` entries
-- **L1 weekly completion** (line 281): Filter only `approved` entries  
-- **HOD weekly minutes** (line 475): Filter only `approved` entries (currently no status filter at all)
-- **HOD per-member minutes** (~line 500-530): Filter only `approved` entries
-- **Admin weekly minutes** (~line 666): Filter only `approved` entries
-- **Admin vertical performance** (~line 700): Filter only `approved` entries
+### CSV columns per page:
 
-### 3. `src/lib/reportQueries.ts`
-- **Member view totalMinutes** (line 286): Filter `entries` to only `approved` before summing
-- **Department view totalMinutes** (line 543): Same filter
-- **Per-faculty userMinutes** (line 594): Filter only `approved` entries
-- **All-members totalMinutes** (line 710): Same filter
-- **Activity breakdown** (line 845): Only count `approved` entries in breakdown
+- **Verticals** (`src/pages/Verticals.tsx`): Name, Code, Programs Count, Users Count
+- **Programs** (`src/pages/Programs.tsx`): Name, Code, Vertical, Users Count
+- **Batches** (`src/pages/Batches.tsx`): Name, Program, Vertical, Terms Count, Users Count
+- **Terms** (`src/pages/Terms.tsx`): Name, Batch, Program, Vertical, Subjects Count
+- **Subjects** (`src/pages/Subjects.tsx`): Name, Code, Term, Batch, Program, Vertical, Users Count
 
-### Impact
-All completion rates, actual hours, and activity breakdowns across Dashboard and Reports will only reflect approved entries. Pending/submitted entries will still show in pending counts but won't inflate progress metrics.
+### Implementation detail per page:
+- The download function creates CSV content from the existing state arrays (`verticals`, `programs`, `filteredBatches`, `filteredTerms`, `filteredSubjects`)
+- Uses the same CSV blob + anchor download pattern as Users page
+- File named `{entity}_{date}.csv` (e.g., `verticals_2026-04-16.csv`)
+- The Download button uses `variant="outline"` matching the Users page style
 
 ### Files changed
-- `src/components/dashboard/EnhancedCompletionCard.tsx`
-- `src/pages/Dashboard.tsx`
-- `src/lib/reportQueries.ts`
+- `src/pages/Verticals.tsx`
+- `src/pages/Programs.tsx`
+- `src/pages/Batches.tsx`
+- `src/pages/Terms.tsx`
+- `src/pages/Subjects.tsx`
 
