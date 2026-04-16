@@ -455,7 +455,7 @@ export default function Dashboard() {
         .from("user_roles")
         .select("user_id")
         .in("user_id", activeTeamUserIds.length > 0 ? activeTeamUserIds : ["no-id"])
-        .in("role", approvableDbRoles);
+        .in("role", approvableDbRoles as any);
       approvableTeamUserIds = approvableRoleUsers?.map(u => u.user_id) || [];
     } else {
       approvableTeamUserIds = [];
