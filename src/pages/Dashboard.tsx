@@ -101,12 +101,14 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!userWithRole || !effectiveUserId) return;
+    // Wait for approval settings before loading HOD/L2 dashboard
+    if (isRole(userWithRole.role, "l3", "l2", "manager", "program_manager") && approvalSettingsLoading) return;
     // Reload when effectiveUserId changes (impersonation start/stop)
     if (prevEffectiveUserId.current === effectiveUserId && hasLoadedRef.current) return;
     prevEffectiveUserId.current = effectiveUserId;
     hasLoadedRef.current = true;
     loadDashboardData();
-  }, [userWithRole, effectiveUserId]);
+  }, [userWithRole, effectiveUserId, approvalSettingsLoading]);
 
   const loadDashboardData = async () => {
     if (!userWithRole) return;
