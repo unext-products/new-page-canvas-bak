@@ -12,7 +12,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Calendar, Plus, Pencil, Trash2, BookOpen } from "lucide-react";
+import { Calendar, Plus, Pencil, Trash2, BookOpen, Download } from "lucide-react";
+import { format } from "date-fns";
 import { z } from "zod";
 import { VerticalSelect } from "@/components/VerticalSelect";
 import { ProgramSelect } from "@/components/ProgramSelect";
@@ -288,14 +289,31 @@ export default function Terms() {
           description={`Manage ${entityLabel("term", true).toLowerCase()} within ${entityLabel("batch", true).toLowerCase()}`}
           icon={Calendar}
           actions={
-            <Button onClick={() => {
-              setSelectedTerm(null);
-              setFormData({ name: "", batch_id: "", program_id: "", vertical_id: "" });
-              setDialogOpen(true);
-            }}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add {entityLabel("term")}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => {
+                const headers = ["Name", "Batch", "Program", "Vertical", "Subjects Count"];
+                const rows = filteredTerms.map(t => [t.name, t.batches?.name || "N/A", t.batches?.programs?.name || "N/A", t.batches?.programs?.verticals?.name || "N/A", t.subjectCount || 0]);
+                const csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+                const blob = new Blob([csv], { type: "text/csv" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `terms_${format(new Date(), "yyyy-MM-dd")}.csv`;
+                a.click();
+                URL.revokeObjectURL(url);
+              }}>
+                <Download className="mr-2 h-4 w-4" />
+                Download
+              </Button>
+              <Button onClick={() => {
+                setSelectedTerm(null);
+                setFormData({ name: "", batch_id: "", program_id: "", vertical_id: "" });
+                setDialogOpen(true);
+              }}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add {entityLabel("term")}
+              </Button>
+            </div>
           }
         />
 

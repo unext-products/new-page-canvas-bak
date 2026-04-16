@@ -12,7 +12,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { BookOpen, Plus, Pencil, Trash2, Users } from "lucide-react";
+import { BookOpen, Plus, Pencil, Trash2, Users, Download } from "lucide-react";
+import { format } from "date-fns";
 import { z } from "zod";
 import { VerticalSelect } from "@/components/VerticalSelect";
 import { ProgramSelect } from "@/components/ProgramSelect";
@@ -318,14 +319,31 @@ export default function Subjects() {
           description={`Manage ${entityLabel("subject", true).toLowerCase()} within ${entityLabel("term", true).toLowerCase()}`}
           icon={BookOpen}
           actions={
-            <Button onClick={() => {
-              setSelectedSubject(null);
-              setFormData({ name: "", code: "", term_id: "", batch_id: "", program_id: "", vertical_id: "" });
-              setDialogOpen(true);
-            }}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add {entityLabel("subject")}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => {
+                const headers = ["Name", "Code", "Term", "Batch", "Program", "Vertical", "Users Count"];
+                const rows = filteredSubjects.map(s => [s.name, s.code, s.terms?.name || "N/A", s.terms?.batches?.name || "N/A", s.terms?.batches?.programs?.name || "N/A", s.terms?.batches?.programs?.verticals?.name || "N/A", s.userCount || 0]);
+                const csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+                const blob = new Blob([csv], { type: "text/csv" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `subjects_${format(new Date(), "yyyy-MM-dd")}.csv`;
+                a.click();
+                URL.revokeObjectURL(url);
+              }}>
+                <Download className="mr-2 h-4 w-4" />
+                Download
+              </Button>
+              <Button onClick={() => {
+                setSelectedSubject(null);
+                setFormData({ name: "", code: "", term_id: "", batch_id: "", program_id: "", vertical_id: "" });
+                setDialogOpen(true);
+              }}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add {entityLabel("subject")}
+              </Button>
+            </div>
           }
         />
 
