@@ -440,16 +440,37 @@ export default function Dashboard() {
     // Use only active team member IDs for dashboard queries
     const activeTeamUserIds = teamProfiles?.map(p => p.id) || [];
 
-    // Fetch pending approvals - get entries from active users in the department (paginated)
+    // Filter team members to only those whose roles the current user can approve
+    const approvableRoles = getApprovableRoles(userWithRole?.role || "");
+    const roleAliases: Record<string, string[]> = {
+      l1: ["l1", "faculty"],
+      l2: ["l2", "program_manager"],
+      l3: ["l3", "hod"],
+    };
+    const approvableDbRoles = approvableRoles.flatMap(r => roleAliases[r] || [r]);
+    
+    let approvableTeamUserIds = activeTeamUserIds;
+    if (approvableDbRoles.length > 0) {
+      const { data: approvableRoleUsers } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .in("user_id", activeTeamUserIds.length > 0 ? activeTeamUserIds : ["no-id"])
+        .in("role", approvableDbRoles);
+      approvableTeamUserIds = approvableRoleUsers?.map(u => u.user_id) || [];
+    } else {
+      approvableTeamUserIds = [];
+    }
+
+    // Fetch pending approvals - only from users whose roles the current user can approve (paginated)
     const pendingEntries = await fetchAllRows(
       supabase
         .from("timesheet_entries")
         .select("id, start_time, end_time, user_id")
-        .in("user_id", activeTeamUserIds.length > 0 ? activeTeamUserIds : ["no-id"])
+        .in("user_id", approvableTeamUserIds.length > 0 ? approvableTeamUserIds : ["no-id"])
         .eq("status", "submitted")
     );
 
-    // Fetch this week's entries for team members (paginated)
+    // Fetch this week's entries for team members (paginated) — still uses all team for metrics
     const weekEntries = await fetchAllRows(
       supabase
         .from("timesheet_entries")
