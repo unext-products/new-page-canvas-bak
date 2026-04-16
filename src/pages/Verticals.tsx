@@ -11,7 +11,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, Users, Layers, FolderKanban, User } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, Layers, FolderKanban, User, Download } from "lucide-react";
+import { format } from "date-fns";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { toDisplayRole } from "@/lib/roleMapping";
@@ -346,10 +347,27 @@ export default function Verticals() {
           description={`Manage ${entityLabel("vertical", true).toLowerCase()} and view statistics`}
           icon={Layers}
           actions={
-            <Button onClick={() => setCreateDialogOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add {entityLabel("vertical")}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => {
+                const headers = ["Name", "Code", "Programs Count", "Users Count"];
+                const rows = verticals.map(v => [v.name, v.code, v.programCount || 0, v.userCount || 0]);
+                const csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+                const blob = new Blob([csv], { type: "text/csv" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `verticals_${format(new Date(), "yyyy-MM-dd")}.csv`;
+                a.click();
+                URL.revokeObjectURL(url);
+              }}>
+                <Download className="mr-2 h-4 w-4" />
+                Download
+              </Button>
+              <Button onClick={() => setCreateDialogOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add {entityLabel("vertical")}
+              </Button>
+            </div>
           }
         />
 

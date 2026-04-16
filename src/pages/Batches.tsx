@@ -12,7 +12,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Layers3, Plus, Pencil, Trash2, Users, CalendarDays } from "lucide-react";
+import { Layers3, Plus, Pencil, Trash2, Users, CalendarDays, Download } from "lucide-react";
+import { format } from "date-fns";
 import { z } from "zod";
 import { VerticalSelect } from "@/components/VerticalSelect";
 import { ProgramSelect } from "@/components/ProgramSelect";
@@ -279,14 +280,31 @@ export default function Batches() {
           description={`Manage ${entityLabel("batch", true).toLowerCase()} within ${entityLabel("program", true).toLowerCase()}`}
           icon={Layers3}
           actions={
-            <Button onClick={() => {
-              setSelectedBatch(null);
-              setFormData({ name: "", program_id: "", vertical_id: "" });
-              setDialogOpen(true);
-            }}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add {entityLabel("batch")}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => {
+                const headers = ["Name", "Program", "Vertical", "Terms Count", "Users Count"];
+                const rows = filteredBatches.map(b => [b.name, b.programs?.name || "N/A", b.programs?.verticals?.name || "N/A", b.termCount || 0, b.userCount || 0]);
+                const csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+                const blob = new Blob([csv], { type: "text/csv" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `batches_${format(new Date(), "yyyy-MM-dd")}.csv`;
+                a.click();
+                URL.revokeObjectURL(url);
+              }}>
+                <Download className="mr-2 h-4 w-4" />
+                Download
+              </Button>
+              <Button onClick={() => {
+                setSelectedBatch(null);
+                setFormData({ name: "", program_id: "", vertical_id: "" });
+                setDialogOpen(true);
+              }}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add {entityLabel("batch")}
+              </Button>
+            </div>
           }
         />
 
