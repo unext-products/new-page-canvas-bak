@@ -76,10 +76,10 @@ export default function Programs() {
   const [usersDialogOpen, setUsersDialogOpen] = useState(false);
   const [selectedProgram, setSelectedProgram] = useState<Program | null>(null);
   const [formData, setFormData] = useState({ name: "", code: "", vertical_id: "" });
-  const [filterVerticalId, setFilterVerticalId] = useState<string>("");
+  const [filterVerticalId, setFilterVerticalId] = useState<string>("all");
 
-  // Filter programs based on selected vertical
-  const filteredPrograms = filterVerticalId
+  // Filter programs based on selected vertical ("all" = no filter)
+  const filteredPrograms = filterVerticalId && filterVerticalId !== "all"
     ? programs.filter(p => p.vertical_id === filterVerticalId)
     : programs;
 
