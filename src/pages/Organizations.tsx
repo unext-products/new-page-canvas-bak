@@ -898,24 +898,29 @@ export default function Organizations() {
                   {programs.length} {entityLabel("program", true).toLowerCase()} in this organization
                 </DialogDescription>
               </DialogHeader>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Code</TableHead>
-                    <TableHead>{entityLabel("vertical")}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {programs.map((program) => (
-                    <TableRow key={program.id}>
-                      <TableCell>{program.name}</TableCell>
-                      <TableCell className="font-mono">{program.code}</TableCell>
-                      <TableCell>{program.verticalName}</TableCell>
+              <div className="max-h-96 overflow-y-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Code</TableHead>
+                      <TableHead>{entityLabel("vertical")}</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {programs.map((program) => (
+                      <TableRow key={program.id}>
+                        <TableCell>{program.name}</TableCell>
+                        <TableCell className="font-mono">{program.code}</TableCell>
+                        <TableCell>{program.verticalName}</TableCell>
+                      </TableRow>
+                    ))}
+                    {programs.length === 0 && (
+                      <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground py-4">No {entityLabel("program", true).toLowerCase()} found</TableCell></TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </DialogContent>
           </Dialog>
 
@@ -1191,24 +1196,29 @@ export default function Organizations() {
                 {programs.length} {entityLabel("program", true).toLowerCase()} in your organization
               </DialogDescription>
             </DialogHeader>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Code</TableHead>
-                  <TableHead>{entityLabel("vertical")}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {programs.map((program) => (
-                  <TableRow key={program.id}>
-                    <TableCell>{program.name}</TableCell>
-                    <TableCell className="font-mono">{program.code}</TableCell>
-                    <TableCell>{program.verticalName}</TableCell>
+            <div className="max-h-96 overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Code</TableHead>
+                    <TableHead>{entityLabel("vertical")}</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {programs.map((program) => (
+                    <TableRow key={program.id}>
+                      <TableCell>{program.name}</TableCell>
+                      <TableCell className="font-mono">{program.code}</TableCell>
+                      <TableCell>{program.verticalName}</TableCell>
+                    </TableRow>
+                  ))}
+                  {programs.length === 0 && (
+                    <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground py-4">No {entityLabel("program", true).toLowerCase()} found</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </DialogContent>
         </Dialog>
 
