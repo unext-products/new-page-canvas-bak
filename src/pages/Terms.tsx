@@ -54,25 +54,28 @@ export default function Terms() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedTerm, setSelectedTerm] = useState<Term | null>(null);
   const [formData, setFormData] = useState({ name: "", batch_id: "", program_id: "", vertical_id: "" });
-  const [filterVerticalId, setFilterVerticalId] = useState<string>("");
-  const [filterProgramId, setFilterProgramId] = useState<string>("");
-  const [filterBatchId, setFilterBatchId] = useState<string>("");
+  const [filterVerticalId, setFilterVerticalId] = useState<string>("all");
+  const [filterProgramId, setFilterProgramId] = useState<string>("all");
+  const [filterBatchId, setFilterBatchId] = useState<string>("all");
 
   // Store lookups for filtering
   const [batchProgramLookup, setBatchProgramLookup] = useState<Map<string, string>>(new Map());
   const [programVerticalLookup, setProgramVerticalLookup] = useState<Map<string, string>>(new Map());
 
+  // Helper: treat "all"/"" as no filter
+  const isActive = (v: string) => !!v && v !== "all";
+
   // Filter terms based on selected filters
   const filteredTerms = terms.filter(term => {
     // Filter by batch
-    if (filterBatchId && term.batch_id !== filterBatchId) return false;
+    if (isActive(filterBatchId) && term.batch_id !== filterBatchId) return false;
     // Filter by program (through batch)
-    if (filterProgramId && !filterBatchId) {
+    if (isActive(filterProgramId) && !isActive(filterBatchId)) {
       const batchProgramId = batchProgramLookup.get(term.batch_id);
       if (batchProgramId !== filterProgramId) return false;
     }
     // Filter by vertical (through batch -> program)
-    if (filterVerticalId && !filterProgramId && !filterBatchId) {
+    if (isActive(filterVerticalId) && !isActive(filterProgramId) && !isActive(filterBatchId)) {
       const batchProgramId = batchProgramLookup.get(term.batch_id);
       if (!batchProgramId) return false;
       const programVerticalId = programVerticalLookup.get(batchProgramId);
@@ -326,8 +329,8 @@ export default function Terms() {
                 value={filterVerticalId}
                 onValueChange={(value) => {
                   setFilterVerticalId(value);
-                  setFilterProgramId("");
-                  setFilterBatchId("");
+                  setFilterProgramId("all");
+                  setFilterBatchId("all");
                 }}
                 includeAll
               />
@@ -338,7 +341,7 @@ export default function Terms() {
                 value={filterProgramId}
                 onValueChange={(value) => {
                   setFilterProgramId(value);
-                  setFilterBatchId("");
+                  setFilterBatchId("all");
                 }}
                 verticalId={filterVerticalId}
                 includeAll
@@ -361,9 +364,9 @@ export default function Terms() {
             <CardContent className="py-0">
               <EmptyState
                 icon={Calendar}
-                title={`No ${entityLabel("term", true).toLowerCase()} ${filterVerticalId || filterProgramId || filterBatchId ? "matching filters" : "yet"}`}
-                description={filterVerticalId || filterProgramId || filterBatchId ? `No ${entityLabel("term", true).toLowerCase()} found for the selected filters` : `Create your first ${entityLabel("term").toLowerCase()} to get started`}
-                action={!filterVerticalId && !filterProgramId && !filterBatchId ? {
+                title={`No ${entityLabel("term", true).toLowerCase()} ${isActive(filterVerticalId) || isActive(filterProgramId) || isActive(filterBatchId) ? "matching filters" : "yet"}`}
+                description={isActive(filterVerticalId) || isActive(filterProgramId) || isActive(filterBatchId) ? `No ${entityLabel("term", true).toLowerCase()} found for the selected filters` : `Create your first ${entityLabel("term").toLowerCase()} to get started`}
+                action={!isActive(filterVerticalId) && !isActive(filterProgramId) && !isActive(filterBatchId) ? {
                   label: `Add ${entityLabel("term")}`,
                   onClick: () => setDialogOpen(true)
                 } : undefined}
