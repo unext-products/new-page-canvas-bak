@@ -540,6 +540,8 @@ export default function Organizations() {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     }
   };
+
+  const openUsersDialog = async (orgId?: string) => {
     const targetOrgId = orgId || organization?.id;
     if (!targetOrgId) return;
     
