@@ -33,7 +33,9 @@ export function ProgramSelect({
   const { entityLabel } = useLabels();
 
   // Use verticalId if provided, otherwise fall back to departmentId
-  const effectiveParentId = verticalId || departmentId;
+  // Treat "all" as no parent filter
+  const rawParentId = verticalId || departmentId;
+  const effectiveParentId = rawParentId === "all" ? undefined : rawParentId;
   const parentFieldName = verticalId ? "vertical_id" : "department_id";
 
   useEffect(() => {

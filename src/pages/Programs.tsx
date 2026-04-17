@@ -76,10 +76,10 @@ export default function Programs() {
   const [usersDialogOpen, setUsersDialogOpen] = useState(false);
   const [selectedProgram, setSelectedProgram] = useState<Program | null>(null);
   const [formData, setFormData] = useState({ name: "", code: "", vertical_id: "" });
-  const [filterVerticalId, setFilterVerticalId] = useState<string>("");
+  const [filterVerticalId, setFilterVerticalId] = useState<string>("all");
 
-  // Filter programs based on selected vertical
-  const filteredPrograms = filterVerticalId
+  // Filter programs based on selected vertical ("all" = no filter)
+  const filteredPrograms = filterVerticalId && filterVerticalId !== "all"
     ? programs.filter(p => p.vertical_id === filterVerticalId)
     : programs;
 
@@ -342,9 +342,9 @@ export default function Programs() {
             <CardContent className="py-0">
               <EmptyState
                 icon={FolderKanban}
-                title={`No ${entityLabel("program", true).toLowerCase()} ${filterVerticalId ? "in this " + entityLabel("vertical").toLowerCase() : "yet"}`}
-                description={filterVerticalId ? `No ${entityLabel("program", true).toLowerCase()} found for the selected ${entityLabel("vertical").toLowerCase()}` : `Create your first ${entityLabel("program").toLowerCase()} to get started`}
-                action={!filterVerticalId ? {
+                title={`No ${entityLabel("program", true).toLowerCase()} ${filterVerticalId && filterVerticalId !== "all" ? "in this " + entityLabel("vertical").toLowerCase() : "yet"}`}
+                description={filterVerticalId && filterVerticalId !== "all" ? `No ${entityLabel("program", true).toLowerCase()} found for the selected ${entityLabel("vertical").toLowerCase()}` : `Create your first ${entityLabel("program").toLowerCase()} to get started`}
+                action={!(filterVerticalId && filterVerticalId !== "all") ? {
                   label: `Add ${entityLabel("program")}`,
                   onClick: () => setDialogOpen(true)
                 } : undefined}

@@ -51,18 +51,21 @@ export default function Batches() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedBatch, setSelectedBatch] = useState<Batch | null>(null);
   const [formData, setFormData] = useState({ name: "", program_id: "", vertical_id: "" });
-  const [filterVerticalId, setFilterVerticalId] = useState<string>("");
-  const [filterProgramId, setFilterProgramId] = useState<string>("");
+  const [filterVerticalId, setFilterVerticalId] = useState<string>("all");
+  const [filterProgramId, setFilterProgramId] = useState<string>("all");
 
   // Store programs lookup for vertical filtering
   const [programsLookup, setProgramsLookup] = useState<Map<string, string>>(new Map());
 
+  // Helper: treat "all"/"" as no filter
+  const isActive = (v: string) => !!v && v !== "all";
+
   // Filter batches based on selected filters
   const filteredBatches = batches.filter(batch => {
     // Filter by program
-    if (filterProgramId && batch.program_id !== filterProgramId) return false;
+    if (isActive(filterProgramId) && batch.program_id !== filterProgramId) return false;
     // Filter by vertical (through program)
-    if (filterVerticalId && !filterProgramId) {
+    if (isActive(filterVerticalId) && !isActive(filterProgramId)) {
       const programVerticalId = programsLookup.get(batch.program_id);
       if (programVerticalId !== filterVerticalId) return false;
     }
@@ -317,7 +320,7 @@ export default function Batches() {
                 value={filterVerticalId}
                 onValueChange={(value) => {
                   setFilterVerticalId(value);
-                  setFilterProgramId("");
+                  setFilterProgramId("all");
                 }}
                 includeAll
               />
@@ -339,9 +342,9 @@ export default function Batches() {
             <CardContent className="py-0">
               <EmptyState
                 icon={Layers3}
-                title={`No ${entityLabel("batch", true).toLowerCase()} ${filterVerticalId || filterProgramId ? "matching filters" : "yet"}`}
-                description={filterVerticalId || filterProgramId ? `No ${entityLabel("batch", true).toLowerCase()} found for the selected filters` : `Create your first ${entityLabel("batch").toLowerCase()} to get started`}
-                action={!filterVerticalId && !filterProgramId ? {
+                title={`No ${entityLabel("batch", true).toLowerCase()} ${isActive(filterVerticalId) || isActive(filterProgramId) ? "matching filters" : "yet"}`}
+                description={isActive(filterVerticalId) || isActive(filterProgramId) ? `No ${entityLabel("batch", true).toLowerCase()} found for the selected filters` : `Create your first ${entityLabel("batch").toLowerCase()} to get started`}
+                action={!isActive(filterVerticalId) && !isActive(filterProgramId) ? {
                   label: `Add ${entityLabel("batch")}`,
                   onClick: () => setDialogOpen(true)
                 } : undefined}
