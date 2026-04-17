@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Building2, Pencil, Layers, FolderKanban, Users, User, Plus, Eye } from "lucide-react";
+import { Building2, Pencil, Layers, FolderKanban, Users, User, Plus, Eye, GraduationCap, CalendarDays, BookOpen } from "lucide-react";
 import { z } from "zod";
 import { PageHeader } from "@/components/PageHeader";
 import { PageSkeleton } from "@/components/PageSkeleton";
@@ -31,6 +31,9 @@ interface Organization {
   created_at: string;
   verticalCount?: number;
   programCount?: number;
+  batchCount?: number;
+  termCount?: number;
+  subjectCount?: number;
   userCount?: number;
 }
 
@@ -47,6 +50,26 @@ interface ProgramInfo {
   name: string;
   code: string;
   verticalName: string;
+}
+
+interface BatchInfo {
+  id: string;
+  name: string;
+  programName: string;
+}
+
+interface TermInfo {
+  id: string;
+  name: string;
+  batchName: string;
+  programName: string;
+}
+
+interface SubjectInfo {
+  id: string;
+  name: string;
+  code: string;
+  termName: string;
 }
 
 interface UserInfo {
@@ -74,17 +97,26 @@ export default function Organizations() {
   const [formData, setFormData] = useState({ name: "", code: "" });
   const [verticalCount, setVerticalCount] = useState(0);
   const [programCount, setProgramCount] = useState(0);
+  const [batchCount, setBatchCount] = useState(0);
+  const [termCount, setTermCount] = useState(0);
+  const [subjectCount, setSubjectCount] = useState(0);
   const [userCount, setUserCount] = useState(0);
   
   // Interactive dialogs
   const [verticalsDialogOpen, setVerticalsDialogOpen] = useState(false);
   const [programsDialogOpen, setProgramsDialogOpen] = useState(false);
+  const [batchesDialogOpen, setBatchesDialogOpen] = useState(false);
+  const [termsDialogOpen, setTermsDialogOpen] = useState(false);
+  const [subjectsDialogOpen, setSubjectsDialogOpen] = useState(false);
   const [usersDialogOpen, setUsersDialogOpen] = useState(false);
   const [verticalUsersDialogOpen, setVerticalUsersDialogOpen] = useState(false);
   const [verticalProgramsDialogOpen, setVerticalProgramsDialogOpen] = useState(false);
   
   const [verticals, setVerticals] = useState<VerticalInfo[]>([]);
   const [programs, setPrograms] = useState<ProgramInfo[]>([]);
+  const [batches, setBatches] = useState<BatchInfo[]>([]);
+  const [terms, setTerms] = useState<TermInfo[]>([]);
+  const [subjects, setSubjects] = useState<SubjectInfo[]>([]);
   const [users, setUsers] = useState<UserInfo[]>([]);
   const [selectedVertical, setSelectedVertical] = useState<VerticalInfo | null>(null);
   const [verticalUsers, setVerticalUsers] = useState<UserInfo[]>([]);
@@ -205,19 +237,40 @@ export default function Organizations() {
         .eq("organization_id", roleData.organization_id);
       
       const vertIds = verts?.map(v => v.id) || [];
-      const { count: progCount } = await supabase
-        .from("programs")
-        .select("*", { count: "exact", head: true })
-        .in("vertical_id", vertIds.length > 0 ? vertIds : ['00000000-0000-0000-0000-000000000000']);
+      const safeVertIds = vertIds.length > 0 ? vertIds : ['00000000-0000-0000-0000-000000000000'];
 
-      const { count: usrCount } = await supabase
-        .from("user_roles")
-        .select("*", { count: "exact", head: true })
-        .eq("organization_id", roleData.organization_id);
+      const { data: progs } = await supabase
+        .from("programs")
+        .select("id")
+        .in("vertical_id", safeVertIds);
+      const progIds = progs?.map(p => p.id) || [];
+      const safeProgIds = progIds.length > 0 ? progIds : ['00000000-0000-0000-0000-000000000000'];
+
+      const { data: btchs } = await supabase
+        .from("batches")
+        .select("id")
+        .in("program_id", safeProgIds);
+      const batchIds = btchs?.map(b => b.id) || [];
+      const safeBatchIds = batchIds.length > 0 ? batchIds : ['00000000-0000-0000-0000-000000000000'];
+
+      const { data: trms } = await supabase
+        .from("terms")
+        .select("id")
+        .in("batch_id", safeBatchIds);
+      const termIds = trms?.map(t => t.id) || [];
+      const safeTermIds = termIds.length > 0 ? termIds : ['00000000-0000-0000-0000-000000000000'];
+
+      const [{ count: subjCount }, { count: usrCount }] = await Promise.all([
+        supabase.from("subjects").select("*", { count: "exact", head: true }).in("term_id", safeTermIds),
+        supabase.from("user_roles").select("*", { count: "exact", head: true }).eq("organization_id", roleData.organization_id),
+      ]);
 
       setOrganization(orgData);
       setVerticalCount(vertCount || 0);
-      setProgramCount(progCount || 0);
+      setProgramCount(progIds.length);
+      setBatchCount(batchIds.length);
+      setTermCount(termIds.length);
+      setSubjectCount(subjCount || 0);
       setUserCount(usrCount || 0);
     } catch (error: any) {
       toast({
@@ -400,6 +453,91 @@ export default function Organizations() {
         description: error.message,
         variant: "destructive",
       });
+    }
+  };
+
+  const getOrgProgramIds = async (targetOrgId: string): Promise<string[]> => {
+    const { data: verts } = await supabase
+      .from("verticals").select("id").eq("organization_id", targetOrgId);
+    const vertIds = verts?.map(v => v.id) || [];
+    if (vertIds.length === 0) return [];
+    const { data: progs } = await supabase
+      .from("programs").select("id").in("vertical_id", vertIds);
+    return progs?.map(p => p.id) || [];
+  };
+
+  const openBatchesDialog = async (orgId?: string) => {
+    const targetOrgId = orgId || organization?.id;
+    if (!targetOrgId) return;
+    try {
+      const progIds = await getOrgProgramIds(targetOrgId);
+      if (progIds.length === 0) { setBatches([]); setBatchesDialogOpen(true); return; }
+      const { data } = await supabase
+        .from("batches")
+        .select("id, name, programs(name)")
+        .in("program_id", progIds)
+        .order("name");
+      setBatches((data || []).map((b: any) => ({
+        id: b.id, name: b.name, programName: b.programs?.name || "N/A",
+      })));
+      setBatchesDialogOpen(true);
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const openTermsDialog = async (orgId?: string) => {
+    const targetOrgId = orgId || organization?.id;
+    if (!targetOrgId) return;
+    try {
+      const progIds = await getOrgProgramIds(targetOrgId);
+      if (progIds.length === 0) { setTerms([]); setTermsDialogOpen(true); return; }
+      const { data: btchs } = await supabase
+        .from("batches").select("id").in("program_id", progIds);
+      const batchIds = btchs?.map(b => b.id) || [];
+      if (batchIds.length === 0) { setTerms([]); setTermsDialogOpen(true); return; }
+      const { data } = await supabase
+        .from("terms")
+        .select("id, name, batches(name, programs(name))")
+        .in("batch_id", batchIds)
+        .order("name");
+      setTerms((data || []).map((t: any) => ({
+        id: t.id,
+        name: t.name,
+        batchName: t.batches?.name || "N/A",
+        programName: t.batches?.programs?.name || "N/A",
+      })));
+      setTermsDialogOpen(true);
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const openSubjectsDialog = async (orgId?: string) => {
+    const targetOrgId = orgId || organization?.id;
+    if (!targetOrgId) return;
+    try {
+      const progIds = await getOrgProgramIds(targetOrgId);
+      if (progIds.length === 0) { setSubjects([]); setSubjectsDialogOpen(true); return; }
+      const { data: btchs } = await supabase
+        .from("batches").select("id").in("program_id", progIds);
+      const batchIds = btchs?.map(b => b.id) || [];
+      if (batchIds.length === 0) { setSubjects([]); setSubjectsDialogOpen(true); return; }
+      const { data: trms } = await supabase
+        .from("terms").select("id").in("batch_id", batchIds);
+      const termIds = trms?.map(t => t.id) || [];
+      if (termIds.length === 0) { setSubjects([]); setSubjectsDialogOpen(true); return; }
+      const { data } = await supabase
+        .from("subjects")
+        .select("id, name, code, terms(name)")
+        .in("term_id", termIds)
+        .order("name");
+      setSubjects((data || []).map((s: any) => ({
+        id: s.id, name: s.name, code: s.code, termName: s.terms?.name || "N/A",
+      })));
+      setSubjectsDialogOpen(true);
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     }
   };
 
@@ -909,7 +1047,7 @@ export default function Organizations() {
 
         <Card>
           <CardContent className="pt-6">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
               <div
                 className="text-center p-4 bg-muted rounded-lg cursor-pointer hover:bg-muted/80 transition-colors"
                 onClick={() => openVerticalsDialog()}
@@ -925,6 +1063,30 @@ export default function Organizations() {
                 <FolderKanban className="h-6 w-6 mx-auto mb-2 text-primary" />
                 <p className="text-2xl font-bold">{programCount}</p>
                 <p className="text-sm text-muted-foreground">{entityLabel("program", true)}</p>
+              </div>
+              <div
+                className="text-center p-4 bg-muted rounded-lg cursor-pointer hover:bg-muted/80 transition-colors"
+                onClick={() => openBatchesDialog()}
+              >
+                <GraduationCap className="h-6 w-6 mx-auto mb-2 text-primary" />
+                <p className="text-2xl font-bold">{batchCount}</p>
+                <p className="text-sm text-muted-foreground">{entityLabel("batch", true)}</p>
+              </div>
+              <div
+                className="text-center p-4 bg-muted rounded-lg cursor-pointer hover:bg-muted/80 transition-colors"
+                onClick={() => openTermsDialog()}
+              >
+                <CalendarDays className="h-6 w-6 mx-auto mb-2 text-primary" />
+                <p className="text-2xl font-bold">{termCount}</p>
+                <p className="text-sm text-muted-foreground">{entityLabel("term", true)}</p>
+              </div>
+              <div
+                className="text-center p-4 bg-muted rounded-lg cursor-pointer hover:bg-muted/80 transition-colors"
+                onClick={() => openSubjectsDialog()}
+              >
+                <BookOpen className="h-6 w-6 mx-auto mb-2 text-primary" />
+                <p className="text-2xl font-bold">{subjectCount}</p>
+                <p className="text-sm text-muted-foreground">{entityLabel("subject", true)}</p>
               </div>
               <div
                 className="text-center p-4 bg-muted rounded-lg cursor-pointer hover:bg-muted/80 transition-colors"
@@ -1047,6 +1209,109 @@ export default function Organizations() {
                 ))}
               </TableBody>
             </Table>
+          </DialogContent>
+        </Dialog>
+
+        {/* Batches Dialog */}
+        <Dialog open={batchesDialogOpen} onOpenChange={setBatchesDialogOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>All {entityLabel("batch", true)}</DialogTitle>
+              <DialogDescription>
+                {batches.length} {entityLabel("batch", true).toLowerCase()} in your organization
+              </DialogDescription>
+            </DialogHeader>
+            <div className="max-h-96 overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>{entityLabel("program")}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {batches.map((b) => (
+                    <TableRow key={b.id}>
+                      <TableCell>{b.name}</TableCell>
+                      <TableCell>{b.programName}</TableCell>
+                    </TableRow>
+                  ))}
+                  {batches.length === 0 && (
+                    <TableRow><TableCell colSpan={2} className="text-center text-muted-foreground py-4">No {entityLabel("batch", true).toLowerCase()} found</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Terms Dialog */}
+        <Dialog open={termsDialogOpen} onOpenChange={setTermsDialogOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>All {entityLabel("term", true)}</DialogTitle>
+              <DialogDescription>
+                {terms.length} {entityLabel("term", true).toLowerCase()} in your organization
+              </DialogDescription>
+            </DialogHeader>
+            <div className="max-h-96 overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>{entityLabel("batch")}</TableHead>
+                    <TableHead>{entityLabel("program")}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {terms.map((t) => (
+                    <TableRow key={t.id}>
+                      <TableCell>{t.name}</TableCell>
+                      <TableCell>{t.batchName}</TableCell>
+                      <TableCell>{t.programName}</TableCell>
+                    </TableRow>
+                  ))}
+                  {terms.length === 0 && (
+                    <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground py-4">No {entityLabel("term", true).toLowerCase()} found</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Subjects Dialog */}
+        <Dialog open={subjectsDialogOpen} onOpenChange={setSubjectsDialogOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>All {entityLabel("subject", true)}</DialogTitle>
+              <DialogDescription>
+                {subjects.length} {entityLabel("subject", true).toLowerCase()} in your organization
+              </DialogDescription>
+            </DialogHeader>
+            <div className="max-h-96 overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Code</TableHead>
+                    <TableHead>{entityLabel("term")}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {subjects.map((s) => (
+                    <TableRow key={s.id}>
+                      <TableCell>{s.name}</TableCell>
+                      <TableCell className="font-mono">{s.code}</TableCell>
+                      <TableCell>{s.termName}</TableCell>
+                    </TableRow>
+                  ))}
+                  {subjects.length === 0 && (
+                    <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground py-4">No {entityLabel("subject", true).toLowerCase()} found</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </DialogContent>
         </Dialog>
 
