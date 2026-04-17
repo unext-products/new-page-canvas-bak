@@ -237,19 +237,40 @@ export default function Organizations() {
         .eq("organization_id", roleData.organization_id);
       
       const vertIds = verts?.map(v => v.id) || [];
-      const { count: progCount } = await supabase
-        .from("programs")
-        .select("*", { count: "exact", head: true })
-        .in("vertical_id", vertIds.length > 0 ? vertIds : ['00000000-0000-0000-0000-000000000000']);
+      const safeVertIds = vertIds.length > 0 ? vertIds : ['00000000-0000-0000-0000-000000000000'];
 
-      const { count: usrCount } = await supabase
-        .from("user_roles")
-        .select("*", { count: "exact", head: true })
-        .eq("organization_id", roleData.organization_id);
+      const { data: progs } = await supabase
+        .from("programs")
+        .select("id")
+        .in("vertical_id", safeVertIds);
+      const progIds = progs?.map(p => p.id) || [];
+      const safeProgIds = progIds.length > 0 ? progIds : ['00000000-0000-0000-0000-000000000000'];
+
+      const { data: btchs } = await supabase
+        .from("batches")
+        .select("id")
+        .in("program_id", safeProgIds);
+      const batchIds = btchs?.map(b => b.id) || [];
+      const safeBatchIds = batchIds.length > 0 ? batchIds : ['00000000-0000-0000-0000-000000000000'];
+
+      const { data: trms } = await supabase
+        .from("terms")
+        .select("id")
+        .in("batch_id", safeBatchIds);
+      const termIds = trms?.map(t => t.id) || [];
+      const safeTermIds = termIds.length > 0 ? termIds : ['00000000-0000-0000-0000-000000000000'];
+
+      const [{ count: subjCount }, { count: usrCount }] = await Promise.all([
+        supabase.from("subjects").select("*", { count: "exact", head: true }).in("term_id", safeTermIds),
+        supabase.from("user_roles").select("*", { count: "exact", head: true }).eq("organization_id", roleData.organization_id),
+      ]);
 
       setOrganization(orgData);
       setVerticalCount(vertCount || 0);
-      setProgramCount(progCount || 0);
+      setProgramCount(progIds.length);
+      setBatchCount(batchIds.length);
+      setTermCount(termIds.length);
+      setSubjectCount(subjCount || 0);
       setUserCount(usrCount || 0);
     } catch (error: any) {
       toast({
