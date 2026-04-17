@@ -60,34 +60,37 @@ export default function Subjects() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
   const [formData, setFormData] = useState({ name: "", code: "", term_id: "", batch_id: "", program_id: "", vertical_id: "" });
-  const [filterVerticalId, setFilterVerticalId] = useState<string>("");
-  const [filterProgramId, setFilterProgramId] = useState<string>("");
-  const [filterBatchId, setFilterBatchId] = useState<string>("");
-  const [filterTermId, setFilterTermId] = useState<string>("");
+  const [filterVerticalId, setFilterVerticalId] = useState<string>("all");
+  const [filterProgramId, setFilterProgramId] = useState<string>("all");
+  const [filterBatchId, setFilterBatchId] = useState<string>("all");
+  const [filterTermId, setFilterTermId] = useState<string>("all");
 
   // Store lookups for filtering
   const [termBatchLookup, setTermBatchLookup] = useState<Map<string, string>>(new Map());
   const [batchProgramLookup, setBatchProgramLookup] = useState<Map<string, string>>(new Map());
   const [programVerticalLookup, setProgramVerticalLookup] = useState<Map<string, string>>(new Map());
 
+  // Helper: treat "all"/"" as no filter
+  const isActive = (v: string) => !!v && v !== "all";
+
   // Filter subjects based on selected filters
   const filteredSubjects = subjects.filter(subject => {
     // Filter by term
-    if (filterTermId && subject.term_id !== filterTermId) return false;
+    if (isActive(filterTermId) && subject.term_id !== filterTermId) return false;
     // Filter by batch (through term)
-    if (filterBatchId && !filterTermId) {
+    if (isActive(filterBatchId) && !isActive(filterTermId)) {
       const termBatchId = termBatchLookup.get(subject.term_id);
       if (termBatchId !== filterBatchId) return false;
     }
     // Filter by program (through term -> batch)
-    if (filterProgramId && !filterBatchId && !filterTermId) {
+    if (isActive(filterProgramId) && !isActive(filterBatchId) && !isActive(filterTermId)) {
       const termBatchId = termBatchLookup.get(subject.term_id);
       if (!termBatchId) return false;
       const batchProgramId = batchProgramLookup.get(termBatchId);
       if (batchProgramId !== filterProgramId) return false;
     }
     // Filter by vertical (through term -> batch -> program)
-    if (filterVerticalId && !filterProgramId && !filterBatchId && !filterTermId) {
+    if (isActive(filterVerticalId) && !isActive(filterProgramId) && !isActive(filterBatchId) && !isActive(filterTermId)) {
       const termBatchId = termBatchLookup.get(subject.term_id);
       if (!termBatchId) return false;
       const batchProgramId = batchProgramLookup.get(termBatchId);
@@ -356,9 +359,9 @@ export default function Subjects() {
                 value={filterVerticalId}
                 onValueChange={(value) => {
                   setFilterVerticalId(value);
-                  setFilterProgramId("");
-                  setFilterBatchId("");
-                  setFilterTermId("");
+                  setFilterProgramId("all");
+                  setFilterBatchId("all");
+                  setFilterTermId("all");
                 }}
                 includeAll
               />
@@ -369,8 +372,8 @@ export default function Subjects() {
                 value={filterProgramId}
                 onValueChange={(value) => {
                   setFilterProgramId(value);
-                  setFilterBatchId("");
-                  setFilterTermId("");
+                  setFilterBatchId("all");
+                  setFilterTermId("all");
                 }}
                 verticalId={filterVerticalId}
                 includeAll
@@ -382,7 +385,7 @@ export default function Subjects() {
                 value={filterBatchId}
                 onValueChange={(value) => {
                   setFilterBatchId(value);
-                  setFilterTermId("");
+                  setFilterTermId("all");
                 }}
                 programId={filterProgramId}
                 includeAll
@@ -405,9 +408,9 @@ export default function Subjects() {
             <CardContent className="py-0">
               <EmptyState
                 icon={BookOpen}
-                title={`No ${entityLabel("subject", true).toLowerCase()} ${filterVerticalId || filterProgramId || filterBatchId || filterTermId ? "matching filters" : "yet"}`}
-                description={filterVerticalId || filterProgramId || filterBatchId || filterTermId ? `No ${entityLabel("subject", true).toLowerCase()} found for the selected filters` : `Create your first ${entityLabel("subject").toLowerCase()} to get started`}
-                action={!filterVerticalId && !filterProgramId && !filterBatchId && !filterTermId ? {
+                title={`No ${entityLabel("subject", true).toLowerCase()} ${isActive(filterVerticalId) || isActive(filterProgramId) || isActive(filterBatchId) || isActive(filterTermId) ? "matching filters" : "yet"}`}
+                description={isActive(filterVerticalId) || isActive(filterProgramId) || isActive(filterBatchId) || isActive(filterTermId) ? `No ${entityLabel("subject", true).toLowerCase()} found for the selected filters` : `Create your first ${entityLabel("subject").toLowerCase()} to get started`}
+                action={!isActive(filterVerticalId) && !isActive(filterProgramId) && !isActive(filterBatchId) && !isActive(filterTermId) ? {
                   label: `Add ${entityLabel("subject")}`,
                   onClick: () => setDialogOpen(true)
                 } : undefined}
