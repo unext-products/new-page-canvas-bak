@@ -1047,7 +1047,7 @@ export default function Organizations() {
 
         <Card>
           <CardContent className="pt-6">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
               <div
                 className="text-center p-4 bg-muted rounded-lg cursor-pointer hover:bg-muted/80 transition-colors"
                 onClick={() => openVerticalsDialog()}
@@ -1063,6 +1063,30 @@ export default function Organizations() {
                 <FolderKanban className="h-6 w-6 mx-auto mb-2 text-primary" />
                 <p className="text-2xl font-bold">{programCount}</p>
                 <p className="text-sm text-muted-foreground">{entityLabel("program", true)}</p>
+              </div>
+              <div
+                className="text-center p-4 bg-muted rounded-lg cursor-pointer hover:bg-muted/80 transition-colors"
+                onClick={() => openBatchesDialog()}
+              >
+                <GraduationCap className="h-6 w-6 mx-auto mb-2 text-primary" />
+                <p className="text-2xl font-bold">{batchCount}</p>
+                <p className="text-sm text-muted-foreground">{entityLabel("batch", true)}</p>
+              </div>
+              <div
+                className="text-center p-4 bg-muted rounded-lg cursor-pointer hover:bg-muted/80 transition-colors"
+                onClick={() => openTermsDialog()}
+              >
+                <CalendarDays className="h-6 w-6 mx-auto mb-2 text-primary" />
+                <p className="text-2xl font-bold">{termCount}</p>
+                <p className="text-sm text-muted-foreground">{entityLabel("term", true)}</p>
+              </div>
+              <div
+                className="text-center p-4 bg-muted rounded-lg cursor-pointer hover:bg-muted/80 transition-colors"
+                onClick={() => openSubjectsDialog()}
+              >
+                <BookOpen className="h-6 w-6 mx-auto mb-2 text-primary" />
+                <p className="text-2xl font-bold">{subjectCount}</p>
+                <p className="text-sm text-muted-foreground">{entityLabel("subject", true)}</p>
               </div>
               <div
                 className="text-center p-4 bg-muted rounded-lg cursor-pointer hover:bg-muted/80 transition-colors"
