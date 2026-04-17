@@ -131,7 +131,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Skip re-resolving when we already have healthy data for the same user.
           // This prevents data reloads on tab focus (SIGNED_IN/TOKEN_REFRESHED fire
           // when the tab regains focus and Supabase revalidates the session).
-          const sameUser = userWithRoleRef.current?.id === currentSession.user.id;
+          const sameUser = userWithRoleRef.current?.user?.id === currentSession.user.id;
           const hasHealthyData = !!(userWithRoleRef.current?.role && userWithRoleRef.current?.profile);
           if ((event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN' || event === 'USER_UPDATED') && sameUser && hasHealthyData) {
             setLoading(false);
