@@ -95,8 +95,8 @@ export default function Settings() {
   // Determine number of tabs based on role
   const getTabCount = () => {
     if (isOrgAdmin) return 6; // Timesheet, Categories, Workflow, Organization, Labels, Account
-    if (isHod || isL2) return 3; // Timesheet, Categories, Account
-    return 3;
+    if (isHod || isL2) return 2; // Timesheet, Account
+    return 2;
   };
 
   return (
