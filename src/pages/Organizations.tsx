@@ -1212,6 +1212,109 @@ export default function Organizations() {
           </DialogContent>
         </Dialog>
 
+        {/* Batches Dialog */}
+        <Dialog open={batchesDialogOpen} onOpenChange={setBatchesDialogOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>All {entityLabel("batch", true)}</DialogTitle>
+              <DialogDescription>
+                {batches.length} {entityLabel("batch", true).toLowerCase()} in your organization
+              </DialogDescription>
+            </DialogHeader>
+            <div className="max-h-96 overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>{entityLabel("program")}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {batches.map((b) => (
+                    <TableRow key={b.id}>
+                      <TableCell>{b.name}</TableCell>
+                      <TableCell>{b.programName}</TableCell>
+                    </TableRow>
+                  ))}
+                  {batches.length === 0 && (
+                    <TableRow><TableCell colSpan={2} className="text-center text-muted-foreground py-4">No {entityLabel("batch", true).toLowerCase()} found</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Terms Dialog */}
+        <Dialog open={termsDialogOpen} onOpenChange={setTermsDialogOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>All {entityLabel("term", true)}</DialogTitle>
+              <DialogDescription>
+                {terms.length} {entityLabel("term", true).toLowerCase()} in your organization
+              </DialogDescription>
+            </DialogHeader>
+            <div className="max-h-96 overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>{entityLabel("batch")}</TableHead>
+                    <TableHead>{entityLabel("program")}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {terms.map((t) => (
+                    <TableRow key={t.id}>
+                      <TableCell>{t.name}</TableCell>
+                      <TableCell>{t.batchName}</TableCell>
+                      <TableCell>{t.programName}</TableCell>
+                    </TableRow>
+                  ))}
+                  {terms.length === 0 && (
+                    <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground py-4">No {entityLabel("term", true).toLowerCase()} found</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Subjects Dialog */}
+        <Dialog open={subjectsDialogOpen} onOpenChange={setSubjectsDialogOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>All {entityLabel("subject", true)}</DialogTitle>
+              <DialogDescription>
+                {subjects.length} {entityLabel("subject", true).toLowerCase()} in your organization
+              </DialogDescription>
+            </DialogHeader>
+            <div className="max-h-96 overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Code</TableHead>
+                    <TableHead>{entityLabel("term")}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {subjects.map((s) => (
+                    <TableRow key={s.id}>
+                      <TableCell>{s.name}</TableCell>
+                      <TableCell className="font-mono">{s.code}</TableCell>
+                      <TableCell>{s.termName}</TableCell>
+                    </TableRow>
+                  ))}
+                  {subjects.length === 0 && (
+                    <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground py-4">No {entityLabel("subject", true).toLowerCase()} found</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         {/* Users Dialog */}
         <Dialog open={usersDialogOpen} onOpenChange={setUsersDialogOpen}>
           <DialogContent className="max-w-lg">
