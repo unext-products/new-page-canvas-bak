@@ -31,6 +31,9 @@ interface Organization {
   created_at: string;
   verticalCount?: number;
   programCount?: number;
+  batchCount?: number;
+  termCount?: number;
+  subjectCount?: number;
   userCount?: number;
 }
 
@@ -47,6 +50,26 @@ interface ProgramInfo {
   name: string;
   code: string;
   verticalName: string;
+}
+
+interface BatchInfo {
+  id: string;
+  name: string;
+  programName: string;
+}
+
+interface TermInfo {
+  id: string;
+  name: string;
+  batchName: string;
+  programName: string;
+}
+
+interface SubjectInfo {
+  id: string;
+  name: string;
+  code: string;
+  termName: string;
 }
 
 interface UserInfo {
