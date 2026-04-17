@@ -97,17 +97,26 @@ export default function Organizations() {
   const [formData, setFormData] = useState({ name: "", code: "" });
   const [verticalCount, setVerticalCount] = useState(0);
   const [programCount, setProgramCount] = useState(0);
+  const [batchCount, setBatchCount] = useState(0);
+  const [termCount, setTermCount] = useState(0);
+  const [subjectCount, setSubjectCount] = useState(0);
   const [userCount, setUserCount] = useState(0);
   
   // Interactive dialogs
   const [verticalsDialogOpen, setVerticalsDialogOpen] = useState(false);
   const [programsDialogOpen, setProgramsDialogOpen] = useState(false);
+  const [batchesDialogOpen, setBatchesDialogOpen] = useState(false);
+  const [termsDialogOpen, setTermsDialogOpen] = useState(false);
+  const [subjectsDialogOpen, setSubjectsDialogOpen] = useState(false);
   const [usersDialogOpen, setUsersDialogOpen] = useState(false);
   const [verticalUsersDialogOpen, setVerticalUsersDialogOpen] = useState(false);
   const [verticalProgramsDialogOpen, setVerticalProgramsDialogOpen] = useState(false);
   
   const [verticals, setVerticals] = useState<VerticalInfo[]>([]);
   const [programs, setPrograms] = useState<ProgramInfo[]>([]);
+  const [batches, setBatches] = useState<BatchInfo[]>([]);
+  const [terms, setTerms] = useState<TermInfo[]>([]);
+  const [subjects, setSubjects] = useState<SubjectInfo[]>([]);
   const [users, setUsers] = useState<UserInfo[]>([]);
   const [selectedVertical, setSelectedVertical] = useState<VerticalInfo | null>(null);
   const [verticalUsers, setVerticalUsers] = useState<UserInfo[]>([]);
