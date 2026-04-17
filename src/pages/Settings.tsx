@@ -95,8 +95,8 @@ export default function Settings() {
   // Determine number of tabs based on role
   const getTabCount = () => {
     if (isOrgAdmin) return 6; // Timesheet, Categories, Workflow, Organization, Labels, Account
-    if (isHod || isL2) return 3; // Timesheet, Categories, Account
-    return 3;
+    if (isHod || isL2) return 2; // Timesheet, Account
+    return 2;
   };
 
   return (
@@ -143,10 +143,12 @@ export default function Settings() {
               <Clock className="h-4 w-4" />
               <span className="hidden sm:inline">Timesheet</span>
             </TabsTrigger>
-            <TabsTrigger value="categories" className="flex items-center gap-2 py-2.5">
-              <ListChecks className="h-4 w-4" />
-              <span className="hidden sm:inline">Categories</span>
-            </TabsTrigger>
+            {isOrgAdmin && (
+              <TabsTrigger value="categories" className="flex items-center gap-2 py-2.5">
+                <ListChecks className="h-4 w-4" />
+                <span className="hidden sm:inline">Categories</span>
+              </TabsTrigger>
+            )}
             {isOrgAdmin && (
               <TabsTrigger value="workflow" className="flex items-center gap-2 py-2.5">
                 <GitMerge className="h-4 w-4" />
@@ -175,9 +177,11 @@ export default function Settings() {
             <TimesheetSettings organizationId={isSuperAdmin ? selectedOrgContext : undefined} />
           </TabsContent>
 
-          <TabsContent value="categories">
-            <CategorySettings organizationId={isSuperAdmin ? selectedOrgContext : undefined} />
-          </TabsContent>
+          {isOrgAdmin && (
+            <TabsContent value="categories">
+              <CategorySettings organizationId={isSuperAdmin ? selectedOrgContext : undefined} />
+            </TabsContent>
+          )}
 
           {isOrgAdmin && (
             <TabsContent value="workflow">
