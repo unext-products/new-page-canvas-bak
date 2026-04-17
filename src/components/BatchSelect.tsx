@@ -30,9 +30,12 @@ export function BatchSelect({
   const [isLoading, setIsLoading] = useState(true);
   const { entityLabel } = useLabels();
 
+  // Treat "all" as no parent filter
+  const effectiveProgramId = programId === "all" ? undefined : programId;
+
   useEffect(() => {
     fetchBatches();
-  }, [programId]);
+  }, [effectiveProgramId]);
 
   const fetchBatches = async () => {
     try {
@@ -42,8 +45,8 @@ export function BatchSelect({
         .select("id, name, program_id")
         .order("name");
 
-      if (programId) {
-        query = query.eq("program_id", programId);
+      if (effectiveProgramId) {
+        query = query.eq("program_id", effectiveProgramId);
       }
 
       const { data, error } = await query;
@@ -57,7 +60,7 @@ export function BatchSelect({
     }
   };
 
-  const isDisabled = isLoading || disabled || (!programId && !includeAll);
+  const isDisabled = isLoading || disabled || (!effectiveProgramId && !includeAll);
 
   return (
     <Select value={value} onValueChange={onValueChange} disabled={isDisabled}>
@@ -66,7 +69,7 @@ export function BatchSelect({
           placeholder={
             isLoading 
               ? "Loading..." 
-              : (!programId && !includeAll)
+              : (!effectiveProgramId && !includeAll)
                 ? `Select a ${entityLabel("program").toLowerCase()} first`
                 : placeholder || `Select ${entityLabel("batch").toLowerCase()}`
           }
@@ -79,7 +82,7 @@ export function BatchSelect({
             {batch.name}
           </SelectItem>
         ))}
-        {batches.length === 0 && programId && (
+        {batches.length === 0 && effectiveProgramId && (
           <div className="px-2 py-1.5 text-sm text-muted-foreground">
             No {entityLabel("batch", true).toLowerCase()} found
           </div>
