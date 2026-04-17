@@ -456,7 +456,90 @@ export default function Organizations() {
     }
   };
 
-  const openUsersDialog = async (orgId?: string) => {
+  const getOrgProgramIds = async (targetOrgId: string): Promise<string[]> => {
+    const { data: verts } = await supabase
+      .from("verticals").select("id").eq("organization_id", targetOrgId);
+    const vertIds = verts?.map(v => v.id) || [];
+    if (vertIds.length === 0) return [];
+    const { data: progs } = await supabase
+      .from("programs").select("id").in("vertical_id", vertIds);
+    return progs?.map(p => p.id) || [];
+  };
+
+  const openBatchesDialog = async (orgId?: string) => {
+    const targetOrgId = orgId || organization?.id;
+    if (!targetOrgId) return;
+    try {
+      const progIds = await getOrgProgramIds(targetOrgId);
+      if (progIds.length === 0) { setBatches([]); setBatchesDialogOpen(true); return; }
+      const { data } = await supabase
+        .from("batches")
+        .select("id, name, programs(name)")
+        .in("program_id", progIds)
+        .order("name");
+      setBatches((data || []).map((b: any) => ({
+        id: b.id, name: b.name, programName: b.programs?.name || "N/A",
+      })));
+      setBatchesDialogOpen(true);
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const openTermsDialog = async (orgId?: string) => {
+    const targetOrgId = orgId || organization?.id;
+    if (!targetOrgId) return;
+    try {
+      const progIds = await getOrgProgramIds(targetOrgId);
+      if (progIds.length === 0) { setTerms([]); setTermsDialogOpen(true); return; }
+      const { data: btchs } = await supabase
+        .from("batches").select("id").in("program_id", progIds);
+      const batchIds = btchs?.map(b => b.id) || [];
+      if (batchIds.length === 0) { setTerms([]); setTermsDialogOpen(true); return; }
+      const { data } = await supabase
+        .from("terms")
+        .select("id, name, batches(name, programs(name))")
+        .in("batch_id", batchIds)
+        .order("name");
+      setTerms((data || []).map((t: any) => ({
+        id: t.id,
+        name: t.name,
+        batchName: t.batches?.name || "N/A",
+        programName: t.batches?.programs?.name || "N/A",
+      })));
+      setTermsDialogOpen(true);
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const openSubjectsDialog = async (orgId?: string) => {
+    const targetOrgId = orgId || organization?.id;
+    if (!targetOrgId) return;
+    try {
+      const progIds = await getOrgProgramIds(targetOrgId);
+      if (progIds.length === 0) { setSubjects([]); setSubjectsDialogOpen(true); return; }
+      const { data: btchs } = await supabase
+        .from("batches").select("id").in("program_id", progIds);
+      const batchIds = btchs?.map(b => b.id) || [];
+      if (batchIds.length === 0) { setSubjects([]); setSubjectsDialogOpen(true); return; }
+      const { data: trms } = await supabase
+        .from("terms").select("id").in("batch_id", batchIds);
+      const termIds = trms?.map(t => t.id) || [];
+      if (termIds.length === 0) { setSubjects([]); setSubjectsDialogOpen(true); return; }
+      const { data } = await supabase
+        .from("subjects")
+        .select("id, name, code, terms(name)")
+        .in("term_id", termIds)
+        .order("name");
+      setSubjects((data || []).map((s: any) => ({
+        id: s.id, name: s.name, code: s.code, termName: s.terms?.name || "N/A",
+      })));
+      setSubjectsDialogOpen(true);
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
     const targetOrgId = orgId || organization?.id;
     if (!targetOrgId) return;
     
