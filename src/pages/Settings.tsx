@@ -177,9 +177,11 @@ export default function Settings() {
             <TimesheetSettings organizationId={isSuperAdmin ? selectedOrgContext : undefined} />
           </TabsContent>
 
-          <TabsContent value="categories">
-            <CategorySettings organizationId={isSuperAdmin ? selectedOrgContext : undefined} />
-          </TabsContent>
+          {isOrgAdmin && (
+            <TabsContent value="categories">
+              <CategorySettings organizationId={isSuperAdmin ? selectedOrgContext : undefined} />
+            </TabsContent>
+          )}
 
           {isOrgAdmin && (
             <TabsContent value="workflow">
