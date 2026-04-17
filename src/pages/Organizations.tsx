@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Building2, Pencil, Layers, FolderKanban, Users, User, Plus, Eye } from "lucide-react";
+import { Building2, Pencil, Layers, FolderKanban, Users, User, Plus, Eye, GraduationCap, CalendarDays, BookOpen } from "lucide-react";
 import { z } from "zod";
 import { PageHeader } from "@/components/PageHeader";
 import { PageSkeleton } from "@/components/PageSkeleton";
