@@ -143,10 +143,12 @@ export default function Settings() {
               <Clock className="h-4 w-4" />
               <span className="hidden sm:inline">Timesheet</span>
             </TabsTrigger>
-            <TabsTrigger value="categories" className="flex items-center gap-2 py-2.5">
-              <ListChecks className="h-4 w-4" />
-              <span className="hidden sm:inline">Categories</span>
-            </TabsTrigger>
+            {isOrgAdmin && (
+              <TabsTrigger value="categories" className="flex items-center gap-2 py-2.5">
+                <ListChecks className="h-4 w-4" />
+                <span className="hidden sm:inline">Categories</span>
+              </TabsTrigger>
+            )}
             {isOrgAdmin && (
               <TabsTrigger value="workflow" className="flex items-center gap-2 py-2.5">
                 <GitMerge className="h-4 w-4" />
