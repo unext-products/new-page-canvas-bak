@@ -56,6 +56,7 @@ interface UserProfile {
   organization_name?: string | null;
   departments: { id: string; name: string }[];
   programs: { id: string; name: string }[];
+  reporting_manager_name?: string | null;
 }
 
 export default function Users() {
