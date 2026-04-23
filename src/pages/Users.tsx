@@ -1285,6 +1285,7 @@ export default function Users() {
               <TableRow>
                 <TableHead>User</TableHead>
                 <TableHead>Email</TableHead>
+                <TableHead>Reporting Manager</TableHead>
                 <TableHead>Role</TableHead>
                 {isSuperAdmin ? (
                   <TableHead>Organization</TableHead>
