@@ -1315,6 +1315,13 @@ export default function Users() {
                   </TableCell>
                   <TableCell>{user.email}</TableCell>
                   <TableCell>
+                    {user.reporting_manager_name ? (
+                      <span className="text-sm">{user.reporting_manager_name}</span>
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
                     {user.role ? (
                       <Badge variant={getRoleBadgeVariant(user.role)}>
                         {roleLabel(user.role)}
