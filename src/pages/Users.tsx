@@ -280,6 +280,15 @@ export default function Users() {
       const orgMap = new Map<string, { name: string; code: string }>();
       organizations.forEach(o => orgMap.set(o.id, { name: o.name, code: o.code }));
 
+      // Build profile name lookup and user -> manager name map
+      const profileNameMap = new Map<string, string>();
+      profilesData?.forEach(p => profileNameMap.set(p.id, p.full_name));
+      const userManagerMap = new Map<string, string>();
+      hierarchyData?.forEach(h => {
+        const managerName = profileNameMap.get(h.manager_id);
+        if (managerName) userManagerMap.set(h.user_id, managerName);
+      });
+
       const enrichedUsers: UserProfile[] = profilesData?.map(profile => {
         const roleData = rolesMap.get(profile.id);
         
