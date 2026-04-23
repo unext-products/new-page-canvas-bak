@@ -213,6 +213,13 @@ export default function Users() {
 
       if (userProgramError) throw userProgramError;
 
+      // Fetch reporting hierarchy (user_id -> manager_id)
+      const { data: hierarchyData, error: hierarchyError } = await supabase
+        .from("reporting_hierarchy")
+        .select("user_id, manager_id");
+
+      if (hierarchyError) throw hierarchyError;
+
       // Fetch auth users for emails using edge function
       const { data: authResponse, error: authError } = await supabase.functions.invoke('admin-list-users');
 
