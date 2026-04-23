@@ -56,6 +56,7 @@ interface UserProfile {
   organization_name?: string | null;
   departments: { id: string; name: string }[];
   programs: { id: string; name: string }[];
+  reporting_manager_name?: string | null;
 }
 
 export default function Users() {
@@ -212,6 +213,13 @@ export default function Users() {
 
       if (userProgramError) throw userProgramError;
 
+      // Fetch reporting hierarchy (user_id -> manager_id)
+      const { data: hierarchyData, error: hierarchyError } = await supabase
+        .from("reporting_hierarchy")
+        .select("user_id, manager_id");
+
+      if (hierarchyError) throw hierarchyError;
+
       // Fetch auth users for emails using edge function
       const { data: authResponse, error: authError } = await supabase.functions.invoke('admin-list-users');
 
@@ -272,6 +280,15 @@ export default function Users() {
       const orgMap = new Map<string, { name: string; code: string }>();
       organizations.forEach(o => orgMap.set(o.id, { name: o.name, code: o.code }));
 
+      // Build profile name lookup and user -> manager name map
+      const profileNameMap = new Map<string, string>();
+      profilesData?.forEach(p => profileNameMap.set(p.id, p.full_name));
+      const userManagerMap = new Map<string, string>();
+      hierarchyData?.forEach(h => {
+        const managerName = profileNameMap.get(h.manager_id);
+        if (managerName) userManagerMap.set(h.user_id, managerName);
+      });
+
       const enrichedUsers: UserProfile[] = profilesData?.map(profile => {
         const roleData = rolesMap.get(profile.id);
         
@@ -315,6 +332,7 @@ export default function Users() {
           organization_name: userOrg?.name || null,
           departments: userDepts,
           programs: userProgs,
+          reporting_manager_name: userManagerMap.get(profile.id) || null,
         };
       }) || [];
 
@@ -419,10 +437,11 @@ export default function Users() {
   // Export to CSV
   const exportUsersToCSV = () => {
     const usersToExport = getFilteredUsersForDownload();
-    const headers = ["Name", "Email", "Role", entityLabel("vertical", true), "Status"];
+    const headers = ["Name", "Email", "Reporting Manager", "Role", entityLabel("vertical", true), "Status"];
     const rows = usersToExport.map(user => [
       user.full_name,
       user.email || "",
+      user.reporting_manager_name || "-",
       roleLabel(user.role || ""),
       user.departments.map(d => d.name).join(", ") || "-",
       user.is_active ? "Active" : "Inactive"
@@ -461,10 +480,11 @@ export default function Users() {
     
     autoTable(doc, {
       startY: 48,
-      head: [["Name", "Email", "Role", entityLabel("vertical", true), "Status"]],
+      head: [["Name", "Email", "Reporting Manager", "Role", entityLabel("vertical", true), "Status"]],
       body: usersToExport.map(user => [
         user.full_name,
         user.email || "",
+        user.reporting_manager_name || "-",
         roleLabel(user.role || ""),
         user.departments.map(d => d.name).join(", ") || "-",
         user.is_active ? "Active" : "Inactive"
@@ -1265,6 +1285,7 @@ export default function Users() {
               <TableRow>
                 <TableHead>User</TableHead>
                 <TableHead>Email</TableHead>
+                <TableHead>Reporting Manager</TableHead>
                 <TableHead>Role</TableHead>
                 {isSuperAdmin ? (
                   <TableHead>Organization</TableHead>
@@ -1293,6 +1314,13 @@ export default function Users() {
                     </div>
                   </TableCell>
                   <TableCell>{user.email}</TableCell>
+                  <TableCell>
+                    {user.reporting_manager_name ? (
+                      <span className="text-sm">{user.reporting_manager_name}</span>
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
+                  </TableCell>
                   <TableCell>
                     {user.role ? (
                       <Badge variant={getRoleBadgeVariant(user.role)}>
