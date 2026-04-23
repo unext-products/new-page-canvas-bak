@@ -332,6 +332,7 @@ export default function Users() {
           organization_name: userOrg?.name || null,
           departments: userDepts,
           programs: userProgs,
+          reporting_manager_name: userManagerMap.get(profile.id) || null,
         };
       }) || [];
 
