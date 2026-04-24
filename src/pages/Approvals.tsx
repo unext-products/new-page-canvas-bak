@@ -472,20 +472,17 @@ export default function Approvals() {
     }
   }, [userWithRole, settingsLoading, approvableRoles, getOrgId, toast, appliedDateFrom, appliedDateTo]);
 
-  // Auto-fetch on first load with a default 30-day window to avoid loading
-  // tens of thousands of historical entries (which would hang the page for admins).
-  // Users can adjust the range via filters and click Submit.
+  // Auto-fetch on first load with only the current date to load quickly.
+  // Users can widen the range via the date filters and click Submit.
   useEffect(() => {
     if (allowedApproverRoles.includes(userWithRole?.role || "") && !settingsLoading && !hasFetched) {
       setHasFetched(true);
-      const defaultTo = new Date();
-      const defaultFrom = new Date();
-      defaultFrom.setDate(defaultFrom.getDate() - 30);
-      setFilterDateFrom(defaultFrom);
-      setFilterDateTo(defaultTo);
-      setAppliedDateFrom(defaultFrom);
-      setAppliedDateTo(defaultTo);
-      fetchEntries(defaultFrom, defaultTo);
+      const today = new Date();
+      setFilterDateFrom(today);
+      setFilterDateTo(today);
+      setAppliedDateFrom(today);
+      setAppliedDateTo(today);
+      fetchEntries(today, today);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userWithRole?.role, userWithRole?.departmentId, settingsLoading]);
@@ -1198,38 +1195,38 @@ export default function Approvals() {
                         Clear Filters
                       </Button>
                     )}
+
+                    {/* View Mode Toggle - inline with filters */}
+                    <div className="flex items-center rounded-lg border bg-muted/50 p-1 ml-auto">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setViewMode("list")}
+                        className={cn(
+                          "h-8 px-3 rounded-md",
+                          viewMode === "list" && "bg-background shadow-sm"
+                        )}
+                      >
+                        <List className="h-4 w-4 mr-2" />
+                        List
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setViewMode("day");
+                        }}
+                        className={cn(
+                          "h-8 px-3 rounded-md",
+                          viewMode === "day" && "bg-background shadow-sm"
+                        )}
+                      >
+                        <CalendarDays className="h-4 w-4 mr-2" />
+                        Day
+                      </Button>
+                    </div>
                   </div>
-                  
-                  {/* View Mode Toggle */}
-                  <div className="flex items-center rounded-lg border bg-muted/50 p-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setViewMode("list")}
-                      className={cn(
-                        "h-8 px-3 rounded-md",
-                        viewMode === "list" && "bg-background shadow-sm"
-                      )}
-                    >
-                      <List className="h-4 w-4 mr-2" />
-                      List
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setViewMode("day");
-                      }}
-                      className={cn(
-                        "h-8 px-3 rounded-md",
-                        viewMode === "day" && "bg-background shadow-sm"
-                      )}
-                    >
-                      <CalendarDays className="h-4 w-4 mr-2" />
-                      Day
-                    </Button>
-                  </div>
-                  
+
                   {/* Day View Options: Zoom and Show Pending Only */}
                   {viewMode === "day" && (
                     <div className="flex items-center gap-3">
