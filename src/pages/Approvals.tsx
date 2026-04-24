@@ -1195,38 +1195,38 @@ export default function Approvals() {
                         Clear Filters
                       </Button>
                     )}
+
+                    {/* View Mode Toggle - inline with filters */}
+                    <div className="flex items-center rounded-lg border bg-muted/50 p-1 ml-auto">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setViewMode("list")}
+                        className={cn(
+                          "h-8 px-3 rounded-md",
+                          viewMode === "list" && "bg-background shadow-sm"
+                        )}
+                      >
+                        <List className="h-4 w-4 mr-2" />
+                        List
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setViewMode("day");
+                        }}
+                        className={cn(
+                          "h-8 px-3 rounded-md",
+                          viewMode === "day" && "bg-background shadow-sm"
+                        )}
+                      >
+                        <CalendarDays className="h-4 w-4 mr-2" />
+                        Day
+                      </Button>
+                    </div>
                   </div>
-                  
-                  {/* View Mode Toggle */}
-                  <div className="flex items-center rounded-lg border bg-muted/50 p-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setViewMode("list")}
-                      className={cn(
-                        "h-8 px-3 rounded-md",
-                        viewMode === "list" && "bg-background shadow-sm"
-                      )}
-                    >
-                      <List className="h-4 w-4 mr-2" />
-                      List
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setViewMode("day");
-                      }}
-                      className={cn(
-                        "h-8 px-3 rounded-md",
-                        viewMode === "day" && "bg-background shadow-sm"
-                      )}
-                    >
-                      <CalendarDays className="h-4 w-4 mr-2" />
-                      Day
-                    </Button>
-                  </div>
-                  
+
                   {/* Day View Options: Zoom and Show Pending Only */}
                   {viewMode === "day" && (
                     <div className="flex items-center gap-3">
