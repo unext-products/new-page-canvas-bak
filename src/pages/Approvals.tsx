@@ -472,20 +472,17 @@ export default function Approvals() {
     }
   }, [userWithRole, settingsLoading, approvableRoles, getOrgId, toast, appliedDateFrom, appliedDateTo]);
 
-  // Auto-fetch on first load with a default 30-day window to avoid loading
-  // tens of thousands of historical entries (which would hang the page for admins).
-  // Users can adjust the range via filters and click Submit.
+  // Auto-fetch on first load with only the current date to load quickly.
+  // Users can widen the range via the date filters and click Submit.
   useEffect(() => {
     if (allowedApproverRoles.includes(userWithRole?.role || "") && !settingsLoading && !hasFetched) {
       setHasFetched(true);
-      const defaultTo = new Date();
-      const defaultFrom = new Date();
-      defaultFrom.setDate(defaultFrom.getDate() - 30);
-      setFilterDateFrom(defaultFrom);
-      setFilterDateTo(defaultTo);
-      setAppliedDateFrom(defaultFrom);
-      setAppliedDateTo(defaultTo);
-      fetchEntries(defaultFrom, defaultTo);
+      const today = new Date();
+      setFilterDateFrom(today);
+      setFilterDateTo(today);
+      setAppliedDateFrom(today);
+      setAppliedDateTo(today);
+      fetchEntries(today, today);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userWithRole?.role, userWithRole?.departmentId, settingsLoading]);
