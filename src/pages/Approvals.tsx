@@ -472,17 +472,19 @@ export default function Approvals() {
     }
   }, [userWithRole, settingsLoading, approvableRoles, getOrgId, toast, appliedDateFrom, appliedDateTo]);
 
-  // Auto-fetch on first load with only the current date to load quickly.
-  // Users can widen the range via the date filters and click Submit.
+  // Auto-fetch on first load with the last 7 days so recent pending approvals
+  // are visible by default. Users can widen the range via the date filters.
   useEffect(() => {
     if (allowedApproverRoles.includes(userWithRole?.role || "") && !settingsLoading && !hasFetched) {
       setHasFetched(true);
       const today = new Date();
-      setFilterDateFrom(today);
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      setFilterDateFrom(weekAgo);
       setFilterDateTo(today);
-      setAppliedDateFrom(today);
+      setAppliedDateFrom(weekAgo);
       setAppliedDateTo(today);
-      fetchEntries(today, today);
+      fetchEntries(weekAgo, today);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userWithRole?.role, userWithRole?.departmentId, settingsLoading]);
