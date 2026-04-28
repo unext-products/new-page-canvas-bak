@@ -29,6 +29,7 @@ import { useApprovalSettings } from "@/hooks/useApprovalSettings";
 import { calculateDurationMinutes } from "@/lib/timesheetUtils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { DayMatrixView, MatrixTimesheetEntry } from "@/components/calendar/DayMatrixView";
 
 interface TimesheetEntry {
