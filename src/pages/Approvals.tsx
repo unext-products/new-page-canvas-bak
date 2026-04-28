@@ -1356,7 +1356,7 @@ export default function Approvals() {
                       {selectedEntries.size > 0 ? (
                         <>Selected: {selectedEntries.size} {selectedEntries.size === 1 ? 'entry' : 'entries'}</>
                       ) : (
-                        <>Select All ({viewMode === "list" ? listViewEntries.length : dayViewEntryIds.length})</>
+                        <>Select All ({viewMode === "list" ? listViewPendingEntries.length : dayViewEntryIds.length} pending)</>
                       )}
                     </span>
                     {selectedEntries.size > 0 && (
