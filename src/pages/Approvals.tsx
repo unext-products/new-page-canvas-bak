@@ -1090,7 +1090,7 @@ export default function Approvals() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Badge variant="secondary" className="text-base px-4 py-1.5 cursor-help">
-                    {totalPendingCount} pending
+                    Overall {totalPendingCount} Pending
                   </Badge>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="max-w-xs">
