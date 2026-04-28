@@ -29,6 +29,7 @@ import { useApprovalSettings } from "@/hooks/useApprovalSettings";
 import { calculateDurationMinutes } from "@/lib/timesheetUtils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { DayMatrixView, MatrixTimesheetEntry } from "@/components/calendar/DayMatrixView";
 
 interface TimesheetEntry {
@@ -857,9 +858,15 @@ export default function Approvals() {
     setSelectedEntries(newSelected);
   };
 
+  // Pending-only subset of list view entries (used for Select All count and bulk actions)
+  const listViewPendingEntries = useMemo(
+    () => listViewEntries.filter(e => e.status === "submitted"),
+    [listViewEntries]
+  );
+
   const selectAllEntries = () => {
-    // For list view, only select pending entries
-    const allIds = new Set(listViewEntries.map(e => e.id));
+    // Only select pending entries (approved/rejected can't be re-actioned)
+    const allIds = new Set(listViewPendingEntries.map(e => e.id));
     setSelectedEntries(allIds);
   };
 
@@ -867,7 +874,7 @@ export default function Approvals() {
     setSelectedEntries(new Set());
   };
 
-  const isAllSelected = selectedEntries.size === listViewEntries.length && listViewEntries.length > 0;
+  const isAllSelected = selectedEntries.size === listViewPendingEntries.length && listViewPendingEntries.length > 0;
 
   // Clear filters
   const clearFilters = () => {
@@ -1020,12 +1027,12 @@ export default function Approvals() {
     }
   };
 
-  // Get entries for day view selection
+  // Get entries for day view selection — only pending entries are selectable
   const dayViewEntryIds = useMemo(() => {
     const dateToUse = appliedDateFrom || new Date();
     const dateStr = formatLocalDate(dateToUse);
     return filteredEntries
-      .filter(entry => entry.entry_date === dateStr)
+      .filter(entry => entry.entry_date === dateStr && entry.status === "submitted")
       .map(entry => entry.id);
   }, [filteredEntries, appliedDateFrom]);
 
@@ -1054,9 +1061,16 @@ export default function Approvals() {
           icon={ClipboardCheck}
           actions={
             totalPendingCount > 0 && (
-              <Badge variant="secondary" className="text-base px-4 py-1.5">
-                {totalPendingCount} pending
-              </Badge>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="secondary" className="text-base px-4 py-1.5 cursor-help">
+                    {totalPendingCount} pending
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs">
+                  <p>Total pending entries you can approve, across all dates. May differ from Reports counts which show all entries in your department/vertical (including those approved by other managers).</p>
+                </TooltipContent>
+              </Tooltip>
             )
           }
         />
@@ -1350,7 +1364,7 @@ export default function Approvals() {
                       {selectedEntries.size > 0 ? (
                         <>Selected: {selectedEntries.size} {selectedEntries.size === 1 ? 'entry' : 'entries'}</>
                       ) : (
-                        <>Select All ({viewMode === "list" ? listViewEntries.length : dayViewEntryIds.length})</>
+                        <>Select All ({viewMode === "list" ? listViewPendingEntries.length : dayViewEntryIds.length} pending)</>
                       )}
                     </span>
                     {selectedEntries.size > 0 && (
