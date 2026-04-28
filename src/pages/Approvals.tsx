@@ -857,9 +857,15 @@ export default function Approvals() {
     setSelectedEntries(newSelected);
   };
 
+  // Pending-only subset of list view entries (used for Select All count and bulk actions)
+  const listViewPendingEntries = useMemo(
+    () => listViewEntries.filter(e => e.status === "submitted"),
+    [listViewEntries]
+  );
+
   const selectAllEntries = () => {
-    // For list view, only select pending entries
-    const allIds = new Set(listViewEntries.map(e => e.id));
+    // Only select pending entries (approved/rejected can't be re-actioned)
+    const allIds = new Set(listViewPendingEntries.map(e => e.id));
     setSelectedEntries(allIds);
   };
 
@@ -867,7 +873,7 @@ export default function Approvals() {
     setSelectedEntries(new Set());
   };
 
-  const isAllSelected = selectedEntries.size === listViewEntries.length && listViewEntries.length > 0;
+  const isAllSelected = selectedEntries.size === listViewPendingEntries.length && listViewPendingEntries.length > 0;
 
   // Clear filters
   const clearFilters = () => {
