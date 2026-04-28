@@ -1055,12 +1055,12 @@ export default function Approvals() {
 
   // Get entries for day view selection — only pending entries are selectable
   const dayViewEntryIds = useMemo(() => {
-    const dateToUse = appliedDateFrom || new Date();
+    const dateToUse = dayViewDate;
     const dateStr = formatLocalDate(dateToUse);
     return filteredEntries
       .filter(entry => entry.entry_date === dateStr && entry.status === "submitted")
       .map(entry => entry.id);
-  }, [filteredEntries, appliedDateFrom]);
+  }, [filteredEntries, dayViewDate]);
 
   const selectAllDayEntries = () => {
     const allIds = new Set(dayViewEntryIds);
