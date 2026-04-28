@@ -791,7 +791,7 @@ export default function Approvals() {
 
   // Prepare faculty data for day matrix view
   const dayMatrixData = useMemo(() => {
-    const dateToUse = appliedDateFrom || new Date();
+    const dateToUse = dayViewDate;
     const dateStr = formatLocalDate(dateToUse);
     
     // Get unique faculty with entries for this date
