@@ -780,7 +780,8 @@ export default function Approvals() {
       if (a.type !== b.type) {
         return a.type === 'timesheet' ? -1 : 1;
       }
-      const dateDiff = new Date(a.sortDate).getTime() - new Date(b.sortDate).getTime();
+      // Latest dates first so the most recent pending entries (e.g. today) are visible at the top
+      const dateDiff = new Date(b.sortDate).getTime() - new Date(a.sortDate).getTime();
       if (dateDiff !== 0) return dateDiff;
       // Within the same date, sort by start_time ascending
       const aTime = a.type === 'timesheet' ? a.start_time || '' : '00:00';
