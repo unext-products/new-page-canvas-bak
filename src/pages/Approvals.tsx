@@ -110,6 +110,10 @@ export default function Approvals() {
   
   // View mode state - default to day view
   const [viewMode, setViewMode] = useState<"list" | "day">("day");
+
+  // Day view: which specific day is rendered in the matrix. Defaults to today
+  // and is clamped within the applied date range so the user can step through days.
+  const [dayViewDate, setDayViewDate] = useState<Date>(() => new Date());
   
   // New: Show all statuses toggle (default: show all)
   const [showPendingOnly, setShowPendingOnly] = useState(false);
