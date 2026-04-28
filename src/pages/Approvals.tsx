@@ -1053,9 +1053,9 @@ export default function Approvals() {
           description="Review and approve timesheet entries from your team"
           icon={ClipboardCheck}
           actions={
-            pendingEntries.length > 0 && (
+            totalPendingCount > 0 && (
               <Badge variant="secondary" className="text-base px-4 py-1.5">
-                {pendingEntries.length} pending
+                {totalPendingCount} pending
               </Badge>
             )
           }
