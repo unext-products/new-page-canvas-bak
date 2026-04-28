@@ -112,6 +112,9 @@ export default function Approvals() {
   
   // New: Show all statuses toggle (default: show all)
   const [showPendingOnly, setShowPendingOnly] = useState(false);
+
+  // Total pending count (ignores date filter) for the header badge
+  const [totalPendingCount, setTotalPendingCount] = useState<number>(0);
   
   // New: Slot interval for zoom view
   const [slotInterval, setSlotInterval] = useState<"1hour" | "15min">("1hour");
