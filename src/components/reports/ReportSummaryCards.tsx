@@ -115,7 +115,14 @@ export function ReportSummaryCards({
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Approvals Pending</CardTitle>
-            <AlertCircle className="h-4 w-4 text-yellow-500" />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <AlertCircle className="h-4 w-4 text-yellow-500 cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent side="left" className="max-w-xs">
+                <p>All pending entries in this scope (member or department) for the selected period. May include entries assigned to other approvers, so it can differ from your personal Approvals queue.</p>
+              </TooltipContent>
+            </Tooltip>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-yellow-600">{pendingCount}</div>
