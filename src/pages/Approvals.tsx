@@ -528,6 +528,28 @@ export default function Approvals() {
     fetchEntries(filterDateFrom, filterDateTo);
   };
 
+  // Keep the day-view selected day inside the applied range. Prefer today if it
+  // falls within the range; otherwise clamp to the nearest boundary.
+  useEffect(() => {
+    const from = appliedDateFrom;
+    const to = appliedDateTo;
+    if (!from && !to) return;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const lo = from ? new Date(from.getFullYear(), from.getMonth(), from.getDate()) : null;
+    const hi = to ? new Date(to.getFullYear(), to.getMonth(), to.getDate()) : null;
+    let target = new Date(dayViewDate);
+    target.setHours(0, 0, 0, 0);
+    const inRange = (d: Date) => (!lo || d >= lo) && (!hi || d <= hi);
+    if (!inRange(target)) {
+      if (inRange(today)) target = today;
+      else if (hi && target > hi) target = hi;
+      else if (lo && target < lo) target = lo;
+      setDayViewDate(target);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appliedDateFrom, appliedDateTo]);
+
   const handleAction = (entry: TimesheetEntry, action: "approve" | "reject") => {
     setSelectedEntry(entry);
     setActionType(action);
