@@ -1060,9 +1060,16 @@ export default function Approvals() {
           icon={ClipboardCheck}
           actions={
             totalPendingCount > 0 && (
-              <Badge variant="secondary" className="text-base px-4 py-1.5">
-                {totalPendingCount} pending
-              </Badge>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="secondary" className="text-base px-4 py-1.5 cursor-help">
+                    {totalPendingCount} pending
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs">
+                  <p>Total pending entries you can approve, across all dates. May differ from Reports counts which show all entries in your department/vertical (including those approved by other managers).</p>
+                </TooltipContent>
+              </Tooltip>
             )
           }
         />
