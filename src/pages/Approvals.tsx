@@ -1297,8 +1297,43 @@ export default function Approvals() {
 
                   {/* Day View Options: Zoom and Show Pending Only */}
                   {viewMode === "day" && (
-                    <div className="flex items-center gap-3">
-                      {/* Zoom View Toggle */}
+                    <div className="flex items-center gap-3 flex-wrap">
+                      {/* Day picker - choose which day's matrix to show */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">Day:</span>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" size="sm" className="h-8">
+                              <Calendar className="h-3.5 w-3.5 mr-2" />
+                              {format(dayViewDate, "MMM d, yyyy")}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <CalendarComponent
+                              mode="single"
+                              selected={dayViewDate}
+                              onSelect={(d) => d && setDayViewDate(d)}
+                              disabled={(date) => {
+                                const d = new Date(date);
+                                d.setHours(0, 0, 0, 0);
+                                if (appliedDateFrom) {
+                                  const lo = new Date(appliedDateFrom);
+                                  lo.setHours(0, 0, 0, 0);
+                                  if (d < lo) return true;
+                                }
+                                if (appliedDateTo) {
+                                  const hi = new Date(appliedDateTo);
+                                  hi.setHours(0, 0, 0, 0);
+                                  if (d > hi) return true;
+                                }
+                                return false;
+                              }}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+
                       <div className="flex items-center gap-2">
                         <span className="text-sm text-muted-foreground">View:</span>
                         <div className="flex items-center rounded-lg border bg-muted/50 p-1">
