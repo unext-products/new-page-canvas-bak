@@ -110,6 +110,10 @@ export default function Approvals() {
   
   // View mode state - default to day view
   const [viewMode, setViewMode] = useState<"list" | "day">("day");
+
+  // Day view: which specific day is rendered in the matrix. Defaults to today
+  // and is clamped within the applied date range so the user can step through days.
+  const [dayViewDate, setDayViewDate] = useState<Date>(() => new Date());
   
   // New: Show all statuses toggle (default: show all)
   const [showPendingOnly, setShowPendingOnly] = useState(false);
@@ -524,6 +528,28 @@ export default function Approvals() {
     fetchEntries(filterDateFrom, filterDateTo);
   };
 
+  // Keep the day-view selected day inside the applied range. Prefer today if it
+  // falls within the range; otherwise clamp to the nearest boundary.
+  useEffect(() => {
+    const from = appliedDateFrom;
+    const to = appliedDateTo;
+    if (!from && !to) return;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const lo = from ? new Date(from.getFullYear(), from.getMonth(), from.getDate()) : null;
+    const hi = to ? new Date(to.getFullYear(), to.getMonth(), to.getDate()) : null;
+    let target = new Date(dayViewDate);
+    target.setHours(0, 0, 0, 0);
+    const inRange = (d: Date) => (!lo || d >= lo) && (!hi || d <= hi);
+    if (!inRange(target)) {
+      if (inRange(today)) target = today;
+      else if (hi && target > hi) target = hi;
+      else if (lo && target < lo) target = lo;
+      setDayViewDate(target);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appliedDateFrom, appliedDateTo]);
+
   const handleAction = (entry: TimesheetEntry, action: "approve" | "reject") => {
     setSelectedEntry(entry);
     setActionType(action);
@@ -765,7 +791,7 @@ export default function Approvals() {
 
   // Prepare faculty data for day matrix view
   const dayMatrixData = useMemo(() => {
-    const dateToUse = appliedDateFrom || new Date();
+    const dateToUse = dayViewDate;
     const dateStr = formatLocalDate(dateToUse);
     
     // Get unique faculty with entries for this date
@@ -1029,12 +1055,12 @@ export default function Approvals() {
 
   // Get entries for day view selection — only pending entries are selectable
   const dayViewEntryIds = useMemo(() => {
-    const dateToUse = appliedDateFrom || new Date();
+    const dateToUse = dayViewDate;
     const dateStr = formatLocalDate(dateToUse);
     return filteredEntries
       .filter(entry => entry.entry_date === dateStr && entry.status === "submitted")
       .map(entry => entry.id);
-  }, [filteredEntries, appliedDateFrom]);
+  }, [filteredEntries, dayViewDate]);
 
   const selectAllDayEntries = () => {
     const allIds = new Set(dayViewEntryIds);
@@ -1064,7 +1090,7 @@ export default function Approvals() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Badge variant="secondary" className="text-base px-4 py-1.5 cursor-help">
-                    {totalPendingCount} pending
+                    Overall {totalPendingCount} Pending
                   </Badge>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="max-w-xs">
@@ -1271,8 +1297,43 @@ export default function Approvals() {
 
                   {/* Day View Options: Zoom and Show Pending Only */}
                   {viewMode === "day" && (
-                    <div className="flex items-center gap-3">
-                      {/* Zoom View Toggle */}
+                    <div className="flex items-center gap-3 flex-wrap">
+                      {/* Day picker - choose which day's matrix to show */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">Day:</span>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" size="sm" className="h-8">
+                              <Calendar className="h-3.5 w-3.5 mr-2" />
+                              {format(dayViewDate, "MMM d, yyyy")}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <CalendarComponent
+                              mode="single"
+                              selected={dayViewDate}
+                              onSelect={(d) => d && setDayViewDate(d)}
+                              disabled={(date) => {
+                                const d = new Date(date);
+                                d.setHours(0, 0, 0, 0);
+                                if (appliedDateFrom) {
+                                  const lo = new Date(appliedDateFrom);
+                                  lo.setHours(0, 0, 0, 0);
+                                  if (d < lo) return true;
+                                }
+                                if (appliedDateTo) {
+                                  const hi = new Date(appliedDateTo);
+                                  hi.setHours(0, 0, 0, 0);
+                                  if (d > hi) return true;
+                                }
+                                return false;
+                              }}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+
                       <div className="flex items-center gap-2">
                         <span className="text-sm text-muted-foreground">View:</span>
                         <div className="flex items-center rounded-lg border bg-muted/50 p-1">
@@ -1403,7 +1464,7 @@ export default function Approvals() {
             {/* Content based on view mode */}
             {viewMode === "day" ? (
               <DayMatrixView
-                date={appliedDateFrom || new Date()}
+                date={dayViewDate}
                 facultyData={dayMatrixData}
                 onEntryClick={handleMatrixEntryClick}
                 onApprove={handleMatrixApprove}
