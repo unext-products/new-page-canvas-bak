@@ -390,6 +390,29 @@ export default function Approvals() {
         entriesData = allEntriesData;
       }
 
+      // Compute total pending count across all approvable users (ignores date filter)
+      // so the header badge reflects the true backlog regardless of the active range.
+      try {
+        if (allUserIds.length === 0) {
+          setTotalPendingCount(0);
+        } else {
+          const COUNT_CHUNK = 500;
+          let pendingTotal = 0;
+          for (let i = 0; i < allUserIds.length; i += COUNT_CHUNK) {
+            const chunk = allUserIds.slice(i, i + COUNT_CHUNK);
+            const { count } = await supabase
+              .from("timesheet_entries")
+              .select("id", { count: "exact", head: true })
+              .in("user_id", chunk)
+              .eq("status", "submitted");
+            pendingTotal += count || 0;
+          }
+          setTotalPendingCount(pendingTotal);
+        }
+      } catch (countErr) {
+        console.error("Error fetching total pending count:", countErr);
+      }
+
       // Fetch profiles for ALL approvable users for the faculty dropdown
       if (allUserIds.length > 0) {
         const { data: allProfiles } = await supabase
