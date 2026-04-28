@@ -112,6 +112,9 @@ export default function Approvals() {
   
   // New: Show all statuses toggle (default: show all)
   const [showPendingOnly, setShowPendingOnly] = useState(false);
+
+  // Total pending count (ignores date filter) for the header badge
+  const [totalPendingCount, setTotalPendingCount] = useState<number>(0);
   
   // New: Slot interval for zoom view
   const [slotInterval, setSlotInterval] = useState<"1hour" | "15min">("1hour");
@@ -385,6 +388,29 @@ export default function Approvals() {
           }
         }
         entriesData = allEntriesData;
+      }
+
+      // Compute total pending count across all approvable users (ignores date filter)
+      // so the header badge reflects the true backlog regardless of the active range.
+      try {
+        if (allUserIds.length === 0) {
+          setTotalPendingCount(0);
+        } else {
+          const COUNT_CHUNK = 500;
+          let pendingTotal = 0;
+          for (let i = 0; i < allUserIds.length; i += COUNT_CHUNK) {
+            const chunk = allUserIds.slice(i, i + COUNT_CHUNK);
+            const { count } = await supabase
+              .from("timesheet_entries")
+              .select("id", { count: "exact", head: true })
+              .in("user_id", chunk)
+              .eq("status", "submitted");
+            pendingTotal += count || 0;
+          }
+          setTotalPendingCount(pendingTotal);
+        }
+      } catch (countErr) {
+        console.error("Error fetching total pending count:", countErr);
       }
 
       // Fetch profiles for ALL approvable users for the faculty dropdown
@@ -1027,9 +1053,9 @@ export default function Approvals() {
           description="Review and approve timesheet entries from your team"
           icon={ClipboardCheck}
           actions={
-            pendingEntries.length > 0 && (
+            totalPendingCount > 0 && (
               <Badge variant="secondary" className="text-base px-4 py-1.5">
-                {pendingEntries.length} pending
+                {totalPendingCount} pending
               </Badge>
             )
           }
