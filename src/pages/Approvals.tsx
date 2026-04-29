@@ -194,45 +194,37 @@ export default function Approvals() {
       // Check if current user can approve L1 entries
       if (rolesToApprove.includes("l1")) {
         if (isL2) {
-          // L2: Check reporting hierarchy first, fallback to program-based
+          // L2: Union of explicit reporting hierarchy + program-based scope
+          // (matches Reports visibility — neither source alone is sufficient)
+          const candidateSet = new Set<string>();
+
           const hierarchyUsers = await getVisibleUserIds(userWithRole.user.id, "l2");
-          
-          if (hierarchyUsers !== null) {
-            // Filter to L1 role only from hierarchy reportees
-            if (hierarchyUsers.length > 0) {
-              const { data: l1RoleUsers } = await supabase
-                .from("user_roles")
-                .select("user_id")
-                .in("user_id", hierarchyUsers)
-                .in("role", ["l1", "faculty"]);
-              l1RoleUsers?.forEach(u => userIdsToApprove.add(u.user_id));
-            }
-          } else {
-            // Fallback: legacy program-based logic
-            const { data: l2Programs } = await supabase
+          if (hierarchyUsers && hierarchyUsers.length > 0) {
+            hierarchyUsers.forEach(id => candidateSet.add(id));
+          }
+
+          const { data: l2Programs } = await supabase
+            .from("user_programs")
+            .select("program_id")
+            .eq("user_id", userWithRole.user.id);
+          const l2ProgramIds = l2Programs?.map(p => p.program_id) || [];
+
+          if (l2ProgramIds.length > 0) {
+            const { data: l1UsersInPrograms } = await supabase
               .from("user_programs")
-              .select("program_id")
-              .eq("user_id", userWithRole.user.id);
-            
-            const l2ProgramIds = l2Programs?.map(p => p.program_id) || [];
-            
-            if (l2ProgramIds.length > 0) {
-              const { data: l1UsersInPrograms } = await supabase
-                .from("user_programs")
-                .select("user_id")
-                .in("program_id", l2ProgramIds);
-              
-              const candidateIds = l1UsersInPrograms?.map(u => u.user_id) || [];
-              
-              if (candidateIds.length > 0) {
-                const { data: l1RoleUsers } = await supabase
-                  .from("user_roles")
-                  .select("user_id")
-                  .in("user_id", candidateIds)
-                  .in("role", ["l1", "faculty"]);
-                l1RoleUsers?.forEach(u => userIdsToApprove.add(u.user_id));
-              }
-            }
+              .select("user_id")
+              .in("program_id", l2ProgramIds);
+            l1UsersInPrograms?.forEach(u => candidateSet.add(u.user_id));
+          }
+
+          const candidateIds = Array.from(candidateSet);
+          if (candidateIds.length > 0) {
+            const { data: l1RoleUsers } = await supabase
+              .from("user_roles")
+              .select("user_id")
+              .in("user_id", candidateIds)
+              .in("role", ["l1", "faculty"]);
+            l1RoleUsers?.forEach(u => userIdsToApprove.add(u.user_id));
           }
         } else if (isL3) {
           // L3: Check reporting hierarchy first, fallback to vertical-based
