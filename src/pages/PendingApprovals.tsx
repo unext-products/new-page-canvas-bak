@@ -31,7 +31,7 @@ export default function PendingApprovals() {
   const [data, setData] = useState<ApproverPendingRow[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const hasAccess = isRole(userWithRole?.role, "admin", "org_admin", "super_admin");
+  const hasAccess = isRole(userWithRole?.role, "admin", "org_admin", "super_admin", "l2", "l3", "program_manager", "manager", "hod");
 
   useEffect(() => {
     if (!loading && !hasAccess) {
@@ -48,6 +48,8 @@ export default function PendingApprovals() {
     setIsLoading(true);
     try {
       const isSuperAdmin = isRole(userWithRole?.role, "super_admin");
+      const isAdmin = isRole(userWithRole?.role, "admin", "org_admin", "super_admin");
+      const isL2OrL3 = isRole(userWithRole?.role, "l2", "l3", "program_manager", "manager", "hod");
 
       // 1. Get user IDs in this organization (to scope everything)
       let orgUserIds: Set<string> | null = null;
@@ -71,6 +73,34 @@ export default function PendingApprovals() {
         }
       }
 
+      // For L2/L3 users, scope to only their own reportees
+      let scopedSubmitterIds: Set<string> | null = null;
+      if (isL2OrL3 && !isAdmin && userWithRole?.user?.id) {
+        // Get direct reportees (and transitive for L3)
+        const { data: directReportees } = await supabase
+          .from("reporting_hierarchy")
+          .select("user_id")
+          .eq("manager_id", userWithRole.user.id);
+        
+        const directIds = directReportees?.map(r => r.user_id) || [];
+        scopedSubmitterIds = new Set(directIds);
+
+        // For L3, also get transitive reportees (L1s under L2s)
+        if (isRole(userWithRole?.role, "l3", "manager", "hod") && directIds.length > 0) {
+          const CHUNK = 30;
+          for (let i = 0; i < directIds.length; i += CHUNK) {
+            const chunk = directIds.slice(i, i + CHUNK);
+            const { data: transitiveReportees } = await supabase
+              .from("reporting_hierarchy")
+              .select("user_id")
+              .in("manager_id", chunk);
+            if (transitiveReportees) {
+              transitiveReportees.forEach(r => scopedSubmitterIds!.add(r.user_id));
+            }
+          }
+        }
+      }
+
       // 2. Get all submitted entries (pending approval)
       const submittedEntries = await fetchAllRows(
         supabase
@@ -85,15 +115,16 @@ export default function PendingApprovals() {
         return;
       }
 
-      // 3. Count pending entries per submitter, filtered to org
+      // 3. Count pending entries per submitter, filtered to org and scope
       const countBySubmitter: Record<string, number> = {};
       for (const entry of submittedEntries) {
         if (orgUserIds && !orgUserIds.has(entry.user_id)) continue;
+        if (scopedSubmitterIds && !scopedSubmitterIds.has(entry.user_id)) continue;
         countBySubmitter[entry.user_id] = (countBySubmitter[entry.user_id] || 0) + 1;
       }
       const submitterIds = Object.keys(countBySubmitter);
 
-      // 3. Get reporting hierarchy to find each submitter's manager
+      // 4. Get reporting hierarchy to find each submitter's manager
       const CHUNK = 30;
       const allHierarchyRows: { user_id: string; manager_id: string }[] = [];
       for (let i = 0; i < submitterIds.length; i += CHUNK) {
@@ -105,11 +136,13 @@ export default function PendingApprovals() {
         if (rows) allHierarchyRows.push(...rows);
       }
 
-      // 4. Aggregate pending count per approver (manager), scoped to org
+      // 5. Aggregate pending count per approver (manager), scoped to org
       const countByApprover: Record<string, number> = {};
       for (const row of allHierarchyRows) {
         // Only count if both submitter and manager are in the org
         if (orgUserIds && !orgUserIds.has(row.manager_id)) continue;
+        // For L2/L3, only show their own row
+        if (isL2OrL3 && !isAdmin && row.manager_id !== userWithRole?.user?.id) continue;
         const submitterPending = countBySubmitter[row.user_id] || 0;
         if (submitterPending > 0) {
           countByApprover[row.manager_id] = (countByApprover[row.manager_id] || 0) + submitterPending;
