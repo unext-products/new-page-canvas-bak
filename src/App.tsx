@@ -27,6 +27,7 @@ import Pricing from "./pages/Pricing";
 import Team from "./pages/Team";
 import Settings from "./pages/Settings";
 import CalendarPage from "./pages/Calendar";
+import PendingApprovals from "./pages/PendingApprovals";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
