@@ -1,35 +1,30 @@
 
+# Pending Approvals Report Page (Admin Only)
 
-# Add CSV Download to Hierarchy Pages
+## Overview
+A new page under the "Analytics" sidebar group showing a table of all users who have pending approvals under them, with columns: **Name, Role, Vertical, Count of Pending Approvals** — sorted descending by pending count. Visible only to Admin and Super Admin roles.
 
-## Summary
-Add a "Download" button (matching the User Management page style) to Verticals, Programs, Batches, Terms, and Subjects pages. Each will export the currently displayed data as a CSV file.
+## Implementation
 
-## Changes
+### 1. New page: `src/pages/PendingApprovals.tsx`
+- Access restricted to Admin and Super Admin only
+- Query all `timesheet_entries` with `status = 'submitted'` (these are pending approval)
+- For each submitted entry, determine the approver by looking up the entry owner's manager in `reporting_hierarchy`
+- Aggregate pending counts per approver
+- Join with `profiles` for name, `user_roles` for role, and `user_verticals`/`verticals` for vertical name
+- Display table: Name, Role (using custom role labels), Vertical, Pending Count
+- Sort descending by pending count
+- Super Admin gets an org filter dropdown
 
-### All 5 pages follow the same pattern:
-1. Import `Download` from lucide-react and `format` from date-fns
-2. Add a `downloadCSV` function that converts the page's data array to CSV
-3. Add a `Download` button in the `PageHeader` `actions` prop, next to the existing "Add" button
+### 2. Sidebar update: `src/components/AppSidebar.tsx`
+- Add nav item for Admin and Super Admin role blocks only:
+  `{ to: "/pending-approvals", icon: ClipboardList, label: "Pending Approvals", group: "Analytics" }`
 
-### CSV columns per page:
+### 3. Route: `src/App.tsx`
+- Add `/pending-approvals` as a protected route
 
-- **Verticals** (`src/pages/Verticals.tsx`): Name, Code, Programs Count, Users Count
-- **Programs** (`src/pages/Programs.tsx`): Name, Code, Vertical, Users Count
-- **Batches** (`src/pages/Batches.tsx`): Name, Program, Vertical, Terms Count, Users Count
-- **Terms** (`src/pages/Terms.tsx`): Name, Batch, Program, Vertical, Subjects Count
-- **Subjects** (`src/pages/Subjects.tsx`): Name, Code, Term, Batch, Program, Vertical, Users Count
-
-### Implementation detail per page:
-- The download function creates CSV content from the existing state arrays (`verticals`, `programs`, `filteredBatches`, `filteredTerms`, `filteredSubjects`)
-- Uses the same CSV blob + anchor download pattern as Users page
-- File named `{entity}_{date}.csv` (e.g., `verticals_2026-04-16.csv`)
-- The Download button uses `variant="outline"` matching the Users page style
-
-### Files changed
-- `src/pages/Verticals.tsx`
-- `src/pages/Programs.tsx`
-- `src/pages/Batches.tsx`
-- `src/pages/Terms.tsx`
-- `src/pages/Subjects.tsx`
-
+### Technical notes
+- Uses existing RLS policies — Admin can see all entries in their org, Super Admin can see all
+- Uses `reporting_hierarchy` to map submitters to their approvers
+- Uses `fetchAllRows` pagination pattern for high-volume queries
+- Uses custom role labels from `organization_role_labels`
