@@ -72,6 +72,7 @@ const App = () => (
                 <Route path="/bulk-import" element={<ProtectedRoute><BulkImport /></ProtectedRoute>} />
                 <Route path="/team" element={<ProtectedRoute><Team /></ProtectedRoute>} />
                 <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+                <Route path="/pending-approvals" element={<ProtectedRoute><PendingApprovals /></ProtectedRoute>} />
 
                 {/* Catch-all */}
                 <Route path="*" element={<NotFound />} />
