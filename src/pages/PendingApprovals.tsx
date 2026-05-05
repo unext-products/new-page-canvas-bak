@@ -19,6 +19,7 @@ interface ApproverPendingRow {
   email: string;
   role: string;
   verticalName: string;
+  mappedUsersCount: number;
   pendingCount: number;
 }
 
@@ -78,9 +79,12 @@ export default function PendingApprovals() {
         if (rows) allHierarchyRows.push(...rows);
       }
 
-      // 4. Aggregate pending count per approver (manager)
+      // 4. Aggregate pending count and mapped user count per approver (manager)
       const countByApprover: Record<string, number> = {};
+      const mappedUsersByApprover: Record<string, Set<string>> = {};
       for (const row of allHierarchyRows) {
+        if (!mappedUsersByApprover[row.manager_id]) mappedUsersByApprover[row.manager_id] = new Set();
+        mappedUsersByApprover[row.manager_id].add(row.user_id);
         const submitterPending = countBySubmitter[row.user_id] || 0;
         if (submitterPending > 0) {
           countByApprover[row.manager_id] = (countByApprover[row.manager_id] || 0) + submitterPending;
@@ -174,6 +178,7 @@ export default function PendingApprovals() {
           email: profile.email,
           role: roles[id] || "",
           verticalName: vertNames.join(", ") || "—",
+          mappedUsersCount: mappedUsersByApprover[id]?.size || 0,
           pendingCount: countByApprover[id],
         };
       });
@@ -209,10 +214,7 @@ export default function PendingApprovals() {
         />
 
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Approvers with Pending Requests</CardTitle>
-          </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
@@ -228,6 +230,7 @@ export default function PendingApprovals() {
                     <TableHead>Name</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Vertical</TableHead>
+                    <TableHead className="text-right">Mapped Users</TableHead>
                     <TableHead className="text-right">Pending Approvals</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -242,6 +245,7 @@ export default function PendingApprovals() {
                         <Badge variant="outline">{getRoleDisplay(row.role)}</Badge>
                       </TableCell>
                       <TableCell>{row.verticalName}</TableCell>
+                      <TableCell className="text-right">{row.mappedUsersCount}</TableCell>
                       <TableCell className="text-right">
                         <Badge variant="destructive">{row.pendingCount}</Badge>
                       </TableCell>
