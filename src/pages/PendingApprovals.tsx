@@ -10,7 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { PageHeader } from "@/components/PageHeader";
 import { PageSkeleton } from "@/components/PageSkeleton";
 import { Badge } from "@/components/ui/badge";
-import { ClipboardList } from "lucide-react";
+import { ClipboardList, Download } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { fetchAllRows } from "@/lib/reportQueries";
 
 interface ApproverPendingRow {
@@ -245,14 +246,43 @@ export default function PendingApprovals() {
     return role;
   };
 
+  const exportCSV = () => {
+    if (!data.length) return;
+    const headers = ["Name", "Email", "Role", "Vertical", "Mapped Users", "Pending Approvals"];
+    const rows = data.map(row => [
+      row.name,
+      row.email,
+      getRoleDisplay(row.role),
+      row.verticalName,
+      row.mappedUsersCount,
+      row.pendingCount,
+    ]);
+    const csvContent = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "pending_approvals.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <Layout>
       <div className="space-y-6">
-        <PageHeader
-          title="Pending Approvals"
-          description="Users with pending approval requests, sorted by highest count"
-          icon={ClipboardList}
-        />
+        <div className="flex items-center justify-between">
+          <PageHeader
+            title="Pending Approvals"
+            description="Users with pending approval requests, sorted by highest count"
+            icon={ClipboardList}
+          />
+          {data.length > 0 && (
+            <Button variant="outline" size="sm" onClick={exportCSV}>
+              <Download className="h-4 w-4 mr-2" />
+              Export CSV
+            </Button>
+          )}
+        </div>
 
         <Card>
           <CardContent className="pt-6">
