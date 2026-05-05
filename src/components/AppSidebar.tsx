@@ -1,4 +1,5 @@
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { useLabels } from "@/contexts/LabelContext";
 import { isRole } from "@/lib/roleMapping";
 import { 
@@ -27,7 +28,7 @@ import { useToast } from "@/hooks/use-toast";
 import { signOut } from "@/lib/supabase";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import {
@@ -65,8 +66,20 @@ export function AppSidebar() {
   const { toast } = useToast();
   const { isMobile, setOpenMobile } = useSidebar();
   const signingOutRef = useRef(false);
+  const [orgCode, setOrgCode] = useState<string | null>(null);
 
-  // Close mobile sidebar on route change
+  // Fetch organization code
+  useEffect(() => {
+    if (!userWithRole?.user?.id) return;
+    supabase.rpc("get_user_organization", { user_id: userWithRole.user.id }).then(({ data: orgId }) => {
+      if (orgId) {
+        supabase.from("organizations").select("code").eq("id", orgId).maybeSingle().then(({ data }) => {
+          setOrgCode(data?.code || null);
+        });
+      }
+    });
+  }, [userWithRole?.user?.id]);
+
   useEffect(() => {
     if (isMobile) {
       setOpenMobile(false);
@@ -250,9 +263,16 @@ export function AppSidebar() {
             </Avatar>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium truncate">{userName}</p>
-              <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 h-4 ${roleColors[userRole]}`}>
-                {roleLabel(userRole)}
-              </Badge>
+              <div className="flex items-center gap-1 flex-wrap">
+                <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 h-4 ${roleColors[userRole]}`}>
+                  {roleLabel(userRole)}
+                </Badge>
+                {orgCode && (
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-muted-foreground">
+                    {orgCode}
+                  </Badge>
+                )}
+              </div>
             </div>
           </div>
         )}
