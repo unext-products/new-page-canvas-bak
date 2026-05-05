@@ -104,9 +104,11 @@ export default function PendingApprovals() {
         if (rows) allHierarchyRows.push(...rows);
       }
 
-      // 4. Aggregate pending count per approver (manager)
+      // 4. Aggregate pending count per approver (manager), scoped to org
       const countByApprover: Record<string, number> = {};
       for (const row of allHierarchyRows) {
+        // Only count if both submitter and manager are in the org
+        if (orgUserIds && !orgUserIds.has(row.manager_id)) continue;
         const submitterPending = countBySubmitter[row.user_id] || 0;
         if (submitterPending > 0) {
           countByApprover[row.manager_id] = (countByApprover[row.manager_id] || 0) + submitterPending;
