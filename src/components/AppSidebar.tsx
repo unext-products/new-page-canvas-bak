@@ -1,4 +1,6 @@
 import { useAuth } from "@/contexts/AuthContext";
+import { useEffect as useEffectOrg, useState as useStateOrg } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { useLabels } from "@/contexts/LabelContext";
 import { isRole } from "@/lib/roleMapping";
 import { 
