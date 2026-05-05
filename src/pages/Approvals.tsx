@@ -108,8 +108,8 @@ export default function Approvals() {
   const [appliedDateTo, setAppliedDateTo] = useState<Date | null>(null);
   const [filterLeavesOnly, setFilterLeavesOnly] = useState(false);
   
-  // View mode state - default to day view
-  const [viewMode, setViewMode] = useState<"list" | "day">("day");
+  // View mode state - default to list view
+  const [viewMode, setViewMode] = useState<"list" | "day">("list");
 
   // Day view: which specific day is rendered in the matrix. Defaults to today
   // and is clamped within the applied date range so the user can step through days.
