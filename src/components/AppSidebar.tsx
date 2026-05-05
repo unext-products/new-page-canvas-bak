@@ -263,9 +263,16 @@ export function AppSidebar() {
             </Avatar>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium truncate">{userName}</p>
-              <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 h-4 ${roleColors[userRole]}`}>
-                {roleLabel(userRole)}
-              </Badge>
+              <div className="flex items-center gap-1 flex-wrap">
+                <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 h-4 ${roleColors[userRole]}`}>
+                  {roleLabel(userRole)}
+                </Badge>
+                {orgCode && (
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-muted-foreground">
+                    {orgCode}
+                  </Badge>
+                )}
+              </div>
             </div>
           </div>
         )}
