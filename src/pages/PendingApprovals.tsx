@@ -46,7 +46,23 @@ export default function PendingApprovals() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      // 1. Get all submitted entries (pending approval)
+      const orgId = userWithRole?.organization_id;
+      const isSuperAdmin = isRole(userWithRole?.role, "super_admin");
+
+      // 1. Get user IDs in this organization (to scope everything)
+      const CHUNK = 30;
+      let orgUserIds: Set<string> | null = null;
+      if (!isSuperAdmin && orgId) {
+        const allOrgUsers = await fetchAllRows(
+          supabase
+            .from("user_roles")
+            .select("user_id")
+            .eq("organization_id", orgId)
+        );
+        orgUserIds = new Set(allOrgUsers.map(u => u.user_id));
+      }
+
+      // 2. Get all submitted entries (pending approval)
       const submittedEntries = await fetchAllRows(
         supabase
           .from("timesheet_entries")
@@ -60,9 +76,10 @@ export default function PendingApprovals() {
         return;
       }
 
-      // 2. Count pending entries per submitter
+      // 3. Count pending entries per submitter, filtered to org
       const countBySubmitter: Record<string, number> = {};
       for (const entry of submittedEntries) {
+        if (orgUserIds && !orgUserIds.has(entry.user_id)) continue;
         countBySubmitter[entry.user_id] = (countBySubmitter[entry.user_id] || 0) + 1;
       }
       const submitterIds = Object.keys(countBySubmitter);
