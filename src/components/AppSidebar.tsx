@@ -28,7 +28,7 @@ import { useToast } from "@/hooks/use-toast";
 import { signOut } from "@/lib/supabase";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import {
