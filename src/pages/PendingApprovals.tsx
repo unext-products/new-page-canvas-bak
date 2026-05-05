@@ -164,7 +164,22 @@ export default function PendingApprovals() {
         if (verts) verts.forEach(v => { verticalNames[v.id] = v.name; });
       }
 
-      // 9. Build result rows
+      // 9. Get total reportee count per approver (all mapped users, not just those with pending entries)
+      const reporteeCount: Record<string, number> = {};
+      for (let i = 0; i < approverIds.length; i += CHUNK) {
+        const chunk = approverIds.slice(i, i + CHUNK);
+        const { data: allReportees } = await supabase
+          .from("reporting_hierarchy")
+          .select("manager_id, user_id")
+          .in("manager_id", chunk);
+        if (allReportees) {
+          allReportees.forEach(r => {
+            reporteeCount[r.manager_id] = (reporteeCount[r.manager_id] || 0) + 1;
+          });
+        }
+      }
+
+      // 10. Build result rows
       const rows: ApproverPendingRow[] = approverIds.map(id => {
         const userVertIds = verticalIds[id] || [];
         const vertNames = userVertIds.map(vid => verticalNames[vid] || "").filter(Boolean);
@@ -175,7 +190,7 @@ export default function PendingApprovals() {
           email: profile.email,
           role: roles[id] || "",
           verticalName: vertNames.join(", ") || "—",
-          mappedUsersCount: mappedUsersByApprover[id]?.size || 0,
+          mappedUsersCount: reporteeCount[id] || 0,
           pendingCount: countByApprover[id],
         };
       });
