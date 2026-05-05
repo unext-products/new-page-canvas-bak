@@ -46,20 +46,28 @@ export default function PendingApprovals() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const orgId = userWithRole?.organization_id;
       const isSuperAdmin = isRole(userWithRole?.role, "super_admin");
 
       // 1. Get user IDs in this organization (to scope everything)
-      const CHUNK = 30;
       let orgUserIds: Set<string> | null = null;
-      if (!isSuperAdmin && orgId) {
-        const allOrgUsers = await fetchAllRows(
-          supabase
-            .from("user_roles")
-            .select("user_id")
-            .eq("organization_id", orgId)
-        );
-        orgUserIds = new Set(allOrgUsers.map(u => u.user_id));
+      if (!isSuperAdmin && userWithRole?.user?.id) {
+        // Get the current user's org
+        const { data: orgRow } = await supabase
+          .from("user_roles")
+          .select("organization_id")
+          .eq("user_id", userWithRole.user.id)
+          .limit(1)
+          .single();
+        
+        if (orgRow?.organization_id) {
+          const allOrgUsers = await fetchAllRows(
+            supabase
+              .from("user_roles")
+              .select("user_id")
+              .eq("organization_id", orgRow.organization_id)
+          );
+          orgUserIds = new Set(allOrgUsers.map(u => u.user_id));
+        }
       }
 
       // 2. Get all submitted entries (pending approval)
