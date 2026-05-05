@@ -16,6 +16,7 @@ import { fetchAllRows } from "@/lib/reportQueries";
 interface ApproverPendingRow {
   userId: string;
   name: string;
+  email: string;
   role: string;
   verticalName: string;
   pendingCount: number;
@@ -113,14 +114,14 @@ export default function PendingApprovals() {
       }
 
       // 5. Get approver profiles
-      const profiles: Record<string, string> = {};
+      const profiles: Record<string, { name: string; email: string }> = {};
       for (let i = 0; i < approverIds.length; i += CHUNK) {
         const chunk = approverIds.slice(i, i + CHUNK);
         const { data: profs } = await supabase
           .from("profiles")
-          .select("id, full_name")
+          .select("id, full_name, email")
           .in("id", chunk);
-        if (profs) profs.forEach(p => { profiles[p.id] = p.full_name; });
+        if (profs) profs.forEach(p => { profiles[p.id] = { name: p.full_name, email: p.email || "" }; });
       }
 
       // 6. Get approver roles
@@ -166,9 +167,11 @@ export default function PendingApprovals() {
       const rows: ApproverPendingRow[] = approverIds.map(id => {
         const userVertIds = verticalIds[id] || [];
         const vertNames = userVertIds.map(vid => verticalNames[vid] || "").filter(Boolean);
+        const profile = profiles[id] || { name: "Unknown", email: "" };
         return {
           userId: id,
-          name: profiles[id] || "Unknown",
+          name: profile.name,
+          email: profile.email,
           role: roles[id] || "",
           verticalName: vertNames.join(", ") || "—",
           pendingCount: countByApprover[id],
@@ -231,7 +234,10 @@ export default function PendingApprovals() {
                 <TableBody>
                   {data.map((row) => (
                     <TableRow key={row.userId}>
-                      <TableCell className="font-medium">{row.name}</TableCell>
+                      <TableCell>
+                        <div className="font-medium">{row.name}</div>
+                        {row.email && <div className="text-xs text-muted-foreground">{row.email}</div>}
+                      </TableCell>
                       <TableCell>
                         <Badge variant="outline">{getRoleDisplay(row.role)}</Badge>
                       </TableCell>
