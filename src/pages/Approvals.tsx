@@ -194,30 +194,31 @@ export default function Approvals() {
       // Check if current user can approve L1 entries
       if (rolesToApprove.includes("l1")) {
         if (isL2) {
-          // L2: Union of explicit reporting hierarchy + program-based scope
-          // (matches Reports visibility — neither source alone is sufficient)
-          const candidateSet = new Set<string>();
-
+          // L2: Use reporting hierarchy if configured, fallback to program-based scope
           const hierarchyUsers = await getVisibleUserIds(userWithRole.user.id, "l2");
-          if (hierarchyUsers && hierarchyUsers.length > 0) {
-            hierarchyUsers.forEach(id => candidateSet.add(id));
-          }
 
-          const { data: l2Programs } = await supabase
-            .from("user_programs")
-            .select("program_id")
-            .eq("user_id", userWithRole.user.id);
-          const l2ProgramIds = l2Programs?.map(p => p.program_id) || [];
+          let candidateIds: string[] = [];
 
-          if (l2ProgramIds.length > 0) {
-            const { data: l1UsersInPrograms } = await supabase
+          if (hierarchyUsers !== null && hierarchyUsers.length > 0) {
+            // Reporting hierarchy exists — use only mapped users
+            candidateIds = hierarchyUsers;
+          } else if (hierarchyUsers === null) {
+            // No hierarchy configured — fallback to program-based scope
+            const { data: l2Programs } = await supabase
               .from("user_programs")
-              .select("user_id")
-              .in("program_id", l2ProgramIds);
-            l1UsersInPrograms?.forEach(u => candidateSet.add(u.user_id));
+              .select("program_id")
+              .eq("user_id", userWithRole.user.id);
+            const l2ProgramIds = l2Programs?.map(p => p.program_id) || [];
+
+            if (l2ProgramIds.length > 0) {
+              const { data: l1UsersInPrograms } = await supabase
+                .from("user_programs")
+                .select("user_id")
+                .in("program_id", l2ProgramIds);
+              candidateIds = l1UsersInPrograms?.map(u => u.user_id) || [];
+            }
           }
 
-          const candidateIds = Array.from(candidateSet);
           if (candidateIds.length > 0) {
             const { data: l1RoleUsers } = await supabase
               .from("user_roles")
