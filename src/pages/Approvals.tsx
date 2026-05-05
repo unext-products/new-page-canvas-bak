@@ -1094,7 +1094,7 @@ export default function Approvals() {
           }
         />
 
-        {pendingEntries.length === 0 && !isCurrentUserAdmin ? (
+        {totalPendingCount === 0 && !isCurrentUserAdmin ? (
           <Card>
             <CardContent className="py-0">
               <EmptyState
