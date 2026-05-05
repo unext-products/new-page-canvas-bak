@@ -79,12 +79,9 @@ export default function PendingApprovals() {
         if (rows) allHierarchyRows.push(...rows);
       }
 
-      // 4. Aggregate pending count and mapped user count per approver (manager)
+      // 4. Aggregate pending count per approver (manager)
       const countByApprover: Record<string, number> = {};
-      const mappedUsersByApprover: Record<string, Set<string>> = {};
       for (const row of allHierarchyRows) {
-        if (!mappedUsersByApprover[row.manager_id]) mappedUsersByApprover[row.manager_id] = new Set();
-        mappedUsersByApprover[row.manager_id].add(row.user_id);
         const submitterPending = countBySubmitter[row.user_id] || 0;
         if (submitterPending > 0) {
           countByApprover[row.manager_id] = (countByApprover[row.manager_id] || 0) + submitterPending;
