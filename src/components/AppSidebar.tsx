@@ -17,7 +17,8 @@ import {
   BarChart3,
   ClipboardCheck,
   UsersRound,
-  CalendarDays
+  CalendarDays,
+  ClipboardList
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { Logo } from "@/components/Logo";
