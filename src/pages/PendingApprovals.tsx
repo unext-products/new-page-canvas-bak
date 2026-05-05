@@ -199,6 +199,8 @@ export default function PendingApprovals() {
           .in("manager_id", chunk);
         if (allReportees) {
           allReportees.forEach(r => {
+            // Only count reportees that belong to the same org
+            if (orgUserIds && !orgUserIds.has(r.user_id)) return;
             reporteeCount[r.manager_id] = (reporteeCount[r.manager_id] || 0) + 1;
           });
         }
