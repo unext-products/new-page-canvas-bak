@@ -31,7 +31,7 @@ export default function PendingApprovals() {
   const [data, setData] = useState<ApproverPendingRow[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const hasAccess = isRole(userWithRole?.role, "admin", "org_admin", "super_admin");
+  const hasAccess = isRole(userWithRole?.role, "admin", "org_admin", "super_admin", "l2", "l3", "program_manager", "manager", "hod");
 
   useEffect(() => {
     if (!loading && !hasAccess) {
