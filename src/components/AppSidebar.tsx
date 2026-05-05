@@ -66,8 +66,20 @@ export function AppSidebar() {
   const { toast } = useToast();
   const { isMobile, setOpenMobile } = useSidebar();
   const signingOutRef = useRef(false);
+  const [orgCode, setOrgCode] = useState<string | null>(null);
 
-  // Close mobile sidebar on route change
+  // Fetch organization code
+  useEffect(() => {
+    if (!userWithRole?.user?.id) return;
+    supabase.rpc("get_user_organization", { user_id: userWithRole.user.id }).then(({ data: orgId }) => {
+      if (orgId) {
+        supabase.from("organizations").select("code").eq("id", orgId).maybeSingle().then(({ data }) => {
+          setOrgCode(data?.code || null);
+        });
+      }
+    });
+  }, [userWithRole?.user?.id]);
+
   useEffect(() => {
     if (isMobile) {
       setOpenMobile(false);
