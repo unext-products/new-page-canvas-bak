@@ -145,6 +145,7 @@ export function AppSidebar() {
         { to: "/users", icon: Users, label: "Users", group: "Administration" },
         { to: "/approvals", icon: ClipboardCheck, label: "Approvals", group: "Management" },
         { to: "/reports", icon: BarChart3, label: "Reports", group: "Analytics" },
+        { to: "/pending-approvals", icon: ClipboardList, label: "Pending Approvals", group: "Analytics" },
         { to: "/bulk-import", icon: Upload, label: "Bulk Import", group: "Tools" },
         { to: "/settings", icon: Settings, label: "Settings", group: "Tools" }
       );
@@ -161,6 +162,7 @@ export function AppSidebar() {
         { to: "/subjects", icon: BookOpen, label: entityLabel("subject", true), group: "Administration" },
         { to: "/users", icon: Users, label: "Users", group: "Administration" },
         { to: "/reports", icon: BarChart3, label: "Reports", group: "Analytics" },
+        { to: "/pending-approvals", icon: ClipboardList, label: "Pending Approvals", group: "Analytics" },
         { to: "/settings", icon: Settings, label: "Settings", group: "Tools" }
       );
     }
