@@ -46,7 +46,31 @@ export default function PendingApprovals() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      // 1. Get all submitted entries (pending approval)
+      const isSuperAdmin = isRole(userWithRole?.role, "super_admin");
+
+      // 1. Get user IDs in this organization (to scope everything)
+      let orgUserIds: Set<string> | null = null;
+      if (!isSuperAdmin && userWithRole?.user?.id) {
+        // Get the current user's org
+        const { data: orgRow } = await supabase
+          .from("user_roles")
+          .select("organization_id")
+          .eq("user_id", userWithRole.user.id)
+          .limit(1)
+          .single();
+        
+        if (orgRow?.organization_id) {
+          const allOrgUsers = await fetchAllRows(
+            supabase
+              .from("user_roles")
+              .select("user_id")
+              .eq("organization_id", orgRow.organization_id)
+          );
+          orgUserIds = new Set(allOrgUsers.map(u => u.user_id));
+        }
+      }
+
+      // 2. Get all submitted entries (pending approval)
       const submittedEntries = await fetchAllRows(
         supabase
           .from("timesheet_entries")
@@ -60,9 +84,10 @@ export default function PendingApprovals() {
         return;
       }
 
-      // 2. Count pending entries per submitter
+      // 3. Count pending entries per submitter, filtered to org
       const countBySubmitter: Record<string, number> = {};
       for (const entry of submittedEntries) {
+        if (orgUserIds && !orgUserIds.has(entry.user_id)) continue;
         countBySubmitter[entry.user_id] = (countBySubmitter[entry.user_id] || 0) + 1;
       }
       const submitterIds = Object.keys(countBySubmitter);
@@ -174,6 +199,8 @@ export default function PendingApprovals() {
           .in("manager_id", chunk);
         if (allReportees) {
           allReportees.forEach(r => {
+            // Only count reportees that belong to the same org
+            if (orgUserIds && !orgUserIds.has(r.user_id)) return;
             reporteeCount[r.manager_id] = (reporteeCount[r.manager_id] || 0) + 1;
           });
         }
