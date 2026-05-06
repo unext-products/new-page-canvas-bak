@@ -89,6 +89,7 @@ export interface VerticalReportData {
   facultyBreakdown: FacultyBreakdown[];
   nonStarters: NonStarterEntry[];
   averageDailyHours: number;
+  expectedHoursBreakdown?: ExpectedHoursBreakdown;
 }
 
 /** @deprecated Use VerticalReportData instead */
