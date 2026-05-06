@@ -10,9 +10,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { PageHeader } from "@/components/PageHeader";
 import { PageSkeleton } from "@/components/PageSkeleton";
 import { Badge } from "@/components/ui/badge";
-import { ClipboardList, Download } from "lucide-react";
+import { ClipboardList, Download, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { fetchAllRows } from "@/lib/reportQueries";
+import { DateRangePicker } from "@/components/DateRangePicker";
+import { formatLocalDate } from "@/lib/dateUtils";
 
 interface ApproverPendingRow {
   userId: string;
