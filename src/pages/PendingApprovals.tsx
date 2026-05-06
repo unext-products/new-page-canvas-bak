@@ -85,6 +85,41 @@ export default function PendingApprovals() {
         const directIds = directReportees?.map(r => r.user_id) || [];
         scopedSubmitterIds = new Set(directIds);
 
+        // For L2, also add program-based L1/faculty users (matching Approvals page logic)
+        if (isRole(userWithRole?.role, "l2", "program_manager")) {
+          const { data: l2Programs } = await supabase
+            .from("user_programs")
+            .select("program_id")
+            .eq("user_id", userWithRole.user.id);
+          const l2ProgramIds = l2Programs?.map(p => p.program_id) || [];
+
+          if (l2ProgramIds.length > 0) {
+            const CHUNK_P = 30;
+            for (let i = 0; i < l2ProgramIds.length; i += CHUNK_P) {
+              const chunk = l2ProgramIds.slice(i, i + CHUNK_P);
+              const { data: programUsers } = await supabase
+                .from("user_programs")
+                .select("user_id")
+                .in("program_id", chunk);
+              if (programUsers) {
+                // Filter to L1/faculty roles
+                const pUserIds = programUsers.map(u => u.user_id);
+                for (let j = 0; j < pUserIds.length; j += CHUNK_P) {
+                  const uChunk = pUserIds.slice(j, j + CHUNK_P);
+                  const { data: l1Roles } = await supabase
+                    .from("user_roles")
+                    .select("user_id")
+                    .in("user_id", uChunk)
+                    .in("role", ["l1", "faculty"]);
+                  if (l1Roles) {
+                    l1Roles.forEach(r => scopedSubmitterIds!.add(r.user_id));
+                  }
+                }
+              }
+            }
+          }
+        }
+
         // For L3, also get transitive reportees (L1s under L2s)
         if (isRole(userWithRole?.role, "l3", "manager", "hod") && directIds.length > 0) {
           const CHUNK = 30;
