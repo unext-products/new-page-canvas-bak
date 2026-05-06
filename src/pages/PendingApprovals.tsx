@@ -32,6 +32,8 @@ export default function PendingApprovals() {
   const navigate = useNavigate();
   const [data, setData] = useState<ApproverPendingRow[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
 
   const hasAccess = isRole(userWithRole?.role, "admin", "org_admin", "super_admin", "l2", "l3", "program_manager", "manager", "hod");
 
