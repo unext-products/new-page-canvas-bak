@@ -430,7 +430,7 @@ export default function Reports() {
                   : departmentReport?.facultyBreakdown.reduce((sum, f) => sum + f.pendingCount, 0)
               }
               averageDailyHours={currentReport.averageDailyHours}
-              expectedHoursBreakdown={reportType === "member" ? facultyReport?.expectedHoursBreakdown : undefined}
+              expectedHoursBreakdown={reportType === "member" ? facultyReport?.expectedHoursBreakdown : departmentReport?.expectedHoursBreakdown}
             />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -440,7 +440,7 @@ export default function Reports() {
                 expectedHours={currentReport.expectedHours}
                 completionRate={currentReport.completionRate}
                 period={period}
-                expectedHoursBreakdown={reportType === "member" ? facultyReport?.expectedHoursBreakdown : undefined}
+                expectedHoursBreakdown={reportType === "member" ? facultyReport?.expectedHoursBreakdown : departmentReport?.expectedHoursBreakdown}
               />
 
               {/* Activity Breakdown */}
