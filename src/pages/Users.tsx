@@ -284,12 +284,15 @@ export default function Users() {
       // Build profile name lookup and user -> manager name map
       const profileNameMap = new Map<string, string>();
       profilesData?.forEach(p => profileNameMap.set(p.id, p.full_name));
+      const activeUserIds = new Set(profilesData?.filter(p => p.is_active).map(p => p.id) || []);
       const userManagerMap = new Map<string, string>();
       const managerReporteeCount = new Map<string, number>();
       hierarchyData?.forEach(h => {
         const managerName = profileNameMap.get(h.manager_id);
         if (managerName) userManagerMap.set(h.user_id, managerName);
-        managerReporteeCount.set(h.manager_id, (managerReporteeCount.get(h.manager_id) || 0) + 1);
+        if (activeUserIds.has(h.user_id)) {
+          managerReporteeCount.set(h.manager_id, (managerReporteeCount.get(h.manager_id) || 0) + 1);
+        }
       });
 
       const enrichedUsers: UserProfile[] = profilesData?.map(profile => {
