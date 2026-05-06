@@ -348,7 +348,7 @@ export default function PendingApprovals() {
         if (verts) verts.forEach(v => { verticalNames[v.id] = v.name; });
       }
 
-      // 9. Get total reportee count per approver (all mapped users, not just those with pending entries)
+      // 9. Get total reportee count per approver (only active mapped users)
       const reporteeCount: Record<string, number> = {};
       for (let i = 0; i < approverIds.length; i += CHUNK) {
         const chunk = approverIds.slice(i, i + CHUNK);
@@ -357,9 +357,21 @@ export default function PendingApprovals() {
           .select("manager_id, user_id")
           .in("manager_id", chunk);
         if (allReportees) {
+          // Collect all reportee user_ids to check active status
+          const reporteeUserIds = Array.from(new Set(allReportees.map(r => r.user_id)));
+          const activeReporteeIds = new Set<string>();
+          for (let j = 0; j < reporteeUserIds.length; j += CHUNK) {
+            const uChunk = reporteeUserIds.slice(j, j + CHUNK);
+            const { data: activeProfiles } = await supabase
+              .from("profiles")
+              .select("id")
+              .in("id", uChunk)
+              .eq("is_active", true);
+            if (activeProfiles) activeProfiles.forEach(p => activeReporteeIds.add(p.id));
+          }
           allReportees.forEach(r => {
-            // Only count reportees that belong to the same org
             if (orgUserIds && !orgUserIds.has(r.user_id)) return;
+            if (!activeReporteeIds.has(r.user_id)) return;
             reporteeCount[r.manager_id] = (reporteeCount[r.manager_id] || 0) + 1;
           });
         }
