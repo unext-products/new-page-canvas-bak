@@ -21,6 +21,7 @@ import { ReportTypeToggle } from "@/components/reports/ReportTypeToggle";
 import { ReportPeriodSelector, PeriodType } from "@/components/reports/ReportPeriodSelector";
 import { ActivityBreakdownChart } from "@/components/reports/ActivityBreakdownChart";
 import { CompletionMetricsCard } from "@/components/reports/CompletionMetricsCard";
+import { ExpectedHoursBreakdownTable } from "@/components/reports/ExpectedHoursBreakdownTable";
 import { ReportSummaryCards } from "@/components/reports/ReportSummaryCards";
 import { MemberCalendar } from "@/components/reports/MemberCalendar";
 import { DepartmentCalendar } from "@/components/reports/DepartmentCalendar";
