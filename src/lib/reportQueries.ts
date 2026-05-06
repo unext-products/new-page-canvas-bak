@@ -89,6 +89,7 @@ export interface VerticalReportData {
   facultyBreakdown: FacultyBreakdown[];
   nonStarters: NonStarterEntry[];
   averageDailyHours: number;
+  expectedHoursBreakdown?: ExpectedHoursBreakdown;
 }
 
 /** @deprecated Use VerticalReportData instead */
@@ -631,8 +632,28 @@ export async function fetchVerticalReport(
   const completionRate = calculateCompletionRate(totalMinutes, totalExpectedHours * 60);
   const activityBreakdown = generateActivityBreakdown(entries || []);
 
-  const workingDays = differenceInCalendarDays(period.dateTo, period.dateFrom) + 1;
-  const averageDailyHours = workingDays > 0 ? totalHours / workingDays : 0;
+  const calendarDays = differenceInCalendarDays(period.dateTo, period.dateFrom) + 1;
+  const averageDailyHours = calendarDays > 0 ? totalHours / calendarDays : 0;
+
+  // Calculate period-level breakdown for expected hours display
+  const allPeriodDays = eachDayOfInterval({ start: period.dateFrom, end: period.dateTo });
+  const weekdaysInPeriod = allPeriodDays.filter(day => !isWeekend(day));
+  const holidayCount = weekdaysInPeriod.filter(day => orgHolidayDates.has(format(day, "yyyy-MM-dd"))).length;
+
+  // Aggregate leave days across all faculty (average per faculty for display)
+  let totalLeaveDays = 0;
+  for (const uid of uniqueFacultyIds) {
+    const userLeaveData = userLeaveMap.get(uid);
+    if (userLeaveData) {
+      for (const dateStr of userLeaveData.leaveDates) {
+        const dayDate = new Date(dateStr + "T00:00:00");
+        if (!isWeekend(dayDate) && !orgHolidayDates.has(dateStr)) {
+          const leaveType = userLeaveData.leaveTypeMap.get(dateStr) || "other";
+          totalLeaveDays += getLeaveWeight(leaveType);
+        }
+      }
+    }
+  }
 
   return {
     verticalId,
@@ -645,6 +666,11 @@ export async function fetchVerticalReport(
     facultyBreakdown,
     nonStarters,
     averageDailyHours,
+    expectedHoursBreakdown: {
+      totalDays: weekdaysInPeriod.length - holidayCount,
+      leaveDays: totalLeaveDays,
+      holidayDays: holidayCount,
+    },
   };
 }
 
