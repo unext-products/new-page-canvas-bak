@@ -105,6 +105,10 @@ export interface FacultyBreakdown {
   entryCount: number;
   approvedCount: number;
   pendingCount: number;
+  expectedHours: number;
+  leaveDays: number;
+  workingDays: number;
+  dailyTargetHours: number;
 }
 
 // Helper function to get duration from an entry
@@ -615,6 +619,18 @@ export async function fetchVerticalReport(
     const userExpectedHours = (workingDays * userDailyTarget) / 60;
     const userExpectedMinutes = userExpectedHours * 60;
     totalExpectedHours += userExpectedHours;
+
+    // Calculate per-user leave days (excluding weekends and holidays)
+    let userLeaveDays = 0;
+    if (userLeaveData) {
+      for (const dateStr of userLeaveData.leaveDates) {
+        const dayDate = new Date(dateStr + "T00:00:00");
+        if (!isWeekend(dayDate) && !orgHolidayDates.has(dateStr)) {
+          const leaveType = userLeaveData.leaveTypeMap.get(dateStr) || "other";
+          userLeaveDays += getLeaveWeight(leaveType);
+        }
+      }
+    }
     
     return {
       userId,
@@ -626,6 +642,10 @@ export async function fetchVerticalReport(
       entryCount: userEntries.length,
       approvedCount: userEntries.filter(e => e.status === "approved").length,
       pendingCount: userEntries.filter(e => e.status === "submitted").length,
+      expectedHours: userExpectedHours,
+      leaveDays: userLeaveDays,
+      workingDays,
+      dailyTargetHours: userDailyTarget / 60,
     };
   });
 
