@@ -285,14 +285,49 @@ export default function Users() {
       const profileNameMap = new Map<string, string>();
       profilesData?.forEach(p => profileNameMap.set(p.id, p.full_name));
       const activeUserIds = new Set(profilesData?.filter(p => p.is_active).map(p => p.id) || []);
+
+      // Build user -> vertical IDs lookup (from user_verticals data)
+      const userVertIdSets = new Map<string, Set<string>>();
+      userVertData?.forEach(uv => {
+        if (!userVertIdSets.has(uv.user_id)) userVertIdSets.set(uv.user_id, new Set());
+        userVertIdSets.get(uv.user_id)!.add(uv.vertical_id);
+      });
+
       const userManagerMap = new Map<string, string>();
       const managerReporteeCount = new Map<string, number>();
+
+      // Group hierarchy by manager
+      const managerToReporteeIds = new Map<string, string[]>();
       hierarchyData?.forEach(h => {
         const managerName = profileNameMap.get(h.manager_id);
         if (managerName) userManagerMap.set(h.user_id, managerName);
-        if (activeUserIds.has(h.user_id)) {
-          managerReporteeCount.set(h.manager_id, (managerReporteeCount.get(h.manager_id) || 0) + 1);
+        if (!managerToReporteeIds.has(h.manager_id)) managerToReporteeIds.set(h.manager_id, []);
+        managerToReporteeIds.get(h.manager_id)!.push(h.user_id);
+      });
+
+      // Count reportees matching edit form logic: active + in manager's verticals + correct role
+      managerToReporteeIds.forEach((reporteeIds, managerId) => {
+        const managerRoleData = rolesMap.get(managerId);
+        const managerRole = managerRoleData?.role as string | undefined;
+        const isL3Manager = managerRole === 'l3' || managerRole === 'hod';
+        const targetRoles = isL3Manager ? ['l2', 'program_manager'] : ['l1', 'faculty'];
+        const managerVerts = userVertIdSets.get(managerId);
+
+        let count = 0;
+        for (const rid of reporteeIds) {
+          if (!activeUserIds.has(rid)) continue;
+          const reporteeRole = rolesMap.get(rid)?.role as string | undefined;
+          if (!reporteeRole || !targetRoles.includes(reporteeRole)) continue;
+          if (managerVerts && managerVerts.size > 0) {
+            const reporteeVerts = userVertIdSets.get(rid);
+            if (!reporteeVerts) continue;
+            let hasSharedVertical = false;
+            managerVerts.forEach(v => { if (reporteeVerts.has(v)) hasSharedVertical = true; });
+            if (!hasSharedVertical) continue;
+          }
+          count++;
         }
+        if (count > 0) managerReporteeCount.set(managerId, count);
       });
 
       const enrichedUsers: UserProfile[] = profilesData?.map(profile => {
