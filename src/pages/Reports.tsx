@@ -204,7 +204,17 @@ export default function Reports() {
 
       if (reportType === "member") {
         if (selectedFaculty === "all") {
-          const report = await fetchAllMembersReport(reportPeriod);
+          // For non-admin roles, scope "All Members" to users in their verticals
+          let scopeUserIds: string[] | undefined;
+          const isAdmin = isRole(userWithRole?.role, "admin", "org_admin", "super_admin");
+          if (!isAdmin && hodDepartmentIds.length > 0) {
+            const { data: vertUsers } = await supabase
+              .from("user_verticals")
+              .select("user_id")
+              .in("vertical_id", hodDepartmentIds);
+            scopeUserIds = [...new Set(vertUsers?.map(u => u.user_id) || [])];
+          }
+          const report = await fetchAllMembersReport(reportPeriod, scopeUserIds);
           setFacultyReport(report);
         } else {
           const report = await fetchFacultyReport(selectedFaculty, reportPeriod);
