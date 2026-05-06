@@ -1081,7 +1081,7 @@ export default function Approvals() {
           description="Review and approve timesheet entries from your team"
           icon={ClipboardCheck}
           actions={
-            totalPendingCount > 0 && (
+            totalPendingCount > 0 && isRole(userWithRole?.role, "admin", "org_admin", "super_admin") && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Badge variant="secondary" className="text-base px-4 py-1.5 cursor-help">
