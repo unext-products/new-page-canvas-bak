@@ -653,6 +653,42 @@ export async function fetchVerticalReport(
     };
   });
 
+  // Add non-starters to facultyBreakdown with 0 hours but with expected hours
+  for (const ns of (filteredNonStarterProfiles || [])) {
+    const userId = ns.id;
+    const userDailyTarget = userTargetMap.get(userId) || 480;
+    const userLeaveData = userLeaveMap.get(userId) || { leaveDates: new Set<string>(), leaveTypeMap: new Map<string, string>() };
+    
+    const workingDays = countWorkingDays(period.dateFrom, period.dateTo, userLeaveData.leaveDates, userLeaveData.leaveTypeMap, orgHolidayDates);
+    const userExpectedHours = (workingDays * userDailyTarget) / 60;
+    totalExpectedHours += userExpectedHours;
+
+    let userLeaveDays = 0;
+    for (const dateStr of userLeaveData.leaveDates) {
+      const dayDate = new Date(dateStr + "T00:00:00");
+      if (!isWeekend(dayDate) && !orgHolidayDates.has(dateStr)) {
+        const leaveType = userLeaveData.leaveTypeMap.get(dateStr) || "other";
+        userLeaveDays += getLeaveWeight(leaveType);
+      }
+    }
+
+    facultyBreakdown.push({
+      userId,
+      facultyName: ns.full_name,
+      email: ns.email || "",
+      verticalName: nonStarterVertNameMap.get(userId) || "",
+      totalHours: 0,
+      completionRate: 0,
+      entryCount: 0,
+      approvedCount: 0,
+      pendingCount: 0,
+      expectedHours: userExpectedHours,
+      leaveDays: userLeaveDays,
+      workingDays,
+      dailyTargetHours: userDailyTarget / 60,
+    });
+  }
+
   const completionRate = calculateCompletionRate(totalMinutes, totalExpectedHours * 60);
   const activityBreakdown = generateActivityBreakdown(entries || []);
 
@@ -664,9 +700,9 @@ export async function fetchVerticalReport(
   const weekdaysInPeriod = allPeriodDays.filter(day => !isWeekend(day));
   const holidayCount = weekdaysInPeriod.filter(day => orgHolidayDates.has(format(day, "yyyy-MM-dd"))).length;
 
-  // Aggregate leave days across all faculty (average per faculty for display)
+  // Aggregate leave days across all members (including non-starters)
   let totalLeaveDays = 0;
-  for (const uid of uniqueFacultyIds) {
+  for (const uid of allMemberIds) {
     const userLeaveData = userLeaveMap.get(uid);
     if (userLeaveData) {
       for (const dateStr of userLeaveData.leaveDates) {
