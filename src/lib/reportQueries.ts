@@ -656,18 +656,23 @@ export const fetchDepartmentReport = fetchVerticalReport;
  * Returns a FacultyReportData with all entries combined.
  */
 export async function fetchAllMembersReport(
-  period: ReportPeriod
+  period: ReportPeriod,
+  scopeUserIds?: string[]
 ): Promise<FacultyReportData> {
   const dateFrom = format(period.dateFrom, "yyyy-MM-dd");
   const dateTo = format(period.dateTo, "yyyy-MM-dd");
 
-  // Fetch all entries for the period
-  const entriesQuery = supabase
+  // Fetch entries for the period, optionally scoped to specific users
+  let entriesQuery = supabase
     .from("timesheet_entries")
     .select("*")
     .gte("entry_date", dateFrom)
     .lte("entry_date", dateTo)
     .order("entry_date", { ascending: false });
+
+  if (scopeUserIds && scopeUserIds.length > 0) {
+    entriesQuery = entriesQuery.in("user_id", scopeUserIds);
+  }
 
   const entries = await fetchAllRows(entriesQuery);
 
