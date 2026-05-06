@@ -52,7 +52,7 @@ export default function PendingApprovals() {
     fetchData(startDate, endDate);
   };
 
-  const fetchData = async () => {
+  const fetchData = async (fromDate?: Date, toDate?: Date) => {
     setIsLoading(true);
     try {
       const isSuperAdmin = isRole(userWithRole?.role, "super_admin");
