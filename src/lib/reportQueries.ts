@@ -588,7 +588,7 @@ export async function fetchVerticalReport(
   ]);
 
   const userTargetMap = new Map(allMemberIds.map((uid, i) => [uid, userTargets[i].totalDailyTargetMinutes]));
-  const userLeaveMap = new Map(uniqueFacultyIds.map((uid, i) => {
+  const userLeaveMap = new Map(allMemberIds.map((uid, i) => {
     const leaveTypeMap = new Map<string, string>();
     const leaveDateSet = new Set<string>();
     userLeaves[i].forEach((l: any) => {
