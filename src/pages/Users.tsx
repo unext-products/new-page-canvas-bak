@@ -444,13 +444,14 @@ export default function Users() {
   // Export to CSV
   const exportUsersToCSV = () => {
     const usersToExport = getFilteredUsersForDownload();
-    const headers = ["Name", "Email", "Reporting Manager", "Role", entityLabel("vertical", true), "Status"];
+    const headers = ["Name", "Email", "Reporting Manager", "Role", entityLabel("vertical", true), "Reportees", "Status"];
     const rows = usersToExport.map(user => [
       user.full_name,
       user.email || "",
       user.reporting_manager_name || "-",
       roleLabel(user.role || ""),
       user.departments.map(d => d.name).join(", ") || "-",
+      String(user.reportee_count),
       user.is_active ? "Active" : "Inactive"
     ]);
     
@@ -487,13 +488,14 @@ export default function Users() {
     
     autoTable(doc, {
       startY: 48,
-      head: [["Name", "Email", "Reporting Manager", "Role", entityLabel("vertical", true), "Status"]],
+      head: [["Name", "Email", "Reporting Manager", "Role", entityLabel("vertical", true), "Reportees", "Status"]],
       body: usersToExport.map(user => [
         user.full_name,
         user.email || "",
         user.reporting_manager_name || "-",
         roleLabel(user.role || ""),
         user.departments.map(d => d.name).join(", ") || "-",
+        String(user.reportee_count),
         user.is_active ? "Active" : "Inactive"
       ]),
       theme: "striped",
