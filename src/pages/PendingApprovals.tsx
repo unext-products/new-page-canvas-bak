@@ -45,8 +45,12 @@ export default function PendingApprovals() {
 
   useEffect(() => {
     if (!hasAccess || loading) return;
-    fetchData();
+    handleSubmit();
   }, [hasAccess, loading]);
+
+  const handleSubmit = () => {
+    fetchData(startDate, endDate);
+  };
 
   const fetchData = async () => {
     setIsLoading(true);
