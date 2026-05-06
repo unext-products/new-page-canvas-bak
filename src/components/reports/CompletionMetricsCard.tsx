@@ -105,9 +105,14 @@ export function CompletionMetricsCard({
           <div>
             <p className="text-xs text-muted-foreground">Expected</p>
             <p className="text-lg font-semibold">{expectedHours.toFixed(1)}h</p>
-            {expectedHoursBreakdown && (
+            {expectedHoursBreakdown && !isDepartmentView && (
               <p className="text-xs text-muted-foreground mt-0.5">
                 ({expectedHoursBreakdown.totalDays - (expectedHoursBreakdown.leaveDays + expectedHoursBreakdown.holidayDays)} Working Days × {dailyTargetHours} Hrs)
+              </p>
+            )}
+            {isDepartmentView && totalFaculty !== undefined && (
+              <p className="text-xs text-muted-foreground mt-0.5">
+                (Sum across {totalFaculty} members)
               </p>
             )}
           </div>
