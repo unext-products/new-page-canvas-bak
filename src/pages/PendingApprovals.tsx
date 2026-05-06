@@ -144,13 +144,18 @@ export default function PendingApprovals() {
         }
       }
 
-      // 2. Get all submitted entries (pending approval)
-      const submittedEntries = await fetchAllRows(
-        supabase
-          .from("timesheet_entries")
-          .select("user_id")
-          .eq("status", "submitted")
-      );
+      // 2. Get all submitted entries (pending approval), with optional date filter
+      let submittedQuery = supabase
+        .from("timesheet_entries")
+        .select("user_id")
+        .eq("status", "submitted");
+      if (fromDate) {
+        submittedQuery = submittedQuery.gte("entry_date", formatLocalDate(fromDate));
+      }
+      if (toDate) {
+        submittedQuery = submittedQuery.lte("entry_date", formatLocalDate(toDate));
+      }
+      const submittedEntries = await fetchAllRows(submittedQuery);
 
       if (!submittedEntries.length) {
         setData([]);
