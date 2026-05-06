@@ -110,11 +110,6 @@ export function CompletionMetricsCard({
                 ({expectedHoursBreakdown.totalDays - (expectedHoursBreakdown.leaveDays + expectedHoursBreakdown.holidayDays)} Working Days × {dailyTargetHours} Hrs)
               </p>
             )}
-            {isDepartmentView && totalFaculty !== undefined && (
-              <p className="text-xs text-muted-foreground mt-0.5">
-                (Sum across {totalFaculty} members)
-              </p>
-            )}
           </div>
         </div>
 
