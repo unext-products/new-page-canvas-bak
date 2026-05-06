@@ -337,7 +337,7 @@ export default function PendingApprovals() {
       }
 
       // 8. Get vertical names
-      const allVertIds = [...new Set(Object.values(verticalIds).flat())];
+      const allVertIds = Array.from(new Set(Object.values(verticalIds).flat()));
       const verticalNames: Record<string, string> = {};
       for (let i = 0; i < allVertIds.length; i += CHUNK) {
         const chunk = allVertIds.slice(i, i + CHUNK);
