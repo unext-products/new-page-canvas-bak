@@ -569,10 +569,14 @@ export async function fetchVerticalReport(
     }
   }
 
+  // Combine all member IDs (with entries + non-starters) for target/leave calculations
+  const nonStarterUserIds = (filteredNonStarterProfiles || []).map(p => p.id);
+  const allMemberIds = [...uniqueFacultyIds, ...nonStarterUserIds];
+
   // Fetch per-user daily targets and leaves in parallel
   const [userTargets, userLeaves] = await Promise.all([
-    Promise.all(uniqueFacultyIds.map(uid => calculateUserTotalDailyTargetMinutes(uid))),
-    Promise.all(uniqueFacultyIds.map(uid =>
+    Promise.all(allMemberIds.map(uid => calculateUserTotalDailyTargetMinutes(uid))),
+    Promise.all(allMemberIds.map(uid =>
       supabase
         .from("leave_days")
         .select("leave_date, leave_type")
@@ -583,7 +587,7 @@ export async function fetchVerticalReport(
     )),
   ]);
 
-  const userTargetMap = new Map(uniqueFacultyIds.map((uid, i) => [uid, userTargets[i].totalDailyTargetMinutes]));
+  const userTargetMap = new Map(allMemberIds.map((uid, i) => [uid, userTargets[i].totalDailyTargetMinutes]));
   const userLeaveMap = new Map(uniqueFacultyIds.map((uid, i) => {
     const leaveTypeMap = new Map<string, string>();
     const leaveDateSet = new Set<string>();
