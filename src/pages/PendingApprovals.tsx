@@ -265,7 +265,8 @@ export default function PendingApprovals() {
       const countByApprover: Record<string, number> = {};
       for (const [approverId, submitters] of Object.entries(approverSubmitters)) {
         let total = 0;
-        for (const sid of submitters) {
+        const submitterArr = Array.from(submitters);
+        for (const sid of submitterArr) {
           total += countBySubmitter[sid] || 0;
         }
         if (total > 0) countByApprover[approverId] = total;
