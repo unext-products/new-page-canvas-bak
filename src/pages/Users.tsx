@@ -57,6 +57,7 @@ interface UserProfile {
   departments: { id: string; name: string }[];
   programs: { id: string; name: string }[];
   reporting_manager_name?: string | null;
+  reportee_count: number;
 }
 
 export default function Users() {
@@ -283,10 +284,15 @@ export default function Users() {
       // Build profile name lookup and user -> manager name map
       const profileNameMap = new Map<string, string>();
       profilesData?.forEach(p => profileNameMap.set(p.id, p.full_name));
+      const activeUserIds = new Set(profilesData?.filter(p => p.is_active).map(p => p.id) || []);
       const userManagerMap = new Map<string, string>();
+      const managerReporteeCount = new Map<string, number>();
       hierarchyData?.forEach(h => {
         const managerName = profileNameMap.get(h.manager_id);
         if (managerName) userManagerMap.set(h.user_id, managerName);
+        if (activeUserIds.has(h.user_id)) {
+          managerReporteeCount.set(h.manager_id, (managerReporteeCount.get(h.manager_id) || 0) + 1);
+        }
       });
 
       const enrichedUsers: UserProfile[] = profilesData?.map(profile => {
@@ -333,6 +339,7 @@ export default function Users() {
           departments: userDepts,
           programs: userProgs,
           reporting_manager_name: userManagerMap.get(profile.id) || null,
+          reportee_count: managerReporteeCount.get(profile.id) || 0,
         };
       }) || [];
 
@@ -437,13 +444,14 @@ export default function Users() {
   // Export to CSV
   const exportUsersToCSV = () => {
     const usersToExport = getFilteredUsersForDownload();
-    const headers = ["Name", "Email", "Reporting Manager", "Role", entityLabel("vertical", true), "Status"];
+    const headers = ["Name", "Email", "Reporting Manager", "Role", entityLabel("vertical", true), "Reportees", "Status"];
     const rows = usersToExport.map(user => [
       user.full_name,
       user.email || "",
       user.reporting_manager_name || "-",
       roleLabel(user.role || ""),
       user.departments.map(d => d.name).join(", ") || "-",
+      String(user.reportee_count),
       user.is_active ? "Active" : "Inactive"
     ]);
     
@@ -480,13 +488,14 @@ export default function Users() {
     
     autoTable(doc, {
       startY: 48,
-      head: [["Name", "Email", "Reporting Manager", "Role", entityLabel("vertical", true), "Status"]],
+      head: [["Name", "Email", "Reporting Manager", "Role", entityLabel("vertical", true), "Reportees", "Status"]],
       body: usersToExport.map(user => [
         user.full_name,
         user.email || "",
         user.reporting_manager_name || "-",
         roleLabel(user.role || ""),
         user.departments.map(d => d.name).join(", ") || "-",
+        String(user.reportee_count),
         user.is_active ? "Active" : "Inactive"
       ]),
       theme: "striped",
@@ -1292,6 +1301,7 @@ export default function Users() {
                 ) : (
                   <TableHead>{entityLabel("vertical")}</TableHead>
                 )}
+                <TableHead className="text-right">Reportees</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
@@ -1351,6 +1361,9 @@ export default function Users() {
                       )}
                     </TableCell>
                   )}
+                  <TableCell className="text-right">
+                    {user.reportee_count > 0 ? user.reportee_count : "-"}
+                  </TableCell>
                   <TableCell>
                     <Badge variant={user.is_active ? "default" : "secondary"}>
                       {user.is_active ? "Active" : "Inactive"}
