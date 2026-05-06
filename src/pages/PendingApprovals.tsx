@@ -179,7 +179,7 @@ export default function PendingApprovals() {
         // Get all L2/program_manager users in the org
         const l2RoleUsers: string[] = [];
         if (orgUserIds) {
-          const orgUserArr = [...orgUserIds];
+          const orgUserArr = Array.from(orgUserIds);
           for (let i = 0; i < orgUserArr.length; i += CHUNK) {
             const chunk = orgUserArr.slice(i, i + CHUNK);
             const { data: roleRows } = await supabase
