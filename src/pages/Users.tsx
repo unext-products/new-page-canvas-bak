@@ -1356,6 +1356,9 @@ export default function Users() {
                       )}
                     </TableCell>
                   )}
+                  <TableCell className="text-right">
+                    {user.reportee_count > 0 ? user.reportee_count : "-"}
+                  </TableCell>
                   <TableCell>
                     <Badge variant={user.is_active ? "default" : "secondary"}>
                       {user.is_active ? "Active" : "Inactive"}
