@@ -441,11 +441,22 @@ export default function Reports() {
                 completionRate={currentReport.completionRate}
                 period={period}
                 expectedHoursBreakdown={reportType === "member" ? facultyReport?.expectedHoursBreakdown : departmentReport?.expectedHoursBreakdown}
+                isDepartmentView={reportType === "department"}
+                totalFaculty={reportType === "department" ? departmentReport?.totalFaculty : undefined}
               />
 
               {/* Activity Breakdown */}
               <ActivityBreakdownChart data={currentReport.activityBreakdown} />
             </div>
+
+            {/* Expected Hours Breakdown Table - Department View */}
+            {reportType === "department" && departmentReport && (
+              <ExpectedHoursBreakdownTable
+                facultyBreakdown={departmentReport.facultyBreakdown}
+                totalDays={departmentReport.expectedHoursBreakdown?.totalDays ?? 0}
+                holidayDays={departmentReport.expectedHoursBreakdown?.holidayDays ?? 0}
+              />
+            )}
 
             {/* Detailed Entry Table - Member View */}
             {reportType === "member" && facultyReport && (
