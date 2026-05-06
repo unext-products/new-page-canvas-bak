@@ -10,9 +10,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { PageHeader } from "@/components/PageHeader";
 import { PageSkeleton } from "@/components/PageSkeleton";
 import { Badge } from "@/components/ui/badge";
-import { ClipboardList, Download } from "lucide-react";
+import { ClipboardList, Download, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { fetchAllRows } from "@/lib/reportQueries";
+import { DateRangePicker } from "@/components/DateRangePicker";
+import { formatLocalDate } from "@/lib/dateUtils";
 
 interface ApproverPendingRow {
   userId: string;
@@ -30,6 +32,8 @@ export default function PendingApprovals() {
   const navigate = useNavigate();
   const [data, setData] = useState<ApproverPendingRow[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
 
   const hasAccess = isRole(userWithRole?.role, "admin", "org_admin", "super_admin", "l2", "l3", "program_manager", "manager", "hod");
 
@@ -41,10 +45,14 @@ export default function PendingApprovals() {
 
   useEffect(() => {
     if (!hasAccess || loading) return;
-    fetchData();
+    handleSubmit();
   }, [hasAccess, loading]);
 
-  const fetchData = async () => {
+  const handleSubmit = () => {
+    fetchData(startDate, endDate);
+  };
+
+  const fetchData = async (fromDate?: Date, toDate?: Date) => {
     setIsLoading(true);
     try {
       const isSuperAdmin = isRole(userWithRole?.role, "super_admin");
@@ -136,13 +144,18 @@ export default function PendingApprovals() {
         }
       }
 
-      // 2. Get all submitted entries (pending approval)
-      const submittedEntries = await fetchAllRows(
-        supabase
-          .from("timesheet_entries")
-          .select("user_id")
-          .eq("status", "submitted")
-      );
+      // 2. Get all submitted entries (pending approval), with optional date filter
+      let submittedQuery = supabase
+        .from("timesheet_entries")
+        .select("user_id")
+        .eq("status", "submitted");
+      if (fromDate) {
+        submittedQuery = submittedQuery.gte("entry_date", formatLocalDate(fromDate));
+      }
+      if (toDate) {
+        submittedQuery = submittedQuery.lte("entry_date", formatLocalDate(toDate));
+      }
+      const submittedEntries = await fetchAllRows(submittedQuery);
 
       if (!submittedEntries.length) {
         setData([]);
@@ -498,7 +511,7 @@ export default function PendingApprovals() {
   return (
     <Layout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <PageHeader
             title="Pending Approvals"
             description="Users with pending approval requests, sorted by highest count"
@@ -511,6 +524,33 @@ export default function PendingApprovals() {
             </Button>
           )}
         </div>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex flex-wrap items-end gap-4 mb-6">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium">Start Date</label>
+                <DateRangePicker
+                  date={startDate}
+                  onDateChange={setStartDate}
+                  placeholder="Start date"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium">End Date</label>
+                <DateRangePicker
+                  date={endDate}
+                  onDateChange={setEndDate}
+                  placeholder="End date"
+                />
+              </div>
+              <Button onClick={handleSubmit} disabled={isLoading}>
+                <Search className="h-4 w-4 mr-2" />
+                Submit
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardContent className="pt-6">
