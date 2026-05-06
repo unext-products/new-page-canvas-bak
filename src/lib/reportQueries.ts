@@ -105,6 +105,10 @@ export interface FacultyBreakdown {
   entryCount: number;
   approvedCount: number;
   pendingCount: number;
+  expectedHours: number;
+  leaveDays: number;
+  workingDays: number;
+  dailyTargetHours: number;
 }
 
 // Helper function to get duration from an entry
