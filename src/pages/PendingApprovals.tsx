@@ -171,17 +171,105 @@ export default function PendingApprovals() {
         if (rows) allHierarchyRows.push(...rows);
       }
 
-      // 5. Aggregate pending count per approver (manager), scoped to org
-      const countByApprover: Record<string, number> = {};
-      for (const row of allHierarchyRows) {
-        // Only count if both submitter and manager are in the org
-        if (orgUserIds && !orgUserIds.has(row.manager_id)) continue;
-        // For L2/L3, only show their own row
-        if (isL2OrL3 && !isAdmin && row.manager_id !== userWithRole?.user?.id) continue;
-        const submitterPending = countBySubmitter[row.user_id] || 0;
-        if (submitterPending > 0) {
-          countByApprover[row.manager_id] = (countByApprover[row.manager_id] || 0) + submitterPending;
+      // 4b. Build program-based approver mapping for L2 users
+      // Find all L2/program_manager users and their program-based L1/faculty submitters
+      // This mirrors the additive scoping logic from the Approvals page
+      const programApproverRows: { user_id: string; manager_id: string }[] = [];
+      {
+        // Get all L2/program_manager users in the org
+        const l2RoleUsers: string[] = [];
+        if (orgUserIds) {
+          const orgUserArr = Array.from(orgUserIds);
+          for (let i = 0; i < orgUserArr.length; i += CHUNK) {
+            const chunk = orgUserArr.slice(i, i + CHUNK);
+            const { data: roleRows } = await supabase
+              .from("user_roles")
+              .select("user_id, role")
+              .in("user_id", chunk)
+              .in("role", ["l2", "program_manager"]);
+            if (roleRows) l2RoleUsers.push(...roleRows.map(r => r.user_id));
+          }
+        } else {
+          // Super admin: get all L2s
+          const { data: allL2s } = await supabase
+            .from("user_roles")
+            .select("user_id")
+            .in("role", ["l2", "program_manager"]);
+          if (allL2s) l2RoleUsers.push(...allL2s.map(r => r.user_id));
         }
+
+        // For L2/L3 non-admin, only process their own programs
+        const l2sToProcess = (isL2OrL3 && !isAdmin) 
+          ? l2RoleUsers.filter(id => id === userWithRole?.user?.id)
+          : l2RoleUsers;
+
+        // For each L2, get their programs and find L1/faculty submitters
+        for (const l2Id of l2sToProcess) {
+          const { data: l2Progs } = await supabase
+            .from("user_programs")
+            .select("program_id")
+            .eq("user_id", l2Id);
+          const progIds = l2Progs?.map(p => p.program_id) || [];
+          if (!progIds.length) continue;
+
+          // Get all users in those programs
+          const programUserIds = new Set<string>();
+          for (let i = 0; i < progIds.length; i += CHUNK) {
+            const chunk = progIds.slice(i, i + CHUNK);
+            const { data: pu } = await supabase
+              .from("user_programs")
+              .select("user_id")
+              .in("program_id", chunk);
+            if (pu) pu.forEach(u => programUserIds.add(u.user_id));
+          }
+
+          // Filter to L1/faculty roles who have pending entries
+          const puArr = Array.from(programUserIds).filter(uid => countBySubmitter[uid]);
+          if (!puArr.length) continue;
+
+          for (let i = 0; i < puArr.length; i += CHUNK) {
+            const chunk = puArr.slice(i, i + CHUNK);
+            const { data: l1Roles } = await supabase
+              .from("user_roles")
+              .select("user_id")
+              .in("user_id", chunk)
+              .in("role", ["l1", "faculty"]);
+            if (l1Roles) {
+              l1Roles.forEach(r => {
+                programApproverRows.push({ user_id: r.user_id, manager_id: l2Id });
+              });
+            }
+          }
+        }
+      }
+
+      // 5. Aggregate pending count per approver (manager), scoped to org
+      // Use a Set per approver to avoid double-counting submitters mapped via both hierarchy and programs
+      const approverSubmitters: Record<string, Set<string>> = {};
+      const addToApprover = (managerId: string, submitterId: string) => {
+        if (orgUserIds && !orgUserIds.has(managerId)) return;
+        if (isL2OrL3 && !isAdmin && managerId !== userWithRole?.user?.id) return;
+        if (!countBySubmitter[submitterId]) return;
+        if (!approverSubmitters[managerId]) approverSubmitters[managerId] = new Set();
+        approverSubmitters[managerId].add(submitterId);
+      };
+
+      for (const row of allHierarchyRows) {
+        addToApprover(row.manager_id, row.user_id);
+      }
+      for (const row of programApproverRows) {
+        addToApprover(row.manager_id, row.user_id);
+      }
+
+      // Now sum up pending counts per approver
+      const countByApprover: Record<string, number> = {};
+      for (const [approverId, submitters] of Object.entries(approverSubmitters)) {
+        let total = 0;
+        const submitterArr = Array.from(submitters);
+        for (const sid of submitterArr) {
+          total += countBySubmitter[sid] || 0;
+        }
+        if (total > 0) countByApprover[approverId] = total;
       }
 
       // Also check for L3 entries — they are approved by admin, no hierarchy row needed
@@ -249,7 +337,7 @@ export default function PendingApprovals() {
       }
 
       // 8. Get vertical names
-      const allVertIds = [...new Set(Object.values(verticalIds).flat())];
+      const allVertIds = Array.from(new Set(Object.values(verticalIds).flat()));
       const verticalNames: Record<string, string> = {};
       for (let i = 0; i < allVertIds.length; i += CHUNK) {
         const chunk = allVertIds.slice(i, i + CHUNK);
