@@ -57,6 +57,7 @@ interface UserProfile {
   departments: { id: string; name: string }[];
   programs: { id: string; name: string }[];
   reporting_manager_name?: string | null;
+  reportee_count: number;
 }
 
 export default function Users() {
@@ -284,9 +285,11 @@ export default function Users() {
       const profileNameMap = new Map<string, string>();
       profilesData?.forEach(p => profileNameMap.set(p.id, p.full_name));
       const userManagerMap = new Map<string, string>();
+      const managerReporteeCount = new Map<string, number>();
       hierarchyData?.forEach(h => {
         const managerName = profileNameMap.get(h.manager_id);
         if (managerName) userManagerMap.set(h.user_id, managerName);
+        managerReporteeCount.set(h.manager_id, (managerReporteeCount.get(h.manager_id) || 0) + 1);
       });
 
       const enrichedUsers: UserProfile[] = profilesData?.map(profile => {
@@ -333,6 +336,7 @@ export default function Users() {
           departments: userDepts,
           programs: userProgs,
           reporting_manager_name: userManagerMap.get(profile.id) || null,
+          reportee_count: managerReporteeCount.get(profile.id) || 0,
         };
       }) || [];
 
