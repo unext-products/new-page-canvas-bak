@@ -348,32 +348,92 @@ export default function PendingApprovals() {
         if (verts) verts.forEach(v => { verticalNames[v.id] = v.name; });
       }
 
-      // 9. Get total reportee count per approver (only active mapped users)
+      // 9. Get total reportee count per approver (matching edit form logic: active + same vertical + correct role)
       const reporteeCount: Record<string, number> = {};
+      // Collect all hierarchy rows for approvers
+      const approverHierarchyRows: { manager_id: string; user_id: string }[] = [];
       for (let i = 0; i < approverIds.length; i += CHUNK) {
         const chunk = approverIds.slice(i, i + CHUNK);
         const { data: allReportees } = await supabase
           .from("reporting_hierarchy")
           .select("manager_id, user_id")
           .in("manager_id", chunk);
-        if (allReportees) {
-          // Collect all reportee user_ids to check active status
-          const reporteeUserIds = Array.from(new Set(allReportees.map(r => r.user_id)));
-          const activeReporteeIds = new Set<string>();
-          for (let j = 0; j < reporteeUserIds.length; j += CHUNK) {
-            const uChunk = reporteeUserIds.slice(j, j + CHUNK);
-            const { data: activeProfiles } = await supabase
-              .from("profiles")
-              .select("id")
-              .in("id", uChunk)
-              .eq("is_active", true);
-            if (activeProfiles) activeProfiles.forEach(p => activeReporteeIds.add(p.id));
-          }
-          allReportees.forEach(r => {
-            if (orgUserIds && !orgUserIds.has(r.user_id)) return;
-            if (!activeReporteeIds.has(r.user_id)) return;
-            reporteeCount[r.manager_id] = (reporteeCount[r.manager_id] || 0) + 1;
+        if (allReportees) approverHierarchyRows.push(...allReportees);
+      }
+
+      if (approverHierarchyRows.length > 0) {
+        // Get all unique user IDs (managers + reportees) for profile/role/vertical lookups
+        const allUserIdsForCount = Array.from(new Set([
+          ...approverIds,
+          ...approverHierarchyRows.map(r => r.user_id),
+        ]));
+
+        // Fetch active status
+        const activeIds = new Set<string>();
+        for (let i = 0; i < allUserIdsForCount.length; i += CHUNK) {
+          const chunk = allUserIdsForCount.slice(i, i + CHUNK);
+          const { data: profs } = await supabase
+            .from("profiles")
+            .select("id")
+            .in("id", chunk)
+            .eq("is_active", true);
+          if (profs) profs.forEach(p => activeIds.add(p.id));
+        }
+
+        // Fetch roles for all
+        const userRoleMap: Record<string, string> = {};
+        for (let i = 0; i < allUserIdsForCount.length; i += CHUNK) {
+          const chunk = allUserIdsForCount.slice(i, i + CHUNK);
+          const { data: rls } = await supabase
+            .from("user_roles")
+            .select("user_id, role")
+            .in("user_id", chunk);
+          if (rls) rls.forEach(r => { userRoleMap[r.user_id] = r.role; });
+        }
+
+        // Fetch verticals for all
+        const userVertSets: Record<string, Set<string>> = {};
+        for (let i = 0; i < allUserIdsForCount.length; i += CHUNK) {
+          const chunk = allUserIdsForCount.slice(i, i + CHUNK);
+          const { data: uvs } = await supabase
+            .from("user_verticals")
+            .select("user_id, vertical_id")
+            .in("user_id", chunk);
+          if (uvs) uvs.forEach(uv => {
+            if (!userVertSets[uv.user_id]) userVertSets[uv.user_id] = new Set();
+            userVertSets[uv.user_id].add(uv.vertical_id);
           });
+        }
+
+        // Group hierarchy by manager and count matching edit form logic
+        const managerGroups: Record<string, string[]> = {};
+        approverHierarchyRows.forEach(r => {
+          if (!managerGroups[r.manager_id]) managerGroups[r.manager_id] = [];
+          managerGroups[r.manager_id].push(r.user_id);
+        });
+
+        for (const [managerId, repIds] of Object.entries(managerGroups)) {
+          const mRole = userRoleMap[managerId];
+          const isL3Mgr = mRole === 'l3' || mRole === 'hod';
+          const targetRoles = isL3Mgr ? ['l2', 'program_manager'] : ['l1', 'faculty'];
+          const managerVerts = userVertSets[managerId];
+
+          let count = 0;
+          for (const rid of repIds) {
+            if (orgUserIds && !orgUserIds.has(rid)) continue;
+            if (!activeIds.has(rid)) continue;
+            const rRole = userRoleMap[rid];
+            if (!rRole || !targetRoles.includes(rRole)) continue;
+            if (managerVerts && managerVerts.size > 0) {
+              const repVerts = userVertSets[rid];
+              if (!repVerts) continue;
+              let shared = false;
+              managerVerts.forEach(v => { if (repVerts.has(v)) shared = true; });
+              if (!shared) continue;
+            }
+            count++;
+          }
+          if (count > 0) reporteeCount[managerId] = count;
         }
       }
 
