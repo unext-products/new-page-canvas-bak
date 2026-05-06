@@ -224,7 +224,7 @@ export default function PendingApprovals() {
           }
 
           // Filter to L1/faculty roles who have pending entries
-          const puArr = [...programUserIds].filter(uid => countBySubmitter[uid]);
+          const puArr = Array.from(programUserIds).filter(uid => countBySubmitter[uid]);
           if (!puArr.length) continue;
 
           for (let i = 0; i < puArr.length; i += CHUNK) {
