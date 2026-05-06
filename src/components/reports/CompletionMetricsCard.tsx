@@ -11,6 +11,8 @@ interface CompletionMetricsCardProps {
   period: string;
   expectedHoursBreakdown?: ExpectedHoursBreakdown;
   dailyTargetHours?: number;
+  isDepartmentView?: boolean;
+  totalFaculty?: number;
 }
 
 export function CompletionMetricsCard({
@@ -20,6 +22,8 @@ export function CompletionMetricsCard({
   period,
   expectedHoursBreakdown,
   dailyTargetHours = 8,
+  isDepartmentView = false,
+  totalFaculty,
 }: CompletionMetricsCardProps) {
   const getStatusConfig = () => {
     if (completionRate >= 100) {
