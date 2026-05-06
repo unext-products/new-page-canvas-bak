@@ -1,25 +1,20 @@
-
 ## Problem
 
-When an L2 user (e.g., Supriya Krishna Nair) views Reports:
-
-- **Member View** with "All Members" calls `fetchAllMembersReport()` which fetches **all entries globally** — no scoping to the user's reportees or verticals.
-- **Department View** with a specific department (e.g., IDFC) calls `fetchVerticalReport()` which correctly scopes to that vertical's members.
-
-This causes different Total Hours and Expected Hours numbers (1404.8h vs 1219.1h, 1316.0h vs 1492.0h) because they're looking at different user populations.
+The Pending Approvals report shows 136 pending for Sarika Hegde (L2), but the Approvals page shows 519 (with date filter) / 523 (all dates). The report only uses `reporting_hierarchy` for L2 scoping, missing program-based L1 users.
 
 ## Solution
 
-Modify `fetchAllMembersReport` to accept an optional `scopeUserIds` parameter. When an L2/L3/HOD user selects "All Members", pass their visible user IDs (from `getVisibleUserIds` or `hodDepartmentIds`) so the report is scoped to only their reportees.
+Update `src/pages/PendingApprovals.tsx` to mirror the Approvals page logic for L2 users by combining hierarchy reportees AND program-based L1/faculty users.
 
-### Changes
+### Changes — `src/pages/PendingApprovals.tsx`
 
-**1. `src/lib/reportQueries.ts`**
-- Add optional `scopeUserIds?: string[]` parameter to `fetchAllMembersReport`
-- When provided, filter `timesheet_entries` query with `.in("user_id", scopeUserIds)` and limit expected hours calculation to those users only
+In the `fetchData` function, within the `isL2OrL3 && !isAdmin` block (lines ~78-102), after fetching hierarchy reportees:
 
-**2. `src/pages/Reports.tsx`**
-- Before calling `fetchAllMembersReport`, resolve the L2/L3 user's visible member IDs (reusing the same `hodDepartmentIds` logic already in the component to get users from `user_verticals`)
-- Pass those IDs to the scoped report function
+1. For L2 users specifically, also query `user_programs` for the current user's program IDs
+2. Get all users in those programs from `user_programs`
+3. Filter those to L1/faculty roles via `user_roles`
+4. Add them to `scopedSubmitterIds` (the existing Set)
 
-This ensures Member View "All Members" shows the same user population as Department View for non-admin roles.
+This matches the additive scoping pattern already used in `Approvals.tsx` (lines 196-230).
+
+**Expected result**: Sarika Hegde's pending count will change from 136 to 523, aligning with the Approvals page.
