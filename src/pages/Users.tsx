@@ -1296,6 +1296,7 @@ export default function Users() {
                 ) : (
                   <TableHead>{entityLabel("vertical")}</TableHead>
                 )}
+                <TableHead className="text-right">Reportees</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
