@@ -18,12 +18,12 @@ import {
   parseExcelFile,
   validateMemberExcelRow,
   validateAdminExcelRow,
-  generateAdminExcelTemplate,
   fetchDepartments,
   getFileType,
   timesOverlap,
   type ValidationResult as ExcelValidationResult,
 } from "@/lib/excelImportUtils";
+import { generateSampleTimesheetBlob } from "@/lib/generateSampleTimesheet";
 import { fetchExtendedValidationContext, fetchUserLeaveDays } from "@/lib/thresholdValidation";
 import { supabase } from "@/integrations/supabase/client";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
