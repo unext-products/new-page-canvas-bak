@@ -109,7 +109,7 @@ export async function generateSampleTimesheetBlob(
     // Admin: activity_type=5, no batch/program/subject columns
     applyDropdownValidation(ws, 5, categories.length, "Activity Types");
     // department_code col 8 -> Dept Code sheet col B
-    applyDropdownValidation(ws, 8, verticals.length, "Dept Code");
+    applyDropdownValidation(ws, 8, verticals.length, "Dept Code", "B");
   } else {
     const headers = [
       "entry_date",
@@ -146,7 +146,7 @@ export async function generateSampleTimesheetBlob(
     applyDropdownValidation(ws, 5, 200, "Batch");
     applyDropdownValidation(ws, 6, programs.length, "Program");
     applyDropdownValidation(ws, 7, subjects.length, "Subject");
-    applyDropdownValidation(ws, 9, verticals.length, "Dept Code");
+    applyDropdownValidation(ws, 9, verticals.length, "Dept Code", "B");
   }
 
   // Style all header rows
