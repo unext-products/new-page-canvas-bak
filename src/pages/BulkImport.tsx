@@ -534,10 +534,22 @@ export default function BulkImport() {
       // Selectable = leaf nodes (children if hierarchy exists, otherwise parents)
       const selectable = children.length > 0 ? children : visibleParents;
 
+      // Fetch reference data for additional sheets
+      const [programsRes, subjectsRes, verticalsRes] = await Promise.all([
+        supabase.from("programs").select("name").order("name"),
+        supabase.from("subjects").select("code, name").order("name"),
+        supabase.from("verticals").select("name, code").order("name"),
+      ]);
+
       const isAdminMode = !isMember && !isManager;
       const blob = await generateSampleTimesheetBlob(
         selectable.map((c) => ({ name: c.name })),
-        isAdminMode
+        isAdminMode,
+        {
+          programs: programsRes.data || [],
+          subjects: subjectsRes.data || [],
+          verticals: verticalsRes.data || [],
+        }
       );
 
       const filename = "timesheet_import_template.xlsx";
