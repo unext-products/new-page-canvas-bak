@@ -18,12 +18,12 @@ import {
   parseExcelFile,
   validateMemberExcelRow,
   validateAdminExcelRow,
-  generateAdminExcelTemplate,
   fetchDepartments,
   getFileType,
   timesOverlap,
   type ValidationResult as ExcelValidationResult,
 } from "@/lib/excelImportUtils";
+import { generateSampleTimesheetBlob } from "@/lib/generateSampleTimesheet";
 import { fetchExtendedValidationContext, fetchUserLeaveDays } from "@/lib/thresholdValidation";
 import { supabase } from "@/integrations/supabase/client";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -499,46 +499,47 @@ export default function BulkImport() {
   };
 
   const handleDownloadTemplate = async () => {
-    // Determine role key for sample lookup
-    const roleKey = isMember ? "l1" : isL2 ? "l2" : isHod ? "l3" : null;
+    try {
+      // Determine role key for category filtering
+      const roleKey = isMember ? "l1" : isL2 ? "l2" : isHod ? "l3" : null;
 
-    // For non-admin users, try to download role-specific sample from storage first
-    if (roleKey && userWithRole?.user?.id) {
-      try {
-        const { data: roleData } = await supabase
-          .from("user_roles")
-          .select("organization_id")
-          .eq("user_id", userWithRole.user.id)
-          .single();
+      // Fetch org-scoped activity categories
+      const { data: orgData } = await supabase.rpc("get_user_organization", {
+        user_id: userWithRole!.user.id,
+      });
 
-        if (roleData?.organization_id) {
-          const { data: files } = await supabase.storage
-            .from("sample-timesheets")
-            .list(`${roleData.organization_id}/${roleKey}`, { limit: 1 });
+      let catQuery = supabase
+        .from("activity_categories")
+        .select("id, name, parent_id, role_scope, is_active")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true })
+        .order("name", { ascending: true });
 
-          if (files && files.length > 0) {
-            const { data: urlData } = supabase.storage
-              .from("sample-timesheets")
-              .getPublicUrl(`${roleData.organization_id}/${roleKey}/${files[0].name}`);
-
-            if (urlData?.publicUrl) {
-              window.open(urlData.publicUrl, "_blank");
-              return;
-            }
-          }
-        }
-      } catch (err) {
-        console.warn("Failed to fetch sample from storage, falling back to default", err);
+      if (orgData) {
+        catQuery = catQuery.eq("organization_id", orgData);
       }
-    }
 
-    // Fallback to existing behavior
-    if (isMember || isManager) {
-      const SPREADSHEET_ID = "1XcrQT-LZ9HX6czFZKGEdZvoRiuctSSbx";
-      const exportUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=xlsx`;
-      window.open(exportUrl, "_blank");
-    } else {
-      const blob = generateAdminExcelTemplate();
+      const { data: allCats } = await catQuery;
+      const cats = allCats || [];
+
+      // Filter by role scope
+      const visibleParents = cats.filter((c) => {
+        if (c.parent_id) return false;
+        if (!roleKey) return true;
+        return (c.role_scope as string[]).includes(roleKey);
+      });
+      const visibleParentIds = new Set(visibleParents.map((p) => p.id));
+      const children = cats.filter((c) => c.parent_id && visibleParentIds.has(c.parent_id));
+
+      // Selectable = leaf nodes (children if hierarchy exists, otherwise parents)
+      const selectable = children.length > 0 ? children : visibleParents;
+
+      const isAdminMode = !isMember && !isManager;
+      const blob = await generateSampleTimesheetBlob(
+        selectable.map((c) => ({ name: c.name })),
+        isAdminMode
+      );
+
       const filename = "timesheet_import_template.xlsx";
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -548,6 +549,13 @@ export default function BulkImport() {
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Failed to generate template", err);
+      toast({
+        title: "Error",
+        description: "Failed to generate template. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
