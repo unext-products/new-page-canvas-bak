@@ -164,18 +164,19 @@ export async function generateSampleTimesheetBlob(
 
 /**
  * Apply data validation (dropdown list) on a column for rows 2–200,
- * referencing a named sheet's column A.
+ * referencing a named sheet's specified column.
  */
 function applyDropdownValidation(
   ws: ExcelJS.Worksheet,
   colIndex: number,
   itemCount: number,
-  sheetName: string
+  sheetName: string,
+  refCol: string = "A"
 ) {
   if (itemCount === 0) return;
 
   const lastRow = itemCount + 1; // +1 for header row on ref sheet
-  const formula = `'${sheetName}'!$A$2:$A$${lastRow}`;
+  const formula = `'${sheetName}'!$${refCol}$2:$${refCol}$${lastRow}`;
 
   for (let row = 2; row <= 200; row++) {
     ws.getCell(row, colIndex).dataValidation = {
