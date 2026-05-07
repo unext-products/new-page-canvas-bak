@@ -16,18 +16,16 @@ export async function generateSampleTimesheetBlob(
 ): Promise<Blob> {
   const workbook = new ExcelJS.Workbook();
 
-  // --- Sheet 2: Activity Types (create first so validation reference works) ---
+  // --- Sheet 1: Timesheet (added first so it appears first) ---
+  const ws = workbook.addWorksheet("Timesheet");
+
+  // --- Sheet 2: Activity Types ---
   const refSheet = workbook.addWorksheet("Activity Types");
   refSheet.getColumn(1).header = "Activity Type";
   refSheet.getColumn(1).width = 30;
   categories.forEach((cat, i) => {
     refSheet.getCell(i + 2, 1).value = cat.name;
   });
-
-  // --- Sheet 1: Timesheet ---
-  const ws = workbook.addWorksheet("Timesheet");
-  // Move Timesheet to first position
-  workbook.moveWorksheet("Timesheet", 0);
 
   if (isAdmin) {
     // Admin 8-column format
