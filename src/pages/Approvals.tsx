@@ -194,28 +194,30 @@ export default function Approvals() {
       // Check if current user can approve L1 entries
       if (rolesToApprove.includes("l1")) {
         if (isL2) {
-          // L2: Combine reporting hierarchy AND program-based scope
+          // L2: Reporting hierarchy is authoritative when configured.
+          // Only fall back to program-based scope if no hierarchy exists for this manager.
           const candidateSet = new Set<string>();
 
-          // Add hierarchy reportees if any
           const hierarchyUsers = await getVisibleUserIds(userWithRole.user.id, "l2");
-          if (hierarchyUsers !== null && hierarchyUsers.length > 0) {
+
+          if (hierarchyUsers !== null) {
+            // Hierarchy configured — use ONLY hierarchy reportees (do not union with program scope)
             hierarchyUsers.forEach(id => candidateSet.add(id));
-          }
-
-          // Also add program-based users
-          const { data: l2Programs } = await supabase
-            .from("user_programs")
-            .select("program_id")
-            .eq("user_id", userWithRole.user.id);
-          const l2ProgramIds = l2Programs?.map(p => p.program_id) || [];
-
-          if (l2ProgramIds.length > 0) {
-            const { data: l1UsersInPrograms } = await supabase
+          } else {
+            // No hierarchy configured — fall back to program-based users
+            const { data: l2Programs } = await supabase
               .from("user_programs")
-              .select("user_id")
-              .in("program_id", l2ProgramIds);
-            l1UsersInPrograms?.forEach(u => candidateSet.add(u.user_id));
+              .select("program_id")
+              .eq("user_id", userWithRole.user.id);
+            const l2ProgramIds = l2Programs?.map(p => p.program_id) || [];
+
+            if (l2ProgramIds.length > 0) {
+              const { data: l1UsersInPrograms } = await supabase
+                .from("user_programs")
+                .select("user_id")
+                .in("program_id", l2ProgramIds);
+              l1UsersInPrograms?.forEach(u => candidateSet.add(u.user_id));
+            }
           }
 
           const candidateIds = [...candidateSet];
