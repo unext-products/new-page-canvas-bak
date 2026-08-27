@@ -66,16 +66,27 @@ export function AppSidebar() {
   const { toast } = useToast();
   const { isMobile, setOpenMobile } = useSidebar();
   const signingOutRef = useRef(false);
-  const [orgCode, setOrgCode] = useState<string | null>(null);
+  const [orgCode, setOrgCode] = useState<string | null>(
+    userWithRole?.user?.id ? orgCodeCache.get(userWithRole.user.id) ?? null : null
+  );
 
-  // Fetch organization code
+  // Fetch organization code (cached per user — the sidebar remounts on every navigation)
   useEffect(() => {
-    if (!userWithRole?.user?.id) return;
-    supabase.rpc("get_user_organization", { user_id: userWithRole.user.id }).then(({ data: orgId }) => {
+    const userId = userWithRole?.user?.id;
+    if (!userId) return;
+    const cached = orgCodeCache.get(userId);
+    if (cached !== undefined) {
+      setOrgCode(cached);
+      return;
+    }
+    supabase.rpc("get_user_organization", { user_id: userId }).then(({ data: orgId }) => {
       if (orgId) {
         supabase.from("organizations").select("code").eq("id", orgId).maybeSingle().then(({ data }) => {
+          orgCodeCache.set(userId, data?.code || null);
           setOrgCode(data?.code || null);
         });
+      } else {
+        orgCodeCache.set(userId, null);
       }
     });
   }, [userWithRole?.user?.id]);
