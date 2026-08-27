@@ -461,14 +461,12 @@ export default function Dashboard() {
       approvableTeamUserIds = [];
     }
 
-    // Fetch pending approvals - only from users whose roles the current user can approve (paginated)
-    const pendingEntries = await fetchAllRows(
-      supabase
-        .from("timesheet_entries")
-        .select("id, start_time, end_time, user_id")
-        .in("user_id", approvableTeamUserIds.length > 0 ? approvableTeamUserIds : ["no-id"])
-        .eq("status", "submitted")
-    );
+    // Count pending approvals — only from users whose roles the current user can approve
+    const { count: pendingApprovalsCount } = await supabase
+      .from("timesheet_entries")
+      .select("id", { count: "exact", head: true })
+      .in("user_id", approvableTeamUserIds.length > 0 ? approvableTeamUserIds : ["no-id"])
+      .eq("status", "submitted");
 
     // Fetch this week's entries for team members (paginated) — still uses all team for metrics
     const weekEntries = await fetchAllRows(
