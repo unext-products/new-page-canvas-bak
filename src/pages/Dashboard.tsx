@@ -234,10 +234,10 @@ export default function Dashboard() {
         .gte("leave_date", monthStartStr)
         .lte("leave_date", monthEndStr);
 
-      // Fetch ALL pending entries (not just today's)
-      const { data: allPendingEntries } = await supabase
+      // Count ALL pending entries (not just today's) — count only, no rows fetched
+      const { count: allPendingCount } = await supabase
         .from("timesheet_entries")
-        .select("id")
+        .select("id", { count: "exact", head: true })
         .eq("user_id", effectiveUserId!)
         .eq("status", "submitted");
 
