@@ -1,60 +1,42 @@
+# Fix app slowness (dashboard load, navigation, saves)
 
-## Goal
+## What I found (verified against the live database)
 
-Replace the current "download uploaded sample file" flow with an **auto-generated Excel template** that dynamically includes the user's role-scoped activity categories as a dropdown (data validation) in the Activity Type column. This removes the admin's burden of re-uploading sample files whenever categories change.
+The database itself is healthy — 52 MB of data, 70,632 timesheet rows, 12 of 60 connections used, memory 63%. So this is **not** a case of needing a bigger instance. The slowness comes from how timesheet queries are written and secured.
 
-## How It Works
+Three concrete causes, confirmed:
 
-1. When a user clicks **"Download Excel Template"** on the Bulk Import page, the system generates an `.xlsx` file on the fly using the `xlsx` library (already installed).
-2. The generated file has **two sheets**:
-   - **Sheet 1 ("Timesheet")**: The 9-column template matching the existing structure (Entry Date, Start Time, End Time, Activity Type, Batch, Program, Subject, Notes, Department Code). Activity Type column cells use Excel **Data Validation** (list type) referencing the values on Sheet 2.
-   - **Sheet 2 ("Activity Types")**: A hidden/reference sheet listing all active activity categories filtered by the user's role scope (`l1`, `l2`, or `l3`). For hierarchical categories (parent > child), it lists the selectable leaf-node names.
-3. The Activity Type column uses Excel data validation so users can **only select from the dropdown**, not type freely.
+1. **Security rules are re-evaluated for every single row.** The access policies on `timesheet_entries` call `get_user_role(auth.uid())`, `get_user_verticals(auth.uid())` and sub-lookups per row instead of once per query. With 70k rows and 12 policies OR'd together, each read pays that cost thousands of times. Measured: reads on `timesheet_entries` average 750 ms–1.35 s, peaking at 7.5 s.
 
-## Columns
+2. **Missing combined indexes.** Only single-column indexes exist (`user_id`, `status`, `entry_date` separately). Every hot query filters on pairs/triples of these (`user_id + status`, `user_id + entry_date`, `status` alone, `user_id + status + entry_date`), so Postgres scans far more rows than needed.
 
-The template columns remain exactly as they are today — no new columns added:
-- A: Entry Date
-- B: Start Time
-- C: End Time
-- D: Activity Type (dropdown from Sheet 2)
-- E: Batch (optional)
-- F: Program
-- G: Subject (optional)
-- H: Notes
-- I: Department Code
+3. **The dashboard downloads rows it only needs to count.** `Dashboard.tsx` fetches every pending entry's id page-by-page (1000 rows at a time) just to display a number — for admins that is the whole pending backlog, tens of thousands of rows over many round trips. That single pattern is the top query in the database by total time (7,092 calls, ~1 s each).
 
-For admin bulk import, Column A becomes "Faculty Email" and the rest shift accordingly (existing 8-column admin format).
+## The fix
 
-## Technical Changes
+### 1. Make the access rules evaluate once per query (biggest win)
+Rewrite every policy on `timesheet_entries` (and the same pattern on `leave_days`, `profiles`, `user_roles` where present) to wrap the auth lookups in `(select ...)` so Postgres computes them once instead of per row. Same access rules, same results — purely a performance rewrite, no change to who can see what.
 
-### 1. New utility: `src/lib/generateSampleTimesheet.ts`
+Also collapse the multiple overlapping SELECT policies per role into one policy per role/command where the logic is identical in effect, so Postgres evaluates one condition instead of several.
 
-- Export `generateSampleTimesheetBlob(categories: ActivityCategory[], isAdmin: boolean): Blob`
-- Creates workbook with two sheets
-- Sheet 1: sample row(s) with column headers matching the expected import format
-- Sheet 2: "Activity Types" — one column listing category names
-- Apply `XLSX` data validation on the Activity Type column cells (rows 2–100) referencing `'Activity Types'!$A$2:$A$N`
-- Note: `xlsx` (SheetJS community edition) has limited data validation support. We'll use the `xlsx-populate` or raw XML approach if needed, or switch to using `exceljs` which natively supports data validation. **Decision: use `exceljs`** (add as dependency) since it has first-class support for dropdown data validation.
+### 2. Add composite indexes
+On `timesheet_entries`:
+- `(user_id, entry_date desc)`
+- `(user_id, status)`
+- `(status, entry_date)`
+- `(user_id, status, entry_date)`
 
-### 2. Update `src/pages/BulkImport.tsx`
+Tradeoff: reads get much faster, inserts/updates get marginally slower, a few MB of extra storage. Well worth it at this table size.
 
-- In `handleDownloadTemplate`:
-  - Fetch activity categories for the user's org filtered by role scope (reuse logic from `useActivityCategories`)
-  - Call `generateSampleTimesheetBlob(filteredCategories, isAdmin)` to create the file
-  - Download the blob
-  - Remove the storage-based sample download and Google Sheets fallback entirely (or keep as secondary fallback — TBD based on preference)
+### 3. Stop downloading rows just to count them
+In `src/pages/Dashboard.tsx` (both the personal and admin paths) and the pending-count spots in `src/pages/Approvals.tsx`, replace "fetch all ids then take `.length`" with a `head: true, count: 'exact'` count query — one cheap round trip instead of dozens. Where a list is genuinely needed, select only the columns used and keep the date range bounded.
 
-### 3. Settings page (`SampleTimesheetUpload` component)
+### 4. Cache what doesn't change per navigation
+Role/organization/label lookups currently refetch on every page. Move them into React Query with a sensible stale time so navigating between menu items doesn't re-hit the backend for data that hasn't changed.
 
-- This component can remain for admins who want to upload custom samples with pre-filled example data, but the auto-generated template becomes the **primary** download path. Optionally, we can add a note saying templates are now auto-generated.
+## Verification
+After each step, run `EXPLAIN (ANALYZE, BUFFERS)` on the top slow queries to confirm index usage and that the per-row policy cost is gone, then re-check the slow-query ranking. Expected: dashboard load from 1–2 minutes down to a couple of seconds.
 
-### 4. Dependency
-
-- Add `exceljs` package — it supports Excel data validation (dropdown lists) natively, unlike `xlsx` (SheetJS).
-
-## What stays the same
-
-- The 9-column (member) / 8-column (admin) structure — no changes
-- Import/validation logic — untouched
-- Category management in Settings — untouched
+## Notes
+- No change to permissions, data, or what any role can see.
+- The 58,168 rolled-back transactions since boot are worth a look afterwards; they usually indicate requests failing and retrying, which adds to the perceived slowness.
