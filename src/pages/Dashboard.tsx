@@ -234,10 +234,10 @@ export default function Dashboard() {
         .gte("leave_date", monthStartStr)
         .lte("leave_date", monthEndStr);
 
-      // Fetch ALL pending entries (not just today's)
-      const { data: allPendingEntries } = await supabase
+      // Count ALL pending entries (not just today's) — count only, no rows fetched
+      const { count: allPendingCount } = await supabase
         .from("timesheet_entries")
-        .select("id")
+        .select("id", { count: "exact", head: true })
         .eq("user_id", effectiveUserId!)
         .eq("status", "submitted");
 
@@ -250,7 +250,7 @@ export default function Dashboard() {
           ...prev,
           todayMinutes: todayTotal,
           targetMinutes: resolvedDailyTargetMinutes,
-          pending: allPendingEntries?.length || 0,
+          pending: allPendingCount || 0,
           approved: entries.filter((e) => e.status === "approved").length,
           leavesThisMonth: leavesData?.length || 0,
         }));
@@ -259,7 +259,7 @@ export default function Dashboard() {
         setStats((prev) => ({
           ...prev,
           targetMinutes: resolvedDailyTargetMinutes,
-          pending: allPendingEntries?.length || 0,
+          pending: allPendingCount || 0,
           leavesThisMonth: leavesData?.length || 0,
         }));
       }
@@ -461,14 +461,12 @@ export default function Dashboard() {
       approvableTeamUserIds = [];
     }
 
-    // Fetch pending approvals - only from users whose roles the current user can approve (paginated)
-    const pendingEntries = await fetchAllRows(
-      supabase
-        .from("timesheet_entries")
-        .select("id, start_time, end_time, user_id")
-        .in("user_id", approvableTeamUserIds.length > 0 ? approvableTeamUserIds : ["no-id"])
-        .eq("status", "submitted")
-    );
+    // Count pending approvals — only from users whose roles the current user can approve
+    const { count: pendingApprovalsCount } = await supabase
+      .from("timesheet_entries")
+      .select("id", { count: "exact", head: true })
+      .in("user_id", approvableTeamUserIds.length > 0 ? approvableTeamUserIds : ["no-id"])
+      .eq("status", "submitted");
 
     // Fetch this week's entries for team members (paginated) — still uses all team for metrics
     const weekEntries = await fetchAllRows(
@@ -583,7 +581,7 @@ export default function Dashboard() {
 
     setHodStats({
       teamMembers: teamCount,
-      pendingApprovals: pendingEntries.length,
+      pendingApprovals: pendingApprovalsCount || 0,
       weeklyHours: totalWeeklyMinutes / 60,
       expectedWeeklyHours: expectedMinutes / 60,
       completionRate: Math.round(completionRate),
@@ -676,10 +674,11 @@ export default function Dashboard() {
     const vertNameMap = new Map<string, string>();
     verticals?.forEach((v) => vertNameMap.set(v.id, v.name));
 
-    // Fetch pending approvals org-wide (paginated)
-    const pendingEntries = await fetchAllRows(
-      supabase.from("timesheet_entries").select("id").eq("status", "submitted")
-    );
+    // Count pending approvals org-wide — count only, no rows fetched
+    const { count: pendingApprovalsCount } = await supabase
+      .from("timesheet_entries")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "submitted");
 
     // Fetch this week's entries (paginated)
     const weekEntries = await fetchAllRows(
@@ -769,7 +768,7 @@ export default function Dashboard() {
     setAdminStats({
       totalUsers: users?.length || 0,
       totalDepartments: verticals?.length || 0,
-      pendingApprovals: pendingEntries.length,
+      pendingApprovals: pendingApprovalsCount || 0,
       weeklyHours: totalWeeklyMinutes / 60,
       expectedWeeklyHours: expectedMinutes / 60,
       completionRate: Math.round(completionRate),
