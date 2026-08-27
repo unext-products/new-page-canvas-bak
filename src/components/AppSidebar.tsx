@@ -58,6 +58,9 @@ const roleColors: Record<string, string> = {
   super_admin: "bg-destructive/10 text-destructive",
 };
 
+// Cached org code per user id — avoids re-fetching on every page navigation
+const orgCodeCache = new Map<string, string | null>();
+
 export function AppSidebar() {
   const { userWithRole, loading: authLoading } = useAuth();
   const { roleLabel, entityLabel } = useLabels();
