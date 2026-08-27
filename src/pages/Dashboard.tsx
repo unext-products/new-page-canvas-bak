@@ -674,10 +674,11 @@ export default function Dashboard() {
     const vertNameMap = new Map<string, string>();
     verticals?.forEach((v) => vertNameMap.set(v.id, v.name));
 
-    // Fetch pending approvals org-wide (paginated)
-    const pendingEntries = await fetchAllRows(
-      supabase.from("timesheet_entries").select("id").eq("status", "submitted")
-    );
+    // Count pending approvals org-wide — count only, no rows fetched
+    const { count: pendingApprovalsCount } = await supabase
+      .from("timesheet_entries")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "submitted");
 
     // Fetch this week's entries (paginated)
     const weekEntries = await fetchAllRows(
