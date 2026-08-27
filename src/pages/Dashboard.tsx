@@ -259,7 +259,7 @@ export default function Dashboard() {
         setStats((prev) => ({
           ...prev,
           targetMinutes: resolvedDailyTargetMinutes,
-          pending: allPendingEntries?.length || 0,
+          pending: allPendingCount || 0,
           leavesThisMonth: leavesData?.length || 0,
         }));
       }
