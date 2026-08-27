@@ -768,7 +768,7 @@ export default function Dashboard() {
     setAdminStats({
       totalUsers: users?.length || 0,
       totalDepartments: verticals?.length || 0,
-      pendingApprovals: pendingEntries.length,
+      pendingApprovals: pendingApprovalsCount || 0,
       weeklyHours: totalWeeklyMinutes / 60,
       expectedWeeklyHours: expectedMinutes / 60,
       completionRate: Math.round(completionRate),
