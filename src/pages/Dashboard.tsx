@@ -250,7 +250,7 @@ export default function Dashboard() {
           ...prev,
           todayMinutes: todayTotal,
           targetMinutes: resolvedDailyTargetMinutes,
-          pending: allPendingEntries?.length || 0,
+          pending: allPendingCount || 0,
           approved: entries.filter((e) => e.status === "approved").length,
           leavesThisMonth: leavesData?.length || 0,
         }));
