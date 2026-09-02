@@ -393,32 +393,8 @@ export default function PendingApprovals() {
           if (profs) profs.forEach(p => activeIds.add(p.id));
         }
 
-        // Fetch roles for all
-        const userRoleMap: Record<string, string> = {};
-        for (let i = 0; i < allUserIdsForCount.length; i += CHUNK) {
-          const chunk = allUserIdsForCount.slice(i, i + CHUNK);
-          const { data: rls } = await supabase
-            .from("user_roles")
-            .select("user_id, role")
-            .in("user_id", chunk);
-          if (rls) rls.forEach(r => { userRoleMap[r.user_id] = r.role; });
-        }
-
-        // Fetch verticals for all
-        const userVertSets: Record<string, Set<string>> = {};
-        for (let i = 0; i < allUserIdsForCount.length; i += CHUNK) {
-          const chunk = allUserIdsForCount.slice(i, i + CHUNK);
-          const { data: uvs } = await supabase
-            .from("user_verticals")
-            .select("user_id, vertical_id")
-            .in("user_id", chunk);
-          if (uvs) uvs.forEach(uv => {
-            if (!userVertSets[uv.user_id]) userVertSets[uv.user_id] = new Set();
-            userVertSets[uv.user_id].add(uv.vertical_id);
-          });
-        }
-
-        // Group hierarchy by manager and count matching edit form logic
+        // Group hierarchy by manager and count all mapped active reportees —
+        // matches the edit form, which lists reportees regardless of level or vertical
         const managerGroups: Record<string, string[]> = {};
         approverHierarchyRows.forEach(r => {
           if (!managerGroups[r.manager_id]) managerGroups[r.manager_id] = [];
@@ -426,26 +402,10 @@ export default function PendingApprovals() {
         });
 
         for (const [managerId, repIds] of Object.entries(managerGroups)) {
-          const mRole = userRoleMap[managerId];
-          const isL3Mgr = mRole === 'l3' || mRole === 'hod';
-          const targetRoles = isL3Mgr ? ['l2', 'program_manager'] : ['l1', 'faculty'];
-          const managerVerts = userVertSets[managerId];
-
-          let count = 0;
-          for (const rid of repIds) {
-            if (orgUserIds && !orgUserIds.has(rid)) continue;
-            if (!activeIds.has(rid)) continue;
-            const rRole = userRoleMap[rid];
-            if (!rRole || !targetRoles.includes(rRole)) continue;
-            if (managerVerts && managerVerts.size > 0) {
-              const repVerts = userVertSets[rid];
-              if (!repVerts) continue;
-              let shared = false;
-              managerVerts.forEach(v => { if (repVerts.has(v)) shared = true; });
-              if (!shared) continue;
-            }
-            count++;
-          }
+          const count = repIds.filter((rid) => {
+            if (orgUserIds && !orgUserIds.has(rid)) return false;
+            return activeIds.has(rid);
+          }).length;
           if (count > 0) reporteeCount[managerId] = count;
         }
       }
