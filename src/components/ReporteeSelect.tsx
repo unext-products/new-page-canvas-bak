@@ -58,7 +58,31 @@ export function ReporteeSelect({
 
   useEffect(() => {
     fetchCandidates();
-  }, [managerRole, verticalIds, programIds]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [managerRole, verticalIds, programIds, value.join(",")]);
+
+  /** Always include already-assigned reportees, even if they fall outside the
+   * current vertical/role scope (e.g. legacy or cross-vertical mappings). */
+  const withSelected = async (list: ReporteeUser[]) => {
+    const missing = value.filter((id) => !list.some((c) => c.id === id));
+    if (missing.length === 0) return list;
+
+    const [{ data: profiles }, { data: roles }] = await Promise.all([
+      supabase.from("profiles").select("id, full_name").in("id", missing),
+      supabase.from("user_roles").select("user_id, role").in("user_id", missing),
+    ]);
+    const roleMap = new Map(roles?.map((r) => [r.user_id, r.role]) || []);
+    const extras: ReporteeUser[] =
+      profiles?.map((p) => ({
+        id: p.id,
+        full_name: p.full_name,
+        role: roleMap.get(p.id) || "",
+      })) || [];
+
+    return [...list, ...extras].sort((a, b) =>
+      a.full_name.localeCompare(b.full_name)
+    );
+  };
 
   const fetchCandidates = async () => {
     setIsLoading(true);
@@ -82,7 +106,7 @@ export function ReporteeSelect({
       }
 
       if (candidateUserIds.length === 0) {
-        setCandidates([]);
+        setCandidates(await withSelected([]));
         setIsLoading(false);
         return;
       }
@@ -97,7 +121,7 @@ export function ReporteeSelect({
       const targetUserIds = roleUsers?.map((r) => r.user_id) || [];
 
       if (targetUserIds.length === 0) {
-        setCandidates([]);
+        setCandidates(await withSelected([]));
         setIsLoading(false);
         return;
       }
@@ -116,11 +140,13 @@ export function ReporteeSelect({
       const roleMap = new Map(roleUsers?.map((r) => [r.user_id, r.role]) || []);
 
       setCandidates(
-        profiles?.map((p) => ({
-          id: p.id,
-          full_name: p.full_name,
-          role: roleMap.get(p.id) || "",
-        })) || []
+        await withSelected(
+          profiles?.map((p) => ({
+            id: p.id,
+            full_name: p.full_name,
+            role: roleMap.get(p.id) || "",
+          })) || []
+        )
       );
     } catch (error) {
       console.error("Error fetching reportee candidates:", error);
@@ -128,6 +154,7 @@ export function ReporteeSelect({
       setIsLoading(false);
     }
   };
+
 
   const toggleUser = (userId: string) => {
     if (value.includes(userId)) {
