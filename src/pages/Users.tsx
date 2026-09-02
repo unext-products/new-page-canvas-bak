@@ -305,28 +305,10 @@ export default function Users() {
         managerToReporteeIds.get(h.manager_id)!.push(h.user_id);
       });
 
-      // Count reportees matching edit form logic: active + in manager's verticals + correct role
+      // Count all mapped active reportees — matches the edit form, which now
+      // lists reportees regardless of level or vertical
       managerToReporteeIds.forEach((reporteeIds, managerId) => {
-        const managerRoleData = rolesMap.get(managerId);
-        const managerRole = managerRoleData?.role as string | undefined;
-        const isL3Manager = managerRole === 'l3' || managerRole === 'hod';
-        const targetRoles = isL3Manager ? ['l2', 'program_manager'] : ['l1', 'faculty'];
-        const managerVerts = userVertIdSets.get(managerId);
-
-        let count = 0;
-        for (const rid of reporteeIds) {
-          if (!activeUserIds.has(rid)) continue;
-          const reporteeRole = rolesMap.get(rid)?.role as string | undefined;
-          if (!reporteeRole || !targetRoles.includes(reporteeRole)) continue;
-          if (managerVerts && managerVerts.size > 0) {
-            const reporteeVerts = userVertIdSets.get(rid);
-            if (!reporteeVerts) continue;
-            let hasSharedVertical = false;
-            managerVerts.forEach(v => { if (reporteeVerts.has(v)) hasSharedVertical = true; });
-            if (!hasSharedVertical) continue;
-          }
-          count++;
-        }
+        const count = reporteeIds.filter((rid) => activeUserIds.has(rid)).length;
         if (count > 0) managerReporteeCount.set(managerId, count);
       });
 
@@ -1215,7 +1197,7 @@ export default function Users() {
                   {(formData.role === "l2" || formData.role === "l3") && formData.vertical_ids.length > 0 && (
                     <div>
                       <Label>
-                        Reportees ({formData.role === "l3" ? roleLabel("l2") : roleLabel("l1")})
+                        Reportees
                       </Label>
                       <ReporteeSelect
                         managerRole={formData.role}
@@ -1223,7 +1205,7 @@ export default function Users() {
                         onValueChange={(value) => setFormData({ ...formData, reportee_ids: value })}
                         verticalIds={formData.vertical_ids}
                         programIds={formData.program_ids}
-                        roleLabel={formData.role === "l3" ? roleLabel("l2") + " reportees" : roleLabel("l1") + " reportees"}
+                        roleLabel="reportees"
                       />
                       <p className="text-sm text-muted-foreground mt-1">
                         Select users who will report to this {roleLabel(formData.role)}
@@ -1815,7 +1797,7 @@ export default function Users() {
                 formData.vertical_ids.length > 0 && (
                 <div>
                   <Label>
-                    Reportees ({(formData.role === "l3" || formData.role === "manager") ? roleLabel("l2") : roleLabel("l1")})
+                    Reportees
                   </Label>
                   <ReporteeSelect
                     managerId={selectedUser?.id}
@@ -1824,7 +1806,7 @@ export default function Users() {
                     onValueChange={(value) => setFormData({ ...formData, reportee_ids: value })}
                     verticalIds={formData.vertical_ids}
                     programIds={formData.program_ids}
-                    roleLabel={(formData.role === "l3" || formData.role === "manager") ? roleLabel("l2") + " reportees" : roleLabel("l1") + " reportees"}
+                    roleLabel="reportees"
                   />
                   <p className="text-sm text-muted-foreground mt-1">
                     Select users who will report to this {roleLabel(formData.role)}
