@@ -1215,7 +1215,7 @@ export default function Users() {
                   {(formData.role === "l2" || formData.role === "l3") && formData.vertical_ids.length > 0 && (
                     <div>
                       <Label>
-                        Reportees ({formData.role === "l3" ? roleLabel("l2") : roleLabel("l1")})
+                        Reportees
                       </Label>
                       <ReporteeSelect
                         managerRole={formData.role}
@@ -1223,7 +1223,7 @@ export default function Users() {
                         onValueChange={(value) => setFormData({ ...formData, reportee_ids: value })}
                         verticalIds={formData.vertical_ids}
                         programIds={formData.program_ids}
-                        roleLabel={formData.role === "l3" ? roleLabel("l2") + " reportees" : roleLabel("l1") + " reportees"}
+                        roleLabel="reportees"
                       />
                       <p className="text-sm text-muted-foreground mt-1">
                         Select users who will report to this {roleLabel(formData.role)}
@@ -1815,7 +1815,7 @@ export default function Users() {
                 formData.vertical_ids.length > 0 && (
                 <div>
                   <Label>
-                    Reportees ({(formData.role === "l3" || formData.role === "manager") ? roleLabel("l2") : roleLabel("l1")})
+                    Reportees
                   </Label>
                   <ReporteeSelect
                     managerId={selectedUser?.id}
@@ -1824,7 +1824,7 @@ export default function Users() {
                     onValueChange={(value) => setFormData({ ...formData, reportee_ids: value })}
                     verticalIds={formData.vertical_ids}
                     programIds={formData.program_ids}
-                    roleLabel={(formData.role === "l3" || formData.role === "manager") ? roleLabel("l2") + " reportees" : roleLabel("l1") + " reportees"}
+                    roleLabel="reportees"
                   />
                   <p className="text-sm text-muted-foreground mt-1">
                     Select users who will report to this {roleLabel(formData.role)}
