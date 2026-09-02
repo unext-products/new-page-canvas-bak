@@ -305,28 +305,10 @@ export default function Users() {
         managerToReporteeIds.get(h.manager_id)!.push(h.user_id);
       });
 
-      // Count reportees matching edit form logic: active + in manager's verticals + correct role
+      // Count all mapped active reportees — matches the edit form, which now
+      // lists reportees regardless of level or vertical
       managerToReporteeIds.forEach((reporteeIds, managerId) => {
-        const managerRoleData = rolesMap.get(managerId);
-        const managerRole = managerRoleData?.role as string | undefined;
-        const isL3Manager = managerRole === 'l3' || managerRole === 'hod';
-        const targetRoles = isL3Manager ? ['l2', 'program_manager'] : ['l1', 'faculty'];
-        const managerVerts = userVertIdSets.get(managerId);
-
-        let count = 0;
-        for (const rid of reporteeIds) {
-          if (!activeUserIds.has(rid)) continue;
-          const reporteeRole = rolesMap.get(rid)?.role as string | undefined;
-          if (!reporteeRole || !targetRoles.includes(reporteeRole)) continue;
-          if (managerVerts && managerVerts.size > 0) {
-            const reporteeVerts = userVertIdSets.get(rid);
-            if (!reporteeVerts) continue;
-            let hasSharedVertical = false;
-            managerVerts.forEach(v => { if (reporteeVerts.has(v)) hasSharedVertical = true; });
-            if (!hasSharedVertical) continue;
-          }
-          count++;
-        }
+        const count = reporteeIds.filter((rid) => activeUserIds.has(rid)).length;
         if (count > 0) managerReporteeCount.set(managerId, count);
       });
 
