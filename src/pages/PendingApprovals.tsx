@@ -361,7 +361,7 @@ export default function PendingApprovals() {
         if (verts) verts.forEach(v => { verticalNames[v.id] = v.name; });
       }
 
-      // 9. Get total reportee count per approver (matching edit form logic: active + same vertical + correct role)
+      // 9. Get total reportee count per approver (matching edit form logic: all mapped active users)
       const reporteeCount: Record<string, number> = {};
       // Collect all hierarchy rows for approvers
       const approverHierarchyRows: { manager_id: string; user_id: string }[] = [];
