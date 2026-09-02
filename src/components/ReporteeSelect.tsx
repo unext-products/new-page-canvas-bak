@@ -49,7 +49,7 @@ export function ReporteeSelect({
   onValueChange,
   verticalIds,
   programIds,
-  roleLabel = "Reportees",
+  roleLabel = "reportees",
   disabled = false,
 }: ReporteeSelectProps) {
   const [open, setOpen] = useState(false);
@@ -87,67 +87,28 @@ export function ReporteeSelect({
   const fetchCandidates = async () => {
     setIsLoading(true);
     try {
-      // Determine which roles to show based on manager role
-      const isL3 = managerRole === "l3" || managerRole === "manager";
-      const targetRoles = isL3
-        ? ["l2", "program_manager"] // L3 selects L2 reportees
-        : ["l1", "faculty"]; // L2 selects L1 reportees
-
-      // Get users in the manager's verticals
-      let candidateUserIds: string[] = [];
-
-      if (verticalIds && verticalIds.length > 0) {
-        const { data: vertUsers } = await supabase
-          .from("user_verticals")
-          .select("user_id")
-          .in("vertical_id", verticalIds);
-
-        candidateUserIds = [...new Set(vertUsers?.map((u) => u.user_id) || [])];
-      }
-
-      if (candidateUserIds.length === 0) {
-        setCandidates(await withSelected([]));
-        setIsLoading(false);
-        return;
-      }
-
-      // Filter to target roles
-      const { data: roleUsers } = await supabase
-        .from("user_roles")
-        .select("user_id, role")
-        .in("user_id", candidateUserIds)
-        .in("role", targetRoles as any);
-
-      const targetUserIds = roleUsers?.map((r) => r.user_id) || [];
-
-      if (targetUserIds.length === 0) {
-        setCandidates(await withSelected([]));
-        setIsLoading(false);
-        return;
-      }
-
-      // Exclude the manager themselves
-      const filteredIds = targetUserIds.filter((id) => id !== managerId);
-
-      // Fetch profiles
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, full_name, is_active")
-        .in("id", filteredIds)
-        .eq("is_active", true)
-        .order("full_name");
+      // Show all active users as potential reportees, regardless of their
+      // level or vertical — admins decide the mapping explicitly.
+      const [{ data: profiles }, { data: roleUsers }] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("id, full_name, is_active")
+          .eq("is_active", true)
+          .order("full_name"),
+        supabase.from("user_roles").select("user_id, role"),
+      ]);
 
       const roleMap = new Map(roleUsers?.map((r) => [r.user_id, r.role]) || []);
 
-      setCandidates(
-        await withSelected(
-          profiles?.map((p) => ({
-            id: p.id,
-            full_name: p.full_name,
-            role: roleMap.get(p.id) || "",
-          })) || []
-        )
-      );
+      const list = (profiles || [])
+        .filter((p) => p.id !== managerId) // Exclude the manager themselves
+        .map((p) => ({
+          id: p.id,
+          full_name: p.full_name,
+          role: roleMap.get(p.id) || "",
+        }));
+
+      setCandidates(await withSelected(list));
     } catch (error) {
       console.error("Error fetching reportee candidates:", error);
     } finally {
