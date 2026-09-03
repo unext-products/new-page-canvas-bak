@@ -315,12 +315,14 @@ export default function Users() {
         managerToReporteeIds.get(h.manager_id)!.push(h.user_id);
       });
 
-      // Count all mapped active reportees — matches the edit form, which now
-      // lists reportees regardless of level or vertical
+      // Count every mapped reportee (deduped) — matches the edit form and the
+      // detail popup, which list all mapped reportees regardless of level,
+      // vertical or active status
       managerToReporteeIds.forEach((reporteeIds, managerId) => {
-        const count = reporteeIds.filter((rid) => activeUserIds.has(rid)).length;
+        const count = new Set(reporteeIds).size;
         if (count > 0) managerReporteeCount.set(managerId, count);
       });
+
 
       const enrichedUsers: UserProfile[] = profilesData?.map(profile => {
         const roleData = rolesMap.get(profile.id);
