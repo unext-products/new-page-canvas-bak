@@ -214,12 +214,22 @@ export default function Users() {
 
       if (userProgramError) throw userProgramError;
 
-      // Fetch reporting hierarchy (user_id -> manager_id)
-      const { data: hierarchyData, error: hierarchyError } = await supabase
-        .from("reporting_hierarchy")
-        .select("user_id, manager_id");
+      // Fetch reporting hierarchy (user_id -> manager_id) — paginated so we
+      // never truncate at the default 1000-row limit
+      const hierarchyData: { user_id: string; manager_id: string }[] = [];
+      {
+        const pageSize = 1000;
+        for (let from = 0; ; from += pageSize) {
+          const { data: page, error: hierarchyError } = await supabase
+            .from("reporting_hierarchy")
+            .select("user_id, manager_id")
+            .range(from, from + pageSize - 1);
+          if (hierarchyError) throw hierarchyError;
+          hierarchyData.push(...(page || []));
+          if (!page || page.length < pageSize) break;
+        }
+      }
 
-      if (hierarchyError) throw hierarchyError;
 
       // Fetch auth users for emails using edge function
       const { data: authResponse, error: authError } = await supabase.functions.invoke('admin-list-users');
@@ -284,7 +294,7 @@ export default function Users() {
       // Build profile name lookup and user -> manager name map
       const profileNameMap = new Map<string, string>();
       profilesData?.forEach(p => profileNameMap.set(p.id, p.full_name));
-      const activeUserIds = new Set(profilesData?.filter(p => p.is_active).map(p => p.id) || []);
+      
 
       // Build user -> vertical IDs lookup (from user_verticals data)
       const userVertIdSets = new Map<string, Set<string>>();
@@ -305,12 +315,14 @@ export default function Users() {
         managerToReporteeIds.get(h.manager_id)!.push(h.user_id);
       });
 
-      // Count all mapped active reportees — matches the edit form, which now
-      // lists reportees regardless of level or vertical
+      // Count every mapped reportee (deduped) — matches the edit form and the
+      // detail popup, which list all mapped reportees regardless of level,
+      // vertical or active status
       managerToReporteeIds.forEach((reporteeIds, managerId) => {
-        const count = reporteeIds.filter((rid) => activeUserIds.has(rid)).length;
+        const count = new Set(reporteeIds).size;
         if (count > 0) managerReporteeCount.set(managerId, count);
       });
+
 
       const enrichedUsers: UserProfile[] = profilesData?.map(profile => {
         const roleData = rolesMap.get(profile.id);
@@ -383,7 +395,9 @@ export default function Users() {
     }
 
     if (roleFilter !== "all") {
-      filtered = filtered.filter(user => user.role === roleFilter);
+      // user.role holds display roles ("admin"), while the filter uses DB
+      // values ("org_admin") — compare with the legacy-aware helper
+      filtered = filtered.filter(user => isRole(user.role, roleFilter));
     }
 
     if (orgFilter !== "all") {
