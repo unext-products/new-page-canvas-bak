@@ -395,7 +395,9 @@ export default function Users() {
     }
 
     if (roleFilter !== "all") {
-      filtered = filtered.filter(user => user.role === roleFilter);
+      // user.role holds display roles ("admin"), while the filter uses DB
+      // values ("org_admin") — compare with the legacy-aware helper
+      filtered = filtered.filter(user => isRole(user.role, roleFilter));
     }
 
     if (orgFilter !== "all") {
