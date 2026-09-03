@@ -214,12 +214,22 @@ export default function Users() {
 
       if (userProgramError) throw userProgramError;
 
-      // Fetch reporting hierarchy (user_id -> manager_id)
-      const { data: hierarchyData, error: hierarchyError } = await supabase
-        .from("reporting_hierarchy")
-        .select("user_id, manager_id");
+      // Fetch reporting hierarchy (user_id -> manager_id) — paginated so we
+      // never truncate at the default 1000-row limit
+      const hierarchyData: { user_id: string; manager_id: string }[] = [];
+      {
+        const pageSize = 1000;
+        for (let from = 0; ; from += pageSize) {
+          const { data: page, error: hierarchyError } = await supabase
+            .from("reporting_hierarchy")
+            .select("user_id, manager_id")
+            .range(from, from + pageSize - 1);
+          if (hierarchyError) throw hierarchyError;
+          hierarchyData.push(...(page || []));
+          if (!page || page.length < pageSize) break;
+        }
+      }
 
-      if (hierarchyError) throw hierarchyError;
 
       // Fetch auth users for emails using edge function
       const { data: authResponse, error: authError } = await supabase.functions.invoke('admin-list-users');
