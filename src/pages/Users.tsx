@@ -294,7 +294,7 @@ export default function Users() {
       // Build profile name lookup and user -> manager name map
       const profileNameMap = new Map<string, string>();
       profilesData?.forEach(p => profileNameMap.set(p.id, p.full_name));
-      const activeUserIds = new Set(profilesData?.filter(p => p.is_active).map(p => p.id) || []);
+      
 
       // Build user -> vertical IDs lookup (from user_verticals data)
       const userVertIdSets = new Map<string, Set<string>>();
