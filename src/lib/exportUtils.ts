@@ -1,5 +1,5 @@
 import { format } from "date-fns";
-import { calculateDurationMinutes } from "./timesheetUtils";
+import { calculateDurationMinutes, formatActivityLabel } from "./timesheetUtils";
 
 export function formatDuration(minutes: number): string {
   const hours = Math.floor(minutes / 60);
@@ -37,8 +37,8 @@ export function exportToCSV(data: any[], filename: string) {
     format(new Date(entry.entry_date), "MMM dd, yyyy"),
     entry.profiles?.full_name || "N/A",
     entry.departments?.name || "N/A",
-    entry.activity_type,
-    entry.activity_subtype || "",
+    formatActivityLabel(entry.activity_type),
+    formatActivityLabel(entry.activity_subtype),
     entry.start_time,
     entry.end_time,
     formatDuration(calculateDurationMinutes(entry.start_time, entry.end_time)),
@@ -104,8 +104,8 @@ export function exportToCSVWithMetadata(
     format(new Date(entry.entry_date), "MMM dd, yyyy"),
     entry.profiles?.full_name || "N/A",
     entry.departments?.name || "N/A",
-    entry.activity_type,
-    entry.activity_subtype || "",
+    formatActivityLabel(entry.activity_type),
+    formatActivityLabel(entry.activity_subtype),
     entry.start_time,
     entry.end_time,
     formatDuration(calculateDurationMinutes(entry.start_time, entry.end_time)),
@@ -157,7 +157,7 @@ export function exportMemberReportCSV(
     [""],
     ["Activity Breakdown:"],
     ...report.activityBreakdown.map((activity: any) => [
-      `${activity.activityType}:`,
+      `${formatActivityLabel(activity.activityType)}:`,
       `${activity.hours.toFixed(1)} hours (${activity.percentage.toFixed(1)}%)`,
     ]),
     [""],
@@ -184,8 +184,8 @@ export function exportMemberReportCSV(
     entry._verticalName || "N/A",
     entry._facultyName || report.facultyName || "N/A",
     format(new Date(entry.entry_date), "MMM dd, yyyy"),
-    entry.activity_type,
-    entry.activity_subtype || "",
+    formatActivityLabel(entry.activity_type),
+    formatActivityLabel(entry.activity_subtype),
     entry.start_time,
     entry.end_time,
     formatDuration(calculateDurationMinutes(entry.start_time, entry.end_time)),
@@ -233,7 +233,7 @@ export function exportDepartmentReportCSV(
     [""],
     ["Activity Breakdown:"],
     ...report.activityBreakdown.map((activity: any) => [
-      `${activity.activityType}:`,
+      `${formatActivityLabel(activity.activityType)}:`,
       `${activity.hours.toFixed(1)} hours (${activity.percentage.toFixed(1)}%)`,
     ]),
     [""],
