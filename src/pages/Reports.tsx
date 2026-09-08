@@ -39,7 +39,7 @@ import {
 import { exportMemberReportCSV, exportDepartmentReportCSV } from "@/lib/exportUtils";
 import { exportMemberReportPDF, exportDepartmentReportPDF } from "@/lib/pdfExportUtils";
 import { formatDuration } from "@/lib/exportUtils";
-import { calculateDurationMinutes } from "@/lib/timesheetUtils";
+import { calculateDurationMinutes, formatActivityLabel } from "@/lib/timesheetUtils";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfDay, endOfDay } from "date-fns";
 import { getUserErrorMessage } from "@/lib/errorHandler";
 
