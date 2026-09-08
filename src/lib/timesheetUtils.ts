@@ -38,3 +38,21 @@ export function minutesToHours(minutes: number): number {
 export function getEntryDuration(entry: { start_time: string; end_time: string }): number {
   return calculateDurationMinutes(entry.start_time, entry.end_time);
 }
+
+/**
+ * Normalize a stored activity_type/subtype into the canonical display label
+ * so variants like "handling_sessions" and "handling sessions" render identically.
+ */
+export function formatActivityLabel(value?: string | null): string {
+  if (!value) return "";
+  return value
+    .replace(/_/g, " ")
+    .replace(/\s*\(\s*/g, " (")
+    .replace(/\s*\)/g, ")")
+    .replace(/\s*\/\s*/g, " / ")
+    .replace(/\s*&\s*/g, " & ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase()
+    .replace(/(^|[\s(\/&-])(\w)/g, (_m, p, c) => p + c.toUpperCase());
+}
