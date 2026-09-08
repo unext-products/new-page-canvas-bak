@@ -39,7 +39,7 @@ import {
 import { exportMemberReportCSV, exportDepartmentReportCSV } from "@/lib/exportUtils";
 import { exportMemberReportPDF, exportDepartmentReportPDF } from "@/lib/pdfExportUtils";
 import { formatDuration } from "@/lib/exportUtils";
-import { calculateDurationMinutes } from "@/lib/timesheetUtils";
+import { calculateDurationMinutes, formatActivityLabel } from "@/lib/timesheetUtils";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfDay, endOfDay } from "date-fns";
 import { getUserErrorMessage } from "@/lib/errorHandler";
 
@@ -508,9 +508,9 @@ export default function Reports() {
                                   <TableCell className="text-sm">{entry._verticalName || "N/A"}</TableCell>
                                   <TableCell>
                                     <div>
-                                      <div className="font-medium capitalize">{entry.activity_type}</div>
+                                      <div className="font-medium">{formatActivityLabel(entry.activity_type)}</div>
                                       {entry.activity_subtype && (
-                                        <div className="text-sm text-muted-foreground">{entry.activity_subtype}</div>
+                                        <div className="text-sm text-muted-foreground">{formatActivityLabel(entry.activity_subtype)}</div>
                                       )}
                                     </div>
                                   </TableCell>
