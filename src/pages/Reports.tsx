@@ -508,9 +508,9 @@ export default function Reports() {
                                   <TableCell className="text-sm">{entry._verticalName || "N/A"}</TableCell>
                                   <TableCell>
                                     <div>
-                                      <div className="font-medium capitalize">{entry.activity_type}</div>
+                                      <div className="font-medium">{formatActivityLabel(entry.activity_type)}</div>
                                       {entry.activity_subtype && (
-                                        <div className="text-sm text-muted-foreground">{entry.activity_subtype}</div>
+                                        <div className="text-sm text-muted-foreground">{formatActivityLabel(entry.activity_subtype)}</div>
                                       )}
                                     </div>
                                   </TableCell>
