@@ -179,11 +179,7 @@ export function groupEntriesByDepartment(entries: any[]) {
 }
 
 function normalizeActivityType(type: string): string {
-  return type
-    .replace(/_/g, ' ')
-    .trim()
-    .toLowerCase()
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+  return formatActivityLabel(type);
 }
 
 export function groupEntriesByActivityType(entries: any[]) {
