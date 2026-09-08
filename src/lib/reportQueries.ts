@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { differenceInCalendarDays, eachDayOfInterval, format, isWeekend } from "date-fns";
-import { calculateDurationMinutes } from "./timesheetUtils";
+import { calculateDurationMinutes, formatActivityLabel } from "./timesheetUtils";
 import { calculateUserTotalDailyTargetMinutes } from "./targets";
 import { getLeaveWeight } from "./leaveUtils";
 
