@@ -93,8 +93,9 @@ export default function PendingApprovals() {
         const directIds = directReportees?.map(r => r.user_id) || [];
         scopedSubmitterIds = new Set(directIds);
 
-        // For L2, also add program-based L1/faculty users (matching Approvals page logic)
-        if (isRole(userWithRole?.role, "l2", "program_manager")) {
+        // For L2, reporting hierarchy is authoritative; only fall back to
+        // program-based L1/faculty users when no hierarchy is configured
+        if (isRole(userWithRole?.role, "l2", "program_manager") && directIds.length === 0) {
           const { data: l2Programs } = await supabase
             .from("user_programs")
             .select("program_id")
@@ -216,14 +217,23 @@ export default function PendingApprovals() {
           ? l2RoleUsers.filter(id => id === userWithRole?.user?.id)
           : l2RoleUsers;
 
-        // For each L2, get their programs and find L1/faculty submitters
+        // For each L2, get their programs and find L1/faculty submitters.
+        // Reporting hierarchy is authoritative (matches the Approvals page):
+        // skip program-based mapping for any L2 that already has hierarchy reportees.
         for (const l2Id of l2sToProcess) {
+          const { count: hierCount } = await supabase
+            .from("reporting_hierarchy")
+            .select("id", { count: "exact", head: true })
+            .eq("manager_id", l2Id);
+          if ((hierCount || 0) > 0) continue;
+
           const { data: l2Progs } = await supabase
             .from("user_programs")
             .select("program_id")
             .eq("user_id", l2Id);
           const progIds = l2Progs?.map(p => p.program_id) || [];
           if (!progIds.length) continue;
+
 
           // Get all users in those programs
           const programUserIds = new Set<string>();
