@@ -82,6 +82,8 @@ export interface FacultyReportData {
   averageDailyHours: number;
   approvedCount: number;
   pendingCount: number;
+  rejectedCount?: number;
+  draftCount?: number;
   expectedHoursBreakdown?: ExpectedHoursBreakdown;
 }
 
