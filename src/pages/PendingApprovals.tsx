@@ -434,13 +434,14 @@ export default function PendingApprovals() {
       const rows: ApproverPendingRow[] = approverIds.map(id => {
         const userVertIds = verticalIds[id] || [];
         const vertNames = userVertIds.map(vid => verticalNames[vid] || "").filter(Boolean);
-        const profile = profiles[id] || { name: "Unknown", email: "" };
+        const profile = profiles[id] || { name: "Unknown", email: "", isActive: false };
         return {
           userId: id,
           name: profile.name,
           email: profile.email,
           role: roles[id] || "",
           verticalName: vertNames.join(", ") || "—",
+          isActive: profile.isActive,
           mappedUsersCount: reporteeCount[id] || 0,
           pendingCount: countByApprover[id],
         };
