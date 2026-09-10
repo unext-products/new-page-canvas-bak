@@ -470,11 +470,12 @@ export default function PendingApprovals() {
 
   const exportCSV = () => {
     if (!data.length) return;
-    const headers = ["Name", "Email", "Role", "Vertical", "Mapped Users", "Pending Approvals"];
+    const headers = ["Name", "Email", "Role", "Status", "Vertical", "Mapped Users", "Pending Approvals"];
     const rows = data.map(row => [
       row.name,
       row.email,
       getRoleDisplay(row.role),
+      row.isActive ? "Active" : "Inactive",
       row.verticalName,
       row.mappedUsersCount,
       row.pendingCount,
@@ -558,7 +559,10 @@ export default function PendingApprovals() {
                   {data.map((row) => (
                     <TableRow key={row.userId}>
                       <TableCell>
-                        <div className="font-medium">{row.name}</div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{row.name}</span>
+                          {!row.isActive && <Badge variant="secondary">Inactive</Badge>}
+                        </div>
                         {row.email && <div className="text-xs text-muted-foreground">{row.email}</div>}
                       </TableCell>
                       <TableCell>
