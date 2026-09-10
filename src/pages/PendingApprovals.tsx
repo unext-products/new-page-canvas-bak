@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { fetchAllRows } from "@/lib/reportQueries";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { formatLocalDate } from "@/lib/dateUtils";
+import { useApprovalSettings } from "@/hooks/useApprovalSettings";
 
 interface ApproverPendingRow {
   userId: string;
@@ -29,6 +30,7 @@ interface ApproverPendingRow {
 export default function PendingApprovals() {
   const { userWithRole, loading } = useAuth();
   const { roleLabel } = useLabels();
+  const { settings, loading: settingsLoading, canApproveRole } = useApprovalSettings();
   const navigate = useNavigate();
   const [data, setData] = useState<ApproverPendingRow[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -44,9 +46,9 @@ export default function PendingApprovals() {
   }, [loading, hasAccess, navigate]);
 
   useEffect(() => {
-    if (!hasAccess || loading) return;
+    if (!hasAccess || loading || settingsLoading || !settings) return;
     handleSubmit();
-  }, [hasAccess, loading]);
+  }, [hasAccess, loading, settingsLoading, settings]);
 
   const handleSubmit = () => {
     fetchData(startDate, endDate);
@@ -284,35 +286,44 @@ export default function PendingApprovals() {
         addToApprover(row.manager_id, row.user_id);
       }
 
-      // Now sum up pending counts per approver
+      // Roles for all submitters (needed to honour approval-workflow settings)
+      const submitterRoleMap: Record<string, string> = {};
+      for (let i = 0; i < submitterIds.length; i += CHUNK) {
+        const chunk = submitterIds.slice(i, i + CHUNK);
+        const { data: srs } = await supabase
+          .from("user_roles")
+          .select("user_id, role")
+          .in("user_id", chunk);
+        if (srs) srs.forEach(r => { submitterRoleMap[r.user_id] = r.role; });
+      }
+
+      // Roles for all candidate approvers
+      const candidateApproverIds = Object.keys(approverSubmitters);
+      const roles: Record<string, string> = {};
+      for (let i = 0; i < candidateApproverIds.length; i += CHUNK) {
+        const chunk = candidateApproverIds.slice(i, i + CHUNK);
+        const { data: rls } = await supabase
+          .from("user_roles")
+          .select("user_id, role")
+          .in("user_id", chunk);
+        if (rls) rls.forEach(r => { roles[r.user_id] = r.role; });
+      }
+
+      // Sum pending counts per approver, counting only submitter roles this
+      // approver is actually allowed to approve (mirrors the Approvals page)
       const countByApprover: Record<string, number> = {};
       for (const [approverId, submitters] of Object.entries(approverSubmitters)) {
+        const approverRole = roles[approverId];
+        if (!approverRole) continue;
         let total = 0;
-        const submitterArr = Array.from(submitters);
-        for (const sid of submitterArr) {
+        for (const sid of Array.from(submitters)) {
+          const submitterRole = submitterRoleMap[sid];
+          if (!submitterRole) continue;
+          if (!canApproveRole(approverRole, submitterRole)) continue;
           total += countBySubmitter[sid] || 0;
         }
         if (total > 0) countByApprover[approverId] = total;
       }
-
-      // Also check for L3 entries — they are approved by admin, no hierarchy row needed
-      // Get roles for submitters to find L3s without hierarchy mapping
-      const submitterRoles: { user_id: string; role: string }[] = [];
-      for (let i = 0; i < submitterIds.length; i += CHUNK) {
-        const chunk = submitterIds.slice(i, i + CHUNK);
-        const { data: roles } = await supabase
-          .from("user_roles")
-          .select("user_id, role")
-          .in("user_id", chunk);
-        if (roles) submitterRoles.push(...roles);
-      }
-
-      // For submitters who have no manager in hierarchy, check if they're L3 (approved by admin directly)
-      const submittersWithManager = new Set(allHierarchyRows.map(r => r.user_id));
-      const unmappedSubmitters = submitterIds.filter(id => !submittersWithManager.has(id));
-      
-      // Count unmapped L3 entries as "admin-approved" — but we attribute to "Admin" role generically
-      // Actually, for this report we only show users who are approvers, so unmapped entries without a manager aren't attributable
 
       const approverIds = Object.keys(countByApprover);
       if (!approverIds.length) {
@@ -321,7 +332,7 @@ export default function PendingApprovals() {
         return;
       }
 
-      // 5. Get approver profiles
+      // Get approver profiles
       const profiles: Record<string, { name: string; email: string }> = {};
       for (let i = 0; i < approverIds.length; i += CHUNK) {
         const chunk = approverIds.slice(i, i + CHUNK);
@@ -330,17 +341,6 @@ export default function PendingApprovals() {
           .select("id, full_name, email")
           .in("id", chunk);
         if (profs) profs.forEach(p => { profiles[p.id] = { name: p.full_name, email: p.email || "" }; });
-      }
-
-      // 6. Get approver roles
-      const roles: Record<string, string> = {};
-      for (let i = 0; i < approverIds.length; i += CHUNK) {
-        const chunk = approverIds.slice(i, i + CHUNK);
-        const { data: rls } = await supabase
-          .from("user_roles")
-          .select("user_id, role")
-          .in("user_id", chunk);
-        if (rls) rls.forEach(r => { roles[r.user_id] = r.role; });
       }
 
       // 7. Get approver verticals
