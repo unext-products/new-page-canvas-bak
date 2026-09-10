@@ -11,19 +11,33 @@ import { getLeaveWeight } from "./leaveUtils";
  */
 export async function fetchAllRows<T = any>(
   queryBuilder: any,
-  pageSize = 1000
+  pageSize = 1000,
+  orderColumn: string | null = "id"
 ): Promise<T[]> {
+  // A stable sort key is required: paginating with .range() on an unordered
+  // query lets Postgres return rows in different orders per page, which can
+  // silently skip or duplicate rows across page boundaries.
+  const baseQuery = orderColumn
+    ? queryBuilder.order(orderColumn, { ascending: true })
+    : queryBuilder;
+
   const allData: T[] = [];
   let offset = 0;
   while (true) {
-    const { data, error } = await queryBuilder.range(offset, offset + pageSize - 1);
-    if (error) throw error;
+    const { data, error } = await baseQuery.range(offset, offset + pageSize - 1);
+    if (error) {
+      if (orderColumn && (error.code === "42703" || /column .* does not exist/i.test(error.message || ""))) {
+        return fetchAllRows<T>(queryBuilder, pageSize, null);
+      }
+      throw error;
+    }
     allData.push(...(data || []));
     if (!data || data.length < pageSize) break;
     offset += pageSize;
   }
   return allData;
 }
+
 
 export interface ReportFilters {
   dateFrom?: string;
