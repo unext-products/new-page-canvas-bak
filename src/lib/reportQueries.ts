@@ -121,6 +121,8 @@ export interface FacultyBreakdown {
   entryCount: number;
   approvedCount: number;
   pendingCount: number;
+  rejectedCount: number;
+  draftCount: number;
   expectedHours: number;
   leaveDays: number;
   workingDays: number;
