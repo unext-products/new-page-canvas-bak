@@ -72,6 +72,7 @@ interface LeaveEntry {
   user_id: string;
   leave_date: string;
   leave_type: string;
+  created_at?: string | null;
   comments: string | null;
   profiles: {
     full_name: string;
@@ -1545,6 +1546,11 @@ export default function Approvals() {
                                   <Calendar className="h-3 w-3" />
                                   {format(new Date(item.entry_date), "EEEE, MMM d, yyyy")}
                                 </div>
+                                {item.created_at && (
+                                  <div className="text-xs text-muted-foreground mt-0.5">
+                                    Logged: {format(new Date(item.created_at), "MMM d, yyyy HH:mm:ss")}
+                                  </div>
+                                )}
                               </div>
                             </div>
                             <div className="flex flex-col items-end gap-1">
