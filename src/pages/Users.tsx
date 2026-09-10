@@ -1018,12 +1018,12 @@ export default function Users() {
                   Add User
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
+              <DialogContent className="max-w-md max-h-[90dvh] flex flex-col overflow-hidden">
+                <DialogHeader className="flex-shrink-0">
                   <DialogTitle>Create User</DialogTitle>
                   <DialogDescription>Add a new user to the system</DialogDescription>
                 </DialogHeader>
-                <div className="space-y-4">
+                <div className="space-y-4 overflow-y-auto flex-1 pr-2">
                   <div>
                     <Label htmlFor="full_name">Full Name</Label>
                     <Input
@@ -1248,7 +1248,7 @@ export default function Users() {
                     />
                   </div>
                 </div>
-                <DialogFooter>
+                <DialogFooter className="flex-shrink-0 pt-4 border-t mt-4">
                   <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
                     Cancel
                   </Button>
@@ -1611,7 +1611,7 @@ export default function Users() {
 
         {/* Edit Dialog */}
         <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-          <DialogContent className="max-w-md max-h-[90vh] flex flex-col">
+          <DialogContent className="max-w-md max-h-[90dvh] flex flex-col overflow-hidden">
             <DialogHeader className="flex-shrink-0">
               <DialogTitle>Edit User</DialogTitle>
               <DialogDescription>Update user information</DialogDescription>
