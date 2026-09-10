@@ -23,6 +23,7 @@ interface ApproverPendingRow {
   email: string;
   role: string;
   verticalName: string;
+  isActive: boolean;
   mappedUsersCount: number;
   pendingCount: number;
 }
@@ -332,16 +333,16 @@ export default function PendingApprovals() {
         return;
       }
 
-      // Get approver profiles (only active approvers are shown)
-      const profiles: Record<string, { name: string; email: string }> = {};
+      // Get approver profiles (include inactive approvers so pending
+      // entries in their name remain visible, flagged as Inactive)
+      const profiles: Record<string, { name: string; email: string; isActive: boolean }> = {};
       for (let i = 0; i < candidateIds.length; i += CHUNK) {
         const chunk = candidateIds.slice(i, i + CHUNK);
         const { data: profs } = await supabase
           .from("profiles")
           .select("id, full_name, email, is_active")
-          .in("id", chunk)
-          .eq("is_active", true);
-        if (profs) profs.forEach(p => { profiles[p.id] = { name: p.full_name, email: p.email || "" }; });
+          .in("id", chunk);
+        if (profs) profs.forEach(p => { profiles[p.id] = { name: p.full_name, email: p.email || "", isActive: p.is_active }; });
       }
 
       const approverIds = candidateIds.filter(id => profiles[id]);
@@ -433,13 +434,14 @@ export default function PendingApprovals() {
       const rows: ApproverPendingRow[] = approverIds.map(id => {
         const userVertIds = verticalIds[id] || [];
         const vertNames = userVertIds.map(vid => verticalNames[vid] || "").filter(Boolean);
-        const profile = profiles[id] || { name: "Unknown", email: "" };
+        const profile = profiles[id] || { name: "Unknown", email: "", isActive: false };
         return {
           userId: id,
           name: profile.name,
           email: profile.email,
           role: roles[id] || "",
           verticalName: vertNames.join(", ") || "—",
+          isActive: profile.isActive,
           mappedUsersCount: reporteeCount[id] || 0,
           pendingCount: countByApprover[id],
         };
@@ -468,11 +470,12 @@ export default function PendingApprovals() {
 
   const exportCSV = () => {
     if (!data.length) return;
-    const headers = ["Name", "Email", "Role", "Vertical", "Mapped Users", "Pending Approvals"];
+    const headers = ["Name", "Email", "Role", "Status", "Vertical", "Mapped Users", "Pending Approvals"];
     const rows = data.map(row => [
       row.name,
       row.email,
       getRoleDisplay(row.role),
+      row.isActive ? "Active" : "Inactive",
       row.verticalName,
       row.mappedUsersCount,
       row.pendingCount,
@@ -556,7 +559,10 @@ export default function PendingApprovals() {
                   {data.map((row) => (
                     <TableRow key={row.userId}>
                       <TableCell>
-                        <div className="font-medium">{row.name}</div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{row.name}</span>
+                          {!row.isActive && <Badge variant="secondary">Inactive</Badge>}
+                        </div>
                         {row.email && <div className="text-xs text-muted-foreground">{row.email}</div>}
                       </TableCell>
                       <TableCell>
