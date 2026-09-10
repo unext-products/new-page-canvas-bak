@@ -42,6 +42,7 @@ interface TimesheetEntry {
   activity_subtype: string | null;
   notes: string | null;
   status: string;
+  created_at?: string | null;
   approved_by?: string | null;
   approved_at?: string | null;
   approver_notes?: string | null;
@@ -367,7 +368,7 @@ export default function Approvals() {
           while (true) {
             let query = supabase
               .from("timesheet_entries")
-              .select("id, entry_date, start_time, end_time, activity_type, activity_subtype, notes, user_id, department_code, vertical_id, vertical_code, program_id, batch_id, batch_name, term_id, term_name, subject_id, subject_code, status, approved_by, approved_at, approver_notes")
+              .select("id, entry_date, start_time, end_time, activity_type, activity_subtype, notes, user_id, department_code, vertical_id, vertical_code, program_id, batch_id, batch_name, term_id, term_name, subject_id, subject_code, status, approved_by, approved_at, approver_notes, created_at")
               .in("user_id", chunk)
               .in("status", ["submitted", "approved", "rejected"]);
             
