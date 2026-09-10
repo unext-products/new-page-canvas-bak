@@ -82,6 +82,8 @@ export interface FacultyReportData {
   averageDailyHours: number;
   approvedCount: number;
   pendingCount: number;
+  rejectedCount?: number;
+  draftCount?: number;
   expectedHoursBreakdown?: ExpectedHoursBreakdown;
 }
 
@@ -119,6 +121,8 @@ export interface FacultyBreakdown {
   entryCount: number;
   approvedCount: number;
   pendingCount: number;
+  rejectedCount: number;
+  draftCount: number;
   expectedHours: number;
   leaveDays: number;
   workingDays: number;
@@ -343,6 +347,8 @@ export async function fetchFacultyReport(
   // Calculate status counts
   const approvedCount = entries?.filter(e => e.status === "approved").length || 0;
   const pendingCount = entries?.filter(e => e.status === "submitted").length || 0;
+  const rejectedCount = entries?.filter(e => e.status === "rejected").length || 0;
+  const draftCount = entries?.filter(e => e.status === "draft").length || 0;
 
   // Resolve program, vertical, and approver names for entries
   const programIds = [...new Set((entries || []).map(e => e.program_id).filter(Boolean))];
@@ -384,6 +390,8 @@ export async function fetchFacultyReport(
     averageDailyHours,
     approvedCount,
     pendingCount,
+    rejectedCount,
+    draftCount,
     expectedHoursBreakdown: {
       totalDays: weekdaysInPeriod.length,
       leaveDays: leaveCount,
@@ -656,6 +664,8 @@ export async function fetchVerticalReport(
       entryCount: userEntries.length,
       approvedCount: userEntries.filter(e => e.status === "approved").length,
       pendingCount: userEntries.filter(e => e.status === "submitted").length,
+      rejectedCount: userEntries.filter(e => e.status === "rejected").length,
+      draftCount: userEntries.filter(e => e.status === "draft").length,
       expectedHours: userExpectedHours,
       leaveDays: userLeaveDays,
       workingDays,
@@ -692,6 +702,8 @@ export async function fetchVerticalReport(
       entryCount: 0,
       approvedCount: 0,
       pendingCount: 0,
+      rejectedCount: 0,
+      draftCount: 0,
       expectedHours: userExpectedHours,
       leaveDays: userLeaveDays,
       workingDays,
@@ -879,6 +891,8 @@ export async function fetchAllMembersReport(
   const activityBreakdown = generateActivityBreakdown(entries);
   const approvedCount = entries.filter(e => e.status === "approved").length;
   const pendingCount = entries.filter(e => e.status === "submitted").length;
+  const rejectedCount = entries.filter(e => e.status === "rejected").length;
+  const draftCount = entries.filter(e => e.status === "draft").length;
 
   const workingDayCount = differenceInCalendarDays(period.dateTo, period.dateFrom) + 1;
   const averageDailyHours = workingDayCount > 0 ? totalHours / workingDayCount : 0;
@@ -895,6 +909,8 @@ export async function fetchAllMembersReport(
     averageDailyHours,
     approvedCount,
     pendingCount,
+    rejectedCount,
+    draftCount,
   };
 }
 

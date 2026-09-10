@@ -11,6 +11,8 @@ interface ReportSummaryCardsProps {
   averageDailyHours?: number;
   approvedCount?: number;
   pendingCount?: number;
+  rejectedCount?: number;
+  draftCount?: number;
   expectedHoursBreakdown?: ExpectedHoursBreakdown;
 }
 
@@ -22,6 +24,8 @@ export function ReportSummaryCards({
   averageDailyHours,
   approvedCount,
   pendingCount,
+  rejectedCount = 0,
+  draftCount = 0,
   expectedHoursBreakdown,
 }: ReportSummaryCardsProps) {
   return (
@@ -93,6 +97,13 @@ export function ReportSummaryCards({
           <p className="text-xs text-muted-foreground">
             Timesheet records
           </p>
+          {(approvedCount !== undefined || pendingCount !== undefined) && (
+            <p className="text-xs text-muted-foreground mt-1">
+              {approvedCount ?? 0} approved &middot; {pendingCount ?? 0} pending
+              {rejectedCount > 0 && <> &middot; {rejectedCount} rejected</>}
+              {draftCount > 0 && <> &middot; {draftCount} draft</>}
+            </p>
+          )}
         </CardContent>
       </Card>
 
@@ -107,6 +118,13 @@ export function ReportSummaryCards({
             <p className="text-xs text-muted-foreground">
               Approved entries
             </p>
+            {(rejectedCount > 0 || draftCount > 0) && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Not counted: {rejectedCount > 0 ? `${rejectedCount} rejected` : ""}
+                {rejectedCount > 0 && draftCount > 0 ? ", " : ""}
+                {draftCount > 0 ? `${draftCount} draft` : ""}
+              </p>
+            )}
           </CardContent>
         </Card>
       )}

@@ -430,6 +430,16 @@ export default function Reports() {
                   ? facultyReport?.pendingCount
                   : departmentReport?.facultyBreakdown.reduce((sum, f) => sum + f.pendingCount, 0)
               }
+              rejectedCount={
+                reportType === "member"
+                  ? facultyReport?.rejectedCount
+                  : departmentReport?.facultyBreakdown.reduce((sum, f) => sum + (f.rejectedCount || 0), 0)
+              }
+              draftCount={
+                reportType === "member"
+                  ? facultyReport?.draftCount
+                  : departmentReport?.facultyBreakdown.reduce((sum, f) => sum + (f.draftCount || 0), 0)
+              }
               averageDailyHours={currentReport.averageDailyHours}
               expectedHoursBreakdown={reportType === "member" ? facultyReport?.expectedHoursBreakdown : departmentReport?.expectedHoursBreakdown}
             />
