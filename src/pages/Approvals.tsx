@@ -1679,6 +1679,11 @@ export default function Approvals() {
                                   <Calendar className="h-3 w-3" />
                                   {format(new Date(item.leave_date), "EEEE, MMM d, yyyy")}
                                 </div>
+                                {item.created_at && (
+                                  <div className="text-xs text-muted-foreground mt-0.5">
+                                    Logged: {format(new Date(item.created_at), "MMM d, yyyy HH:mm:ss")}
+                                  </div>
+                                )}
                               </div>
                             </div>
                             <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
