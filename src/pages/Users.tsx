@@ -1474,6 +1474,14 @@ export default function Users() {
                   </div>
                 </div>
                 
+                {/* Reporting Manager */}
+                {detailUser.reporting_manager_name && (
+                  <div>
+                    <Label className="text-muted-foreground">Reporting Manager</Label>
+                    <p className="text-sm mt-1">{detailUser.reporting_manager_name}</p>
+                  </div>
+                )}
+
                 {/* Role & Status */}
                 <div className="flex gap-2">
                   {detailUser.role && (

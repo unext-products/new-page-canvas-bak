@@ -42,6 +42,7 @@ interface TimesheetEntry {
   activity_subtype: string | null;
   notes: string | null;
   status: string;
+  created_at?: string | null;
   approved_by?: string | null;
   approved_at?: string | null;
   approver_notes?: string | null;
@@ -71,6 +72,7 @@ interface LeaveEntry {
   user_id: string;
   leave_date: string;
   leave_type: string;
+  created_at?: string | null;
   comments: string | null;
   profiles: {
     full_name: string;
@@ -367,7 +369,7 @@ export default function Approvals() {
           while (true) {
             let query = supabase
               .from("timesheet_entries")
-              .select("id, entry_date, start_time, end_time, activity_type, activity_subtype, notes, user_id, department_code, vertical_id, vertical_code, program_id, batch_id, batch_name, term_id, term_name, subject_id, subject_code, status, approved_by, approved_at, approver_notes")
+              .select("id, entry_date, start_time, end_time, activity_type, activity_subtype, notes, user_id, department_code, vertical_id, vertical_code, program_id, batch_id, batch_name, term_id, term_name, subject_id, subject_code, status, approved_by, approved_at, approver_notes, created_at")
               .in("user_id", chunk)
               .in("status", ["submitted", "approved", "rejected"]);
             
@@ -1544,6 +1546,11 @@ export default function Approvals() {
                                   <Calendar className="h-3 w-3" />
                                   {format(new Date(item.entry_date), "EEEE, MMM d, yyyy")}
                                 </div>
+                                {item.created_at && (
+                                  <div className="text-xs text-muted-foreground mt-0.5">
+                                    Logged: {format(new Date(item.created_at), "MMM d, yyyy HH:mm:ss")}
+                                  </div>
+                                )}
                               </div>
                             </div>
                             <div className="flex flex-col items-end gap-1">
@@ -1672,6 +1679,11 @@ export default function Approvals() {
                                   <Calendar className="h-3 w-3" />
                                   {format(new Date(item.leave_date), "EEEE, MMM d, yyyy")}
                                 </div>
+                                {item.created_at && (
+                                  <div className="text-xs text-muted-foreground mt-0.5">
+                                    Logged: {format(new Date(item.created_at), "MMM d, yyyy HH:mm:ss")}
+                                  </div>
+                                )}
                               </div>
                             </div>
                             <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
