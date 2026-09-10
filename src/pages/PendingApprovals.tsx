@@ -325,23 +325,32 @@ export default function PendingApprovals() {
         if (total > 0) countByApprover[approverId] = total;
       }
 
-      const approverIds = Object.keys(countByApprover);
+      const candidateIds = Object.keys(countByApprover);
+      if (!candidateIds.length) {
+        setData([]);
+        setIsLoading(false);
+        return;
+      }
+
+      // Get approver profiles (only active approvers are shown)
+      const profiles: Record<string, { name: string; email: string }> = {};
+      for (let i = 0; i < candidateIds.length; i += CHUNK) {
+        const chunk = candidateIds.slice(i, i + CHUNK);
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("id, full_name, email, is_active")
+          .in("id", chunk)
+          .eq("is_active", true);
+        if (profs) profs.forEach(p => { profiles[p.id] = { name: p.full_name, email: p.email || "" }; });
+      }
+
+      const approverIds = candidateIds.filter(id => profiles[id]);
       if (!approverIds.length) {
         setData([]);
         setIsLoading(false);
         return;
       }
 
-      // Get approver profiles
-      const profiles: Record<string, { name: string; email: string }> = {};
-      for (let i = 0; i < approverIds.length; i += CHUNK) {
-        const chunk = approverIds.slice(i, i + CHUNK);
-        const { data: profs } = await supabase
-          .from("profiles")
-          .select("id, full_name, email")
-          .in("id", chunk);
-        if (profs) profs.forEach(p => { profiles[p.id] = { name: p.full_name, email: p.email || "" }; });
-      }
 
       // 7. Get approver verticals
       const verticalIds: Record<string, string[]> = {};
