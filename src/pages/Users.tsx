@@ -1248,7 +1248,7 @@ export default function Users() {
                     />
                   </div>
                 </div>
-                <DialogFooter>
+                <DialogFooter className="flex-shrink-0 pt-4 border-t mt-4">
                   <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
                     Cancel
                   </Button>
@@ -1611,7 +1611,7 @@ export default function Users() {
 
         {/* Edit Dialog */}
         <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-          <DialogContent className="max-w-md max-h-[90vh] flex flex-col">
+          <DialogContent className="max-w-md max-h-[90dvh] flex flex-col overflow-hidden">
             <DialogHeader className="flex-shrink-0">
               <DialogTitle>Edit User</DialogTitle>
               <DialogDescription>Update user information</DialogDescription>
