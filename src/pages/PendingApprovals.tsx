@@ -29,6 +29,7 @@ interface ApproverPendingRow {
 export default function PendingApprovals() {
   const { userWithRole, loading } = useAuth();
   const { roleLabel } = useLabels();
+  const { settings, loading: settingsLoading, canApproveRole } = useApprovalSettings();
   const navigate = useNavigate();
   const [data, setData] = useState<ApproverPendingRow[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -44,9 +45,9 @@ export default function PendingApprovals() {
   }, [loading, hasAccess, navigate]);
 
   useEffect(() => {
-    if (!hasAccess || loading) return;
+    if (!hasAccess || loading || settingsLoading || !settings) return;
     handleSubmit();
-  }, [hasAccess, loading]);
+  }, [hasAccess, loading, settingsLoading, settings]);
 
   const handleSubmit = () => {
     fetchData(startDate, endDate);
