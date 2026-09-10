@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { fetchAllRows } from "@/lib/reportQueries";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { formatLocalDate } from "@/lib/dateUtils";
+import { useApprovalSettings } from "@/hooks/useApprovalSettings";
 
 interface ApproverPendingRow {
   userId: string;
