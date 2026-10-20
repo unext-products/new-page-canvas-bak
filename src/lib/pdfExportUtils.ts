@@ -152,11 +152,12 @@ export function exportMemberReportPDF(
   // Detailed Table
   autoTable(doc, {
     startY: yPos + 10,
-    head: [["Program", "Vertical", "Name", "Date", "Activity", "Time", "Duration", "Status", "Approved By"]],
+    head: [["Program", "Vertical", "Name", "Level", "Date", "Activity", "Time", "Duration", "Status", "Approved By"]],
     body: report.entries.map((entry: any) => [
       entry._programName || "N/A",
       entry._verticalName || "N/A",
       entry._facultyName || report.facultyName || "N/A",
+      entry._level || report.level || "—",
       format(new Date(entry.entry_date), "MMM dd, yyyy"),
       `${formatActivityLabel(entry.activity_type)}${entry.activity_subtype ? ` - ${formatActivityLabel(entry.activity_subtype)}` : ""}`,
       `${entry.start_time} - ${entry.end_time}`,
@@ -249,9 +250,10 @@ export function exportDepartmentReportPDF(
 
     autoTable(doc, {
       startY: yPos + 16,
-      head: [["Faculty Name", "Email", "Vertical", "Hours", "Completion", "Entries", "Status"]],
+      head: [["Faculty Name", "Level", "Email", "Vertical", "Hours", "Completion", "Entries", "Status"]],
       body: report.nonStarters.map((ns: any) => [
         ns.facultyName,
+        ns.level || "—",
         ns.email || "",
         ns.verticalName || "",
         "0.0h",
@@ -278,9 +280,10 @@ export function exportDepartmentReportPDF(
 
   autoTable(doc, {
     startY: yPos + 16,
-    head: [["Faculty Name", "Email", "Vertical", "Hours", "Completion", "Entries", "Status"]],
+    head: [["Faculty Name", "Level", "Email", "Vertical", "Hours", "Completion", "Entries", "Status"]],
     body: report.facultyBreakdown.map((faculty: any) => [
       faculty.facultyName,
+      faculty.level || "—",
       faculty.email || "",
       faculty.verticalName || "",
       `${faculty.totalHours.toFixed(1)}h`,

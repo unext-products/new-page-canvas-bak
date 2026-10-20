@@ -35,6 +35,7 @@ export function ExpectedHoursBreakdownTable({
           <TableHeader>
             <TableRow>
               <TableHead>Faculty</TableHead>
+              <TableHead>Level</TableHead>
               <TableHead className="text-right">Leaves</TableHead>
               <TableHead className="text-right">Working Days</TableHead>
               <TableHead className="text-right">Daily Target</TableHead>
@@ -42,11 +43,12 @@ export function ExpectedHoursBreakdownTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {facultyBreakdown
+            {[...facultyBreakdown]
               .sort((a, b) => a.facultyName.localeCompare(b.facultyName))
               .map((faculty) => (
                 <TableRow key={faculty.userId}>
                   <TableCell className="font-medium">{faculty.facultyName}</TableCell>
+                  <TableCell>{faculty.level}</TableCell>
                   <TableCell className="text-right">
                     {faculty.leaveDays % 1 === 0 ? faculty.leaveDays : faculty.leaveDays.toFixed(1)}
                   </TableCell>
@@ -60,7 +62,7 @@ export function ExpectedHoursBreakdownTable({
           </TableBody>
           <TableFooter>
             <TableRow>
-              <TableCell className="font-bold">Total</TableCell>
+              <TableCell colSpan={2} className="font-bold">Total</TableCell>
               <TableCell className="text-right font-bold">
                 {totalLeaveDays % 1 === 0 ? totalLeaveDays : totalLeaveDays.toFixed(1)}
               </TableCell>

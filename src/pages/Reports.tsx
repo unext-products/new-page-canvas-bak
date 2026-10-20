@@ -70,6 +70,9 @@ export default function Reports() {
   const [viewMode, setViewMode] = useState<"table" | "calendar">("table");
   const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
 
+  const [entryPage, setEntryPage] = useState(0);
+  const entryPageSize = 100;
+
   // Sort state for department view
   const [facultySortKey, setFacultySortKey] = useState<string>("name");
   const [facultySortAsc, setFacultySortAsc] = useState(true);
@@ -194,6 +197,7 @@ export default function Reports() {
   const generateReport = async () => {
     try {
       setIsLoading(true);
+      setEntryPage(0);
       setFacultyReport(null);
       setDepartmentReport(null);
 
@@ -496,6 +500,7 @@ export default function Reports() {
                             <TableHeader>
                               <TableRow>
                                 {selectedFaculty === "all" && <TableHead>Member</TableHead>}
+                                <TableHead>Level</TableHead>
                                 <TableHead>Date</TableHead>
                                 <TableHead>Program</TableHead>
                                 <TableHead>Vertical</TableHead>
@@ -508,11 +513,12 @@ export default function Reports() {
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {facultyReport.entries.map((entry) => (
+                              {facultyReport.entries.slice(entryPage * entryPageSize, (entryPage + 1) * entryPageSize).map((entry) => (
                                 <TableRow key={entry.id}>
                                   {selectedFaculty === "all" && (
                                     <TableCell className="font-medium text-sm">{entry._facultyName || "Unknown"}</TableCell>
                                   )}
+                                  <TableCell>{entry._level || facultyReport.level}</TableCell>
                                   <TableCell>{format(new Date(entry.entry_date), "MMM dd, yyyy")}</TableCell>
                                   <TableCell className="text-sm">{entry._programName || "N/A"}</TableCell>
                                   <TableCell className="text-sm">{entry._verticalName || "N/A"}</TableCell>
@@ -541,6 +547,20 @@ export default function Reports() {
                               ))}
                             </TableBody>
                           </Table>
+                          <div className="flex flex-wrap items-center justify-between gap-3 border-t p-3">
+                            <span className="text-sm text-muted-foreground">
+                              {entryPage * entryPageSize + 1}–{Math.min((entryPage + 1) * entryPageSize, facultyReport.entries.length)} of {facultyReport.entries.length} entries
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <Button variant="outline" size="icon" aria-label="Previous entries" disabled={entryPage === 0} onClick={() => setEntryPage(page => page - 1)}>
+                                <ChevronLeft className="h-4 w-4" />
+                              </Button>
+                              <span className="text-sm">Page {entryPage + 1} of {Math.ceil(facultyReport.entries.length / entryPageSize)}</span>
+                              <Button variant="outline" size="icon" aria-label="Next entries" disabled={(entryPage + 1) * entryPageSize >= facultyReport.entries.length} onClick={() => setEntryPage(page => page + 1)}>
+                                <ChevronRight className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
                         </div>
                       )}
                     </CardContent>
@@ -614,6 +634,7 @@ export default function Reports() {
                                 <TableHead className="cursor-pointer select-none" onClick={() => { if (nonStarterSortKey === "name") setNonStarterSortAsc(!nonStarterSortAsc); else { setNonStarterSortKey("name"); setNonStarterSortAsc(true); } }}>
                                   <div className="flex items-center gap-1">Faculty Name <ArrowUpDown className="h-3 w-3" /></div>
                                 </TableHead>
+                                <TableHead>Level</TableHead>
                                 <TableHead className="cursor-pointer select-none" onClick={() => { if (nonStarterSortKey === "email") setNonStarterSortAsc(!nonStarterSortAsc); else { setNonStarterSortKey("email"); setNonStarterSortAsc(true); } }}>
                                   <div className="flex items-center gap-1">Email <ArrowUpDown className="h-3 w-3" /></div>
                                 </TableHead>
@@ -637,6 +658,7 @@ export default function Reports() {
                                 .map((ns) => (
                                   <TableRow key={ns.userId}>
                                     <TableCell className="font-medium">{ns.facultyName}</TableCell>
+                                    <TableCell>{ns.level}</TableCell>
                                     <TableCell className="text-sm text-muted-foreground">{ns.email || "-"}</TableCell>
                                     <TableCell className="text-sm">{ns.verticalName || "-"}</TableCell>
                                     <TableCell>0.0h</TableCell>
@@ -672,6 +694,7 @@ export default function Reports() {
                               <TableHead className="cursor-pointer select-none" onClick={() => { if (facultySortKey === "name") setFacultySortAsc(!facultySortAsc); else { setFacultySortKey("name"); setFacultySortAsc(true); } }}>
                                 <div className="flex items-center gap-1">Faculty Name <ArrowUpDown className="h-3 w-3" /></div>
                               </TableHead>
+                              <TableHead>Level</TableHead>
                               <TableHead className="cursor-pointer select-none" onClick={() => { if (facultySortKey === "email") setFacultySortAsc(!facultySortAsc); else { setFacultySortKey("email"); setFacultySortAsc(true); } }}>
                                 <div className="flex items-center gap-1">Email <ArrowUpDown className="h-3 w-3" /></div>
                               </TableHead>
@@ -706,6 +729,7 @@ export default function Reports() {
                               .map((faculty) => (
                               <TableRow key={faculty.userId}>
                                 <TableCell className="font-medium">{faculty.facultyName}</TableCell>
+                                <TableCell>{faculty.level}</TableCell>
                                 <TableCell className="text-sm text-muted-foreground">{faculty.email || "-"}</TableCell>
                                 <TableCell className="text-sm">{faculty.verticalName || "-"}</TableCell>
                                 <TableCell>{faculty.totalHours.toFixed(1)}h</TableCell>
