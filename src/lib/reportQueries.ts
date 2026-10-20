@@ -1,7 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 import { differenceInCalendarDays, eachDayOfInterval, format, isWeekend } from "date-fns";
 import { calculateDurationMinutes, formatActivityLabel } from "./timesheetUtils";
-import { calculateUserTotalDailyTargetMinutes } from "./targets";
+import { calculateUserTotalDailyTargetMinutes, calculateEffectiveVerticalTargetMinutes, fetchOrgDefaultDailyTargetMinutes } from "./targets";
+import { getReportLevel } from "./reportLevel";
 import { getLeaveWeight } from "./leaveUtils";
 
 /**
@@ -39,6 +40,72 @@ export async function fetchAllRows<T = any>(
 }
 
 
+// Keep high-volume lookups paginated and URL-safe without per-member requests.
+async function fetchReportRowsByIds<T = any>(
+  ids: string[],
+  buildQuery: (chunk: string[]) => any
+): Promise<T[]> {
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += 200) chunks.push(ids.slice(i, i + 200));
+  const rows: T[] = [];
+  // Bound concurrency to avoid flooding the connection pool on large reports.
+  for (let i = 0; i < chunks.length; i += 4) {
+    const results = await Promise.all(chunks.slice(i, i + 4).map(chunk => fetchAllRows<T>(buildQuery(chunk))));
+    rows.push(...results.flat());
+  }
+  return rows;
+}
+
+async function fetchReportMemberContext(userIds: string[], dateFrom: string, dateTo: string) {
+  const [orgDefaultMinutes, roles, memberships, settings, leaves] = await Promise.all([
+    fetchOrgDefaultDailyTargetMinutes(),
+    fetchReportRowsByIds(userIds, ids => supabase.from("user_roles").select("user_id, role, organization_id, vertical_id, department_id").in("user_id", ids)),
+    fetchReportRowsByIds(userIds, ids => supabase.from("user_verticals").select("user_id, vertical_id").in("user_id", ids)),
+    fetchReportRowsByIds(userIds, ids => supabase.from("user_settings").select("user_id, vertical_id, department_id, value").eq("key", "daily_target_minutes").in("user_id", ids)),
+    fetchReportRowsByIds(userIds, ids => supabase.from("leave_days").select("user_id, leave_date, leave_type").in("user_id", ids).gte("leave_date", dateFrom).lte("leave_date", dateTo)),
+  ]);
+  const roleMap = new Map(roles.map(r => [r.user_id, r]));
+  const verticalsByUser = new Map<string, string[]>();
+  memberships.forEach(row => {
+    const values = verticalsByUser.get(row.user_id) || [];
+    values.push(row.vertical_id);
+    verticalsByUser.set(row.user_id, values);
+  });
+  const missingIds = userIds.filter(id => !verticalsByUser.has(id));
+  const legacyMemberships = await fetchReportRowsByIds(missingIds, ids => supabase.from("user_departments").select("user_id, department_id").in("user_id", ids));
+  legacyMemberships.forEach(row => {
+    const values = verticalsByUser.get(row.user_id) || [];
+    values.push(row.department_id);
+    verticalsByUser.set(row.user_id, values);
+  });
+  const customByUser = new Map<string, Record<string, number>>();
+  settings.forEach(row => {
+    const verticalId = row.vertical_id || row.department_id;
+    if (!verticalId || !row.value) return;
+    const custom = customByUser.get(row.user_id) || {};
+    custom[verticalId] = parseInt(row.value);
+    customByUser.set(row.user_id, custom);
+  });
+  const targets = new Map<string, number>();
+  userIds.forEach(userId => {
+    const role = roleMap.get(userId);
+    const primaryVerticalId = role?.vertical_id || role?.department_id || null;
+    const memberships = verticalsByUser.get(userId) || [];
+    const verticalIds = memberships.length ? memberships : primaryVerticalId ? [primaryVerticalId] : [];
+    targets.set(userId, verticalIds.length ? verticalIds.reduce((total, verticalId) => total + calculateEffectiveVerticalTargetMinutes({
+      verticalId, primaryVerticalId, customTargetMap: customByUser.get(userId) || {}, orgDefaultMinutes,
+    }).minutes, 0) : orgDefaultMinutes);
+  });
+  const leavesByUser = new Map<string, { leaveDates: Set<string>; leaveTypeMap: Map<string, string> }>();
+  leaves.forEach(row => {
+    const data = leavesByUser.get(row.user_id) || { leaveDates: new Set<string>(), leaveTypeMap: new Map<string, string>() };
+    data.leaveDates.add(row.leave_date);
+    data.leaveTypeMap.set(row.leave_date, row.leave_type || "other");
+    leavesByUser.set(row.user_id, data);
+  });
+  return { targets, roleMap, leavesByUser };
+}
+
 export interface ReportFilters {
   dateFrom?: string;
   dateTo?: string;
@@ -72,6 +139,7 @@ export interface ExpectedHoursBreakdown {
 export interface FacultyReportData {
   userId: string;
   facultyName: string;
+  level: string;
   email?: string;
   department: string;
   totalHours: number;
@@ -90,6 +158,7 @@ export interface FacultyReportData {
 export interface NonStarterEntry {
   userId: string;
   facultyName: string;
+  level: string;
   email: string;
   verticalName: string;
 }
@@ -114,6 +183,7 @@ export type DepartmentReportData = VerticalReportData;
 export interface FacultyBreakdown {
   userId: string;
   facultyName: string;
+  level: string;
   email: string;
   verticalName: string;
   totalHours: number;
@@ -225,25 +295,21 @@ export async function fetchFacultyReport(
   const dateFrom = format(period.dateFrom, "yyyy-MM-dd");
   const dateTo = format(period.dateTo, "yyyy-MM-dd");
 
-  // Fetch user's resolved daily target (sum across all departments)
-  const targetBreakdown = await calculateUserTotalDailyTargetMinutes(userId);
-  const userDailyTargetMinutes = targetBreakdown.totalDailyTargetMinutes;
-
   // Fetch entries, leave days, profile, and org holidays in parallel
-  const [entriesRes, leavesRes, profileRes, orgIdRes] = await Promise.all([
-    supabase
+  const [entries, leaves, profileRes, orgIdRes, targetBreakdown] = await Promise.all([
+    fetchAllRows(supabase
       .from("timesheet_entries")
       .select("*")
       .eq("user_id", userId)
       .gte("entry_date", dateFrom)
       .lte("entry_date", dateTo)
-      .order("entry_date", { ascending: false }),
-    supabase
+      .order("entry_date", { ascending: false })),
+    fetchAllRows(supabase
       .from("leave_days")
       .select("leave_date, leave_type")
       .eq("user_id", userId)
       .gte("leave_date", dateFrom)
-      .lte("leave_date", dateTo),
+      .lte("leave_date", dateTo)),
     supabase
       .from("profiles")
       .select("full_name, is_active, deactivated_at")
@@ -251,15 +317,15 @@ export async function fetchFacultyReport(
       .single(),
     supabase
       .from("user_roles")
-      .select("organization_id")
+      .select("organization_id, role")
       .eq("user_id", userId)
       .single(),
+    calculateUserTotalDailyTargetMinutes(userId),
   ]);
 
-  if (entriesRes.error) throw entriesRes.error;
-  const entries = entriesRes.data;
+  const userDailyTargetMinutes = targetBreakdown.totalDailyTargetMinutes;
   const leaveMap = new Map<string, string>();
-  leavesRes.data?.forEach(l => leaveMap.set(l.leave_date, (l as any).leave_type || 'other'));
+  leaves.forEach(l => leaveMap.set(l.leave_date, (l as any).leave_type || 'other'));
   const leaveDates = new Set(leaveMap.keys());
   const profile = profileRes.data;
 
@@ -373,6 +439,7 @@ export async function fetchFacultyReport(
 
   const enrichedEntries = (entries || []).map(e => ({
     ...e,
+    _level: getReportLevel(orgIdRes.data?.role),
     _programName: e.program_id ? (programMap.get(e.program_id) || "N/A") : "N/A",
     _verticalName: e.vertical_id ? (verticalMap.get(e.vertical_id) || "N/A") : "N/A",
     _approvedByName: e.approved_by ? (approverMap.get(e.approved_by) || "") : "",
@@ -381,6 +448,7 @@ export async function fetchFacultyReport(
   return {
     userId,
     facultyName: profile?.full_name || "Unknown",
+    level: getReportLevel(orgIdRes.data?.role),
     department: verticalNames,
     totalHours,
     expectedHours,
@@ -422,10 +490,10 @@ export async function fetchVerticalReport(
   let currentUserIds: string[] = [];
   
   if (verticalId !== "all") {
-    const { data: vertUsers } = await supabase
+    const vertUsers = await fetchAllRows(supabase
       .from("user_verticals")
       .select("user_id")
-      .eq("vertical_id", verticalId);
+      .eq("vertical_id", verticalId));
     
     currentUserIds = [...new Set(vertUsers?.map(u => u.user_id) || [])];
     
@@ -439,9 +507,9 @@ export async function fetchVerticalReport(
     }
   } else {
     // Get all users from user_verticals
-    const { data: allVertUsers } = await supabase
+    const allVertUsers = await fetchAllRows(supabase
       .from("user_verticals")
-      .select("user_id");
+      .select("user_id"));
     currentUserIds = [...new Set(allVertUsers?.map(u => u.user_id) || [])];
     
     // Also include users from user_departments for backward compatibility
@@ -472,21 +540,12 @@ export async function fetchVerticalReport(
 
   let entries: any[] = [];
   if (userIds.length > 0) {
-    let entriesQuery = supabase
-      .from("timesheet_entries")
-      .select("*")
-      .in("user_id", userIds)
-      .gte("entry_date", dateFrom)
-      .lte("entry_date", dateTo)
-      .order("entry_date", { ascending: false });
-
-    // Filter by vertical_code when a specific vertical is selected
-    if (verticalCode) {
-      entriesQuery = entriesQuery.or(`vertical_code.eq.${verticalCode},department_code.eq.${verticalCode}`);
-    }
-
-    // Use paginated fetch to avoid 1,000-row truncation
-    entries = await fetchAllRows(entriesQuery);
+    entries = await fetchReportRowsByIds(userIds, ids => {
+      let query = supabase.from("timesheet_entries").select("*").in("user_id", ids)
+        .gte("entry_date", dateFrom).lte("entry_date", dateTo).order("entry_date", { ascending: false });
+      if (verticalCode) query = query.or(`vertical_code.eq.${verticalCode},department_code.eq.${verticalCode}`);
+      return query;
+    });
   }
 
   const { data: vertical } = verticalId !== "all"
@@ -504,17 +563,15 @@ export async function fetchVerticalReport(
   const nonStarterIds = userIds.filter(id => !facultyIdSet.has(id));
 
   // Fetch profiles for non-starters (only active users)
-  const { data: nonStarterProfiles } = nonStarterIds.length > 0
-    ? await supabase.from("profiles").select("id, full_name, email, is_active").in("id", nonStarterIds).eq("is_active", true)
-    : { data: [] };
+  const nonStarterProfiles = await fetchReportRowsByIds(nonStarterIds, ids => supabase.from("profiles").select("id, full_name, email, is_active").in("id", ids).eq("is_active", true));
 
   // Exclude admin/super_admin roles from non-starters (they don't submit timesheets)
   let filteredNonStarterProfiles = nonStarterProfiles || [];
   if (filteredNonStarterProfiles.length > 0) {
-    const { data: nonStarterRoles } = await supabase
+    const nonStarterRoles = await fetchReportRowsByIds(filteredNonStarterProfiles.map(p => p.id), ids => supabase
       .from("user_roles")
       .select("user_id, role")
-      .in("user_id", filteredNonStarterProfiles.map(p => p.id));
+      .in("user_id", ids));
     const adminUserIds = new Set(
       (nonStarterRoles || [])
         .filter(r => r.role === 'org_admin' || r.role === 'super_admin')
@@ -524,9 +581,7 @@ export async function fetchVerticalReport(
   }
 
   // Fetch vertical names for non-starters
-  const { data: nonStarterVertData } = nonStarterIds.length > 0
-    ? await supabase.from("user_verticals").select("user_id, vertical_id, verticals(name)").in("user_id", nonStarterIds)
-    : { data: [] };
+  const nonStarterVertData = await fetchReportRowsByIds(nonStarterIds, ids => supabase.from("user_verticals").select("user_id, vertical_id, verticals(name)").in("user_id", ids));
 
   const nonStarterVertNameMap = new Map<string, string>();
   (nonStarterVertData || []).forEach((uv: any) => {
@@ -538,24 +593,25 @@ export async function fetchVerticalReport(
   const nonStarters: NonStarterEntry[] = (filteredNonStarterProfiles || []).map(p => ({
     userId: p.id,
     facultyName: p.full_name,
+    level: "—",
     email: p.email || "",
     verticalName: nonStarterVertNameMap.get(p.id) || "",
   }));
 
-  const { data: profiles } = await supabase
+  const profiles = await fetchReportRowsByIds(uniqueFacultyIds, ids => supabase
     .from("profiles")
     .select("id, full_name, email, is_active, deactivated_at")
-    .in("id", uniqueFacultyIds.length > 0 ? uniqueFacultyIds : ["no-id"]);
+    .in("id", ids));
 
   const profileMap = new Map(profiles?.map(p => [p.id, p.full_name]) || []);
   const profileEmailMap = new Map(profiles?.map(p => [p.id, p.email || ""]) || []);
   const profileDataMap = new Map(profiles?.map(p => [p.id, p]) || []);
 
   // Fetch vertical names for each faculty
-  const { data: userVerticalData } = await supabase
+  const userVerticalData = await fetchReportRowsByIds(uniqueFacultyIds, ids => supabase
     .from("user_verticals")
     .select("user_id, vertical_id, verticals(name)")
-    .in("user_id", uniqueFacultyIds.length > 0 ? uniqueFacultyIds : ["no-id"]);
+    .in("user_id", ids));
 
   const userVerticalNameMap = new Map<string, string>();
   userVerticalData?.forEach((uv: any) => {
@@ -591,35 +647,19 @@ export async function fetchVerticalReport(
   const nonStarterUserIds = (filteredNonStarterProfiles || []).map(p => p.id);
   const allMemberIds = [...uniqueFacultyIds, ...nonStarterUserIds];
 
-  // Fetch per-user daily targets and leaves in parallel
-  const [userTargets, userLeaves] = await Promise.all([
-    Promise.all(allMemberIds.map(uid => calculateUserTotalDailyTargetMinutes(uid))),
-    Promise.all(allMemberIds.map(uid =>
-      supabase
-        .from("leave_days")
-        .select("leave_date, leave_type")
-        .eq("user_id", uid)
-        .gte("leave_date", dateFrom)
-        .lte("leave_date", dateTo)
-        .then(res => res.data || [])
-    )),
-  ]);
+  const { targets: userTargetMap, leavesByUser: userLeaveMap, roleMap } = await fetchReportMemberContext(allMemberIds, dateFrom, dateTo);
+  nonStarters.forEach(member => { member.level = getReportLevel(roleMap.get(member.userId)?.role); });
+  const entriesByUser = new Map<string, any[]>();
+  entries.forEach(entry => {
+    const group = entriesByUser.get(entry.user_id) || [];
+    group.push(entry);
+    entriesByUser.set(entry.user_id, group);
+  });
 
-  const userTargetMap = new Map(allMemberIds.map((uid, i) => [uid, userTargets[i].totalDailyTargetMinutes]));
-  const userLeaveMap = new Map(allMemberIds.map((uid, i) => {
-    const leaveTypeMap = new Map<string, string>();
-    const leaveDateSet = new Set<string>();
-    userLeaves[i].forEach((l: any) => {
-      leaveTypeMap.set(l.leave_date, l.leave_type || 'other');
-      leaveDateSet.add(l.leave_date);
-    });
-    return [uid, { leaveDates: leaveDateSet, leaveTypeMap }] as const;
-  }));
-  
   // Calculate expected hours per faculty, capping at deactivation date for inactive users
   let totalExpectedHours = 0;
   const facultyBreakdown: FacultyBreakdown[] = uniqueFacultyIds.map(userId => {
-    const userEntries = entries?.filter(e => e.user_id === userId) || [];
+    const userEntries = entriesByUser.get(userId) || [];
     const userMinutes = userEntries.filter((e: any) => e.status === "approved").reduce((sum, e) => sum + getEntryDuration(e), 0);
     
     // Cap period end at deactivation date for inactive users
@@ -657,6 +697,7 @@ export async function fetchVerticalReport(
     return {
       userId,
       facultyName: profileMap.get(userId) || "Unknown",
+      level: getReportLevel(roleMap.get(userId)?.role),
       email: profileEmailMap.get(userId) || "",
       verticalName: userVerticalNameMap.get(userId) || "",
       totalHours: userMinutes / 60,
@@ -695,6 +736,7 @@ export async function fetchVerticalReport(
     facultyBreakdown.push({
       userId,
       facultyName: ns.full_name,
+      level: getReportLevel(roleMap.get(userId)?.role),
       email: ns.email || "",
       verticalName: nonStarterVertNameMap.get(userId) || "",
       totalHours: 0,
@@ -786,10 +828,10 @@ export async function fetchAllMembersReport(
 
   const uniqueUserIds = [...new Set(entries.map(e => e.user_id))];
 
-  // Fetch profiles for all users
-  const { data: profiles } = uniqueUserIds.length > 0
-    ? await supabase.from("profiles").select("id, full_name, email, is_active, deactivated_at").in("id", uniqueUserIds)
-    : { data: [] };
+  const [profiles, memberContext] = await Promise.all([
+    fetchReportRowsByIds(uniqueUserIds, ids => supabase.from("profiles").select("id, full_name, email, is_active, deactivated_at").in("id", ids)),
+    fetchReportMemberContext(uniqueUserIds, dateFrom, dateTo),
+  ]);
 
   const profileMap = new Map((profiles || []).map(p => [p.id, p]));
 
@@ -820,71 +862,33 @@ export async function fetchAllMembersReport(
     _verticalName: e.vertical_id ? (verticalNameMap.get(e.vertical_id) || "N/A") : "N/A",
     _approvedByName: e.approved_by ? (approverNameMap.get(e.approved_by) || "") : "",
     _facultyName: profileMap.get(e.user_id)?.full_name || "Unknown",
+    _level: getReportLevel(memberContext.roleMap.get(e.user_id)?.role),
   }));
 
   const approvedEntries = entries.filter((e: any) => e.status === "approved");
   const totalMinutes = approvedEntries.reduce((sum, e) => sum + getEntryDuration(e), 0);
   const totalHours = totalMinutes / 60;
 
-  // Calculate expected hours: sum across all unique users
+  // Shared holiday lookup and bulk member data replace the serial per-member waterfall.
+  const orgId = memberContext.roleMap.get(uniqueUserIds[0])?.organization_id;
+  const holidays = orgId ? await fetchAllRows(supabase.from("holidays").select("holiday_date")
+    .eq("organization_id", orgId).gte("holiday_date", dateFrom).lte("holiday_date", dateTo)) : [];
+  const holidayDates = new Set<string>(holidays.map(h => h.holiday_date));
   let totalExpectedMinutes = 0;
   for (const userId of uniqueUserIds) {
-    const targetBreakdown = await calculateUserTotalDailyTargetMinutes(userId);
-    const userDailyTarget = targetBreakdown.totalDailyTargetMinutes;
-
+    const userDailyTarget = memberContext.targets.get(userId) ?? 480;
     const profile = profileMap.get(userId);
     let effectiveEnd = period.dateTo;
     if (profile && !profile.is_active && profile.deactivated_at) {
       const deactivatedDate = new Date(profile.deactivated_at);
       if (deactivatedDate < effectiveEnd) effectiveEnd = deactivatedDate;
     }
-
-    const { data: userLeaves } = await supabase
-      .from("leave_days")
-      .select("leave_date, leave_type")
-      .eq("user_id", userId)
-      .gte("leave_date", dateFrom)
-      .lte("leave_date", dateTo);
-
-    const leaveMap = new Map<string, string>();
-    const leaveDates = new Set<string>();
-    (userLeaves || []).forEach((l: any) => {
-      leaveMap.set(l.leave_date, l.leave_type || "other");
-      leaveDates.add(l.leave_date);
-    });
-
-    // Get org holidays (use first user's org for simplicity since all are typically same org)
-    let holidayDates = new Set<string>();
-    if (userId === uniqueUserIds[0]) {
-      const { data: orgData } = await supabase
-        .from("user_roles")
-        .select("organization_id")
-        .eq("user_id", userId)
-        .single();
-      if (orgData?.organization_id) {
-        const { data: holidays } = await supabase
-          .from("holidays")
-          .select("holiday_date")
-          .eq("organization_id", orgData.organization_id)
-          .gte("holiday_date", dateFrom)
-          .lte("holiday_date", dateTo);
-        holidayDates = new Set(holidays?.map(h => h.holiday_date) || []);
-        // Store for reuse
-        (fetchAllMembersReport as any)._cachedHolidays = holidayDates;
-      }
-    } else {
-      holidayDates = (fetchAllMembersReport as any)._cachedHolidays || new Set<string>();
-    }
-
-    const effectiveStart = period.dateFrom > effectiveEnd ? effectiveEnd : period.dateFrom;
+    const leaveData = memberContext.leavesByUser.get(userId);
     const workingDays = effectiveEnd >= period.dateFrom
-      ? countWorkingDays(effectiveStart, effectiveEnd, leaveDates, leaveMap, holidayDates)
+      ? countWorkingDays(period.dateFrom, effectiveEnd, leaveData?.leaveDates, leaveData?.leaveTypeMap, holidayDates)
       : 0;
     totalExpectedMinutes += workingDays * userDailyTarget;
   }
-
-  // Clean up cached holidays
-  delete (fetchAllMembersReport as any)._cachedHolidays;
 
   const expectedHours = totalExpectedMinutes / 60;
   const completionRate = calculateCompletionRate(totalMinutes, totalExpectedMinutes);
@@ -900,6 +904,7 @@ export async function fetchAllMembersReport(
   return {
     userId: "all",
     facultyName: "All Members",
+    level: "—",
     department: "All",
     totalHours,
     expectedHours,

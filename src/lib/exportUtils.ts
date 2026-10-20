@@ -168,6 +168,7 @@ export function exportMemberReportCSV(
     "Program",
     "Vertical",
     "Name",
+    "Level",
     "Date",
     "Activity Type",
     "Activity Subtype",
@@ -183,6 +184,7 @@ export function exportMemberReportCSV(
     entry._programName || "N/A",
     entry._verticalName || "N/A",
     entry._facultyName || report.facultyName || "N/A",
+    entry._level || report.level || "—",
     format(new Date(entry.entry_date), "MMM dd, yyyy"),
     formatActivityLabel(entry.activity_type),
     formatActivityLabel(entry.activity_subtype),
@@ -242,6 +244,7 @@ export function exportDepartmentReportCSV(
 
   const nonStarterHeaders = [
     "Member Name",
+    "Level",
     "Email",
     "Vertical",
     "Hours Logged",
@@ -252,6 +255,7 @@ export function exportDepartmentReportCSV(
 
   const nonStarterRows = (report.nonStarters || []).map((ns: any) => [
     ns.facultyName,
+    ns.level || "—",
     ns.email || "",
     ns.verticalName || "",
     "0.0 hours",
@@ -267,6 +271,7 @@ export function exportDepartmentReportCSV(
 
   const headers = [
     "Member Name",
+    "Level",
     "Email",
     "Vertical",
     "Hours Logged",
@@ -277,6 +282,7 @@ export function exportDepartmentReportCSV(
 
   const dataRows = report.facultyBreakdown.map((faculty: any) => [
     faculty.facultyName,
+    faculty.level || "—",
     faculty.email || "",
     faculty.verticalName || "",
     `${faculty.totalHours.toFixed(1)} hours`,
