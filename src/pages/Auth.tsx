@@ -9,11 +9,13 @@ import { useToast } from "@/hooks/use-toast";
 import { CheckCircle2, BarChart3, ArrowLeft, Clock } from "lucide-react";
 import { getUserErrorMessage } from "@/lib/errorHandler";
 import { Logo } from "@/components/Logo";
+import { ForgotPasswordDialog } from "@/components/ForgotPasswordDialog";
 
 export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -40,7 +42,7 @@ export default function Auth() {
         } else {
           toast({
             title: "Error",
-            description: getUserErrorMessage(error, "sign in"),
+            description: error.message?.includes("User is inactive") ? error.message : getUserErrorMessage(error, "sign in"),
             variant: "destructive",
           });
         }
@@ -158,6 +160,12 @@ export default function Auth() {
                   {loading ? "Loading..." : "Sign In"}
                 </Button>
               </form>
+              <div className="text-center pt-4">
+                <button type="button" onClick={() => setForgotOpen(true)} className="text-sm text-primary hover:underline">
+                  Forgot password?
+                </button>
+              </div>
+              <ForgotPasswordDialog open={forgotOpen} onOpenChange={setForgotOpen} />
             </div>
           </div>
         </div>

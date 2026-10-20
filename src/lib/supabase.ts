@@ -86,7 +86,7 @@ export async function signIn(email: string, password: string) {
       await supabase.auth.signOut();
       return {
         data: null,
-        error: { message: "Your account has been deactivated. Please contact your administrator." } as any,
+        error: { message: "User is inactive. Kindly reach out to your administrator for assistance." } as any,
       };
     }
   }
