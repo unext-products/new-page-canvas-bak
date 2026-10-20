@@ -970,7 +970,10 @@ export default function Dashboard() {
                     </CardContent>
                   </Card>
 
-                  <Card>
+                  <Card
+                    className="cursor-pointer transition-colors hover:bg-accent/50"
+                    onClick={() => navigate("/approvals")}
+                  >
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                       <CardTitle className="text-sm font-medium text-muted-foreground">Pending Approvals</CardTitle>
                       <AlertCircle
@@ -1364,7 +1367,10 @@ export default function Dashboard() {
                     </CardContent>
                   </Card>
 
-                  <Card>
+                  <Card
+                    className="cursor-pointer transition-colors hover:bg-accent/50"
+                    onClick={() => navigate("/approvals")}
+                  >
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                       <CardTitle className="text-sm font-medium text-muted-foreground">Pending Approvals</CardTitle>
                       <AlertCircle
