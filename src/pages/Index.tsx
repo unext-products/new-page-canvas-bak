@@ -42,7 +42,7 @@ export default function Index() {
         } else {
           toast({
             title: "Error",
-            description: getUserErrorMessage(error, "sign in"),
+            description: error.message?.includes("User is inactive") ? error.message : getUserErrorMessage(error, "sign in"),
             variant: "destructive",
           });
         }
