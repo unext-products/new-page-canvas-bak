@@ -1,5 +1,8 @@
-import { describe, expect, test } from "bun:test";
+import { describe, it as test } from "node:test";
+import { strict as assert } from "node:assert";
 import { getReportLevel } from "./reportLevel";
+
+const expect = (actual: string) => ({ toBe: (expected: string) => assert.equal(actual, expected) });
 
 describe("report member levels", () => {
   test("L1 members and legacy faculty resolve to L1", () => {
