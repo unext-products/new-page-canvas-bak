@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.seed-mab-faculty]
 verify_jwt = false
+
+[functions.request-password-reset]
+verify_jwt = false
