@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
     const isSuperAdmin = roleData.role === 'super_admin';
 
     // Parse request body
-    const { user_id, password } = await req.json();
+    const { user_id, password, confirm_email } = await req.json();
 
     // Validate user_id
     if (!user_id) {
@@ -118,12 +118,31 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Update password using admin API
-    if (password) {
+    // Explicit email confirmation is an admin operation, never a global setting.
+    if (confirm_email === true) {
+      const { data: profile, error: profileError } = await supabaseClient
+        .from('profiles')
+        .select('is_active')
+        .eq('id', user_id)
+        .single();
+
+      if (profileError || profile?.is_active !== true) {
+        return new Response(
+          JSON.stringify({ error: 'User is inactive. Kindly reach out to your administrator for assistance.' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    // Preserve the password unless a new one was explicitly supplied.
+    if (password || confirm_email === true) {
       console.log('Updating password for user:', user_id);
       const { error: updateError } = await supabaseClient.auth.admin.updateUserById(
         user_id,
-        { password }
+        {
+          ...(password ? { password } : {}),
+          ...(confirm_email === true ? { email_confirm: true } : {}),
+        }
       );
 
       if (updateError) {
