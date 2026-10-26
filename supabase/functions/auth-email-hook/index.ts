@@ -15,7 +15,7 @@ const corsHeaders = {
 }
 
 // Configuration
-const SITE_NAME = "Clockwise"
+const SITE_NAME = "Clockwise for MAB"
 const SENDER_DOMAIN = "notify.clockwise.u-next.com"
 const ROOT_DOMAIN = "clockwise.u-next.com"
 const FROM_DOMAIN = "clockwise.u-next.com"
