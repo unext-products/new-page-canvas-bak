@@ -38,4 +38,13 @@ describe("dashboard direct reportees", () => {
   it("returns no reportees for a user without mappings regardless of profile availability", () => {
     assert.equal(resolveDashboardReportees([], [{ id: "other", full_name: "Other", is_active: true }], "user").length, 0);
   });
+
+  it("preserves each reportee's role so the popup can show their level", () => {
+    const result = resolveDashboardReportees(
+      [{ manager_id: "manager", user_id: "direct" }],
+      [{ id: "direct", full_name: "Direct", is_active: true, role: "l2" }],
+      "manager",
+    );
+    assert.equal(result[0]?.role, "l2");
+  });
 });
