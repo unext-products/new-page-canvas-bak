@@ -398,47 +398,13 @@ export default function Dashboard() {
     const currentRole = userWithRole?.role || "";
     const hierarchyUsers = await getVisibleUserIds(hodUserId, currentRole);
     
-    let teamUserIds: string[] = [];
-
-    if (hierarchyUsers !== null && hierarchyUsers.length > 0) {
-      // Use hierarchy-based team
-      const { data: facultyRoles } = await supabase
-        .from("user_roles")
-        .select("user_id")
-        .in("role", ["l1", "l2", "faculty", "program_manager"])
-        .in("user_id", hierarchyUsers);
-      teamUserIds = (facultyRoles?.map((r) => r.user_id) || []).filter((id) => id !== hodUserId);
-    } else {
-      // Fallback: legacy vertical-based logic
-      let allVertUserIds: string[] = [];
-      const { data: vertUsers } = await supabase
-        .from("user_verticals")
-        .select("user_id")
-        .in("vertical_id", hodVerticalIds);
-
-      if (vertUsers && vertUsers.length > 0) {
-        allVertUserIds = [...new Set(vertUsers.map((v) => v.user_id))];
-      } else {
-        const { data: deptUsers } = await supabase
-          .from("user_departments")
-          .select("user_id")
-          .in("department_id", hodVerticalIds);
-        allVertUserIds = [...new Set(deptUsers?.map((d) => d.user_id) || [])];
-      }
-
-      const { data: facultyRoles } = await supabase
-        .from("user_roles")
-        .select("user_id")
-        .in("role", ["l1", "faculty"])
-        .in("user_id", allVertUserIds.length > 0 ? allVertUserIds : [hodUserId]);
-      teamUserIds = (facultyRoles?.map((r) => r.user_id) || []).filter((id) => id !== hodUserId);
-    }
+    const teamUserIds = hierarchyUsers.filter(id => id !== hodUserId);
 
     // Fetch team profiles
     const { data: teamProfiles } = await supabase
       .from("profiles")
       .select("id, full_name, is_active")
-      .in("id", teamUserIds.length > 0 ? teamUserIds : [hodUserId])
+      .in("id", teamUserIds.length > 0 ? teamUserIds : ["00000000-0000-0000-0000-000000000000"])
       .eq("is_active", true);
 
     // Use only active team member IDs for dashboard queries

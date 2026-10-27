@@ -16,6 +16,7 @@ import { fetchAllRows } from "@/lib/reportQueries";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { formatLocalDate } from "@/lib/dateUtils";
 import { useApprovalSettings } from "@/hooks/useApprovalSettings";
+import { getVisibleUserIds } from "@/lib/reportingHierarchy";
 
 interface ApproverPendingRow {
   userId: string;
@@ -87,65 +88,7 @@ export default function PendingApprovals() {
       // For L2/L3 users, scope to only their own reportees
       let scopedSubmitterIds: Set<string> | null = null;
       if (isL2OrL3 && !isAdmin && userWithRole?.user?.id) {
-        // Get direct reportees (and transitive for L3)
-        const { data: directReportees } = await supabase
-          .from("reporting_hierarchy")
-          .select("user_id")
-          .eq("manager_id", userWithRole.user.id);
-        
-        const directIds = directReportees?.map(r => r.user_id) || [];
-        scopedSubmitterIds = new Set(directIds);
-
-        // For L2, reporting hierarchy is authoritative; only fall back to
-        // program-based L1/faculty users when no hierarchy is configured
-        if (isRole(userWithRole?.role, "l2", "program_manager") && directIds.length === 0) {
-          const { data: l2Programs } = await supabase
-            .from("user_programs")
-            .select("program_id")
-            .eq("user_id", userWithRole.user.id);
-          const l2ProgramIds = l2Programs?.map(p => p.program_id) || [];
-
-          if (l2ProgramIds.length > 0) {
-            const CHUNK_P = 30;
-            for (let i = 0; i < l2ProgramIds.length; i += CHUNK_P) {
-              const chunk = l2ProgramIds.slice(i, i + CHUNK_P);
-              const { data: programUsers } = await supabase
-                .from("user_programs")
-                .select("user_id")
-                .in("program_id", chunk);
-              if (programUsers) {
-                // Filter to L1/faculty roles
-                const pUserIds = programUsers.map(u => u.user_id);
-                for (let j = 0; j < pUserIds.length; j += CHUNK_P) {
-                  const uChunk = pUserIds.slice(j, j + CHUNK_P);
-                  const { data: l1Roles } = await supabase
-                    .from("user_roles")
-                    .select("user_id")
-                    .in("user_id", uChunk)
-                    .in("role", ["l1", "faculty"]);
-                  if (l1Roles) {
-                    l1Roles.forEach(r => scopedSubmitterIds!.add(r.user_id));
-                  }
-                }
-              }
-            }
-          }
-        }
-
-        // For L3, also get transitive reportees (L1s under L2s)
-        if (isRole(userWithRole?.role, "l3", "manager", "hod") && directIds.length > 0) {
-          const CHUNK = 30;
-          for (let i = 0; i < directIds.length; i += CHUNK) {
-            const chunk = directIds.slice(i, i + CHUNK);
-            const { data: transitiveReportees } = await supabase
-              .from("reporting_hierarchy")
-              .select("user_id")
-              .in("manager_id", chunk);
-            if (transitiveReportees) {
-              transitiveReportees.forEach(r => scopedSubmitterIds!.add(r.user_id));
-            }
-          }
-        }
+        scopedSubmitterIds = new Set(await getVisibleUserIds(userWithRole.user.id, userWithRole.role || ""));
       }
 
       // 2. Get all submitted entries (pending approval), with optional date filter
@@ -188,87 +131,6 @@ export default function PendingApprovals() {
         if (rows) allHierarchyRows.push(...rows);
       }
 
-      // 4b. Build program-based approver mapping for L2 users
-      // Find all L2/program_manager users and their program-based L1/faculty submitters
-      // This mirrors the additive scoping logic from the Approvals page
-      const programApproverRows: { user_id: string; manager_id: string }[] = [];
-      {
-        // Get all L2/program_manager users in the org
-        const l2RoleUsers: string[] = [];
-        if (orgUserIds) {
-          const orgUserArr = Array.from(orgUserIds);
-          for (let i = 0; i < orgUserArr.length; i += CHUNK) {
-            const chunk = orgUserArr.slice(i, i + CHUNK);
-            const { data: roleRows } = await supabase
-              .from("user_roles")
-              .select("user_id, role")
-              .in("user_id", chunk)
-              .in("role", ["l2", "program_manager"]);
-            if (roleRows) l2RoleUsers.push(...roleRows.map(r => r.user_id));
-          }
-        } else {
-          // Super admin: get all L2s
-          const { data: allL2s } = await supabase
-            .from("user_roles")
-            .select("user_id")
-            .in("role", ["l2", "program_manager"]);
-          if (allL2s) l2RoleUsers.push(...allL2s.map(r => r.user_id));
-        }
-
-        // For L2/L3 non-admin, only process their own programs
-        const l2sToProcess = (isL2OrL3 && !isAdmin) 
-          ? l2RoleUsers.filter(id => id === userWithRole?.user?.id)
-          : l2RoleUsers;
-
-        // For each L2, get their programs and find L1/faculty submitters.
-        // Reporting hierarchy is authoritative (matches the Approvals page):
-        // skip program-based mapping for any L2 that already has hierarchy reportees.
-        for (const l2Id of l2sToProcess) {
-          const { count: hierCount } = await supabase
-            .from("reporting_hierarchy")
-            .select("id", { count: "exact", head: true })
-            .eq("manager_id", l2Id);
-          if ((hierCount || 0) > 0) continue;
-
-          const { data: l2Progs } = await supabase
-            .from("user_programs")
-            .select("program_id")
-            .eq("user_id", l2Id);
-          const progIds = l2Progs?.map(p => p.program_id) || [];
-          if (!progIds.length) continue;
-
-
-          // Get all users in those programs
-          const programUserIds = new Set<string>();
-          for (let i = 0; i < progIds.length; i += CHUNK) {
-            const chunk = progIds.slice(i, i + CHUNK);
-            const { data: pu } = await supabase
-              .from("user_programs")
-              .select("user_id")
-              .in("program_id", chunk);
-            if (pu) pu.forEach(u => programUserIds.add(u.user_id));
-          }
-
-          // Filter to L1/faculty roles who have pending entries
-          const puArr = Array.from(programUserIds).filter(uid => countBySubmitter[uid]);
-          if (!puArr.length) continue;
-
-          for (let i = 0; i < puArr.length; i += CHUNK) {
-            const chunk = puArr.slice(i, i + CHUNK);
-            const { data: l1Roles } = await supabase
-              .from("user_roles")
-              .select("user_id")
-              .in("user_id", chunk)
-              .in("role", ["l1", "faculty"]);
-            if (l1Roles) {
-              l1Roles.forEach(r => {
-                programApproverRows.push({ user_id: r.user_id, manager_id: l2Id });
-              });
-            }
-          }
-        }
-      }
-
       // 5. Aggregate pending count per approver (manager), scoped to org
       // Use a Set per approver to avoid double-counting submitters mapped via both hierarchy and programs
       const approverSubmitters: Record<string, Set<string>> = {};
@@ -281,9 +143,6 @@ export default function PendingApprovals() {
       };
 
       for (const row of allHierarchyRows) {
-        addToApprover(row.manager_id, row.user_id);
-      }
-      for (const row of programApproverRows) {
         addToApprover(row.manager_id, row.user_id);
       }
 
