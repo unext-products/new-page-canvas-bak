@@ -17,6 +17,6 @@
 - [x] Verify the approval workflow setting and Ramya's three reportees in the signed-in Approvals view; retain a live regression test.
 
 # Direct manager scope
-- [ ] Limit manager views to direct mappings, removing indirect and program/vertical fallback visibility.
-- [ ] Enforce direct-only, same-organization access for manager data reads and entry updates.
-- [ ] Test Ramya's three-person scope across Approvals, Team, Reports and Dashboard; verify unrelated data stays hidden.
+- [x] Limit manager views to direct mappings, removing indirect and program/vertical fallback visibility.
+- [x] Enforce direct-only, same-organization access for manager data reads and entry updates.
+- [x] Test Ramya's three-person scope across Approvals, Team, Reports and Dashboard; verify unrelated data stays hidden.
