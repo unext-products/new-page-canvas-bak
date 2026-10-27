@@ -9,5 +9,5 @@
 - [x] Test timestamp rules and verify signed-in displays and downloads.
 
 # Dashboard reportees
-- [ ] Add direct reportee card and names/status popup for every dashboard role.
-- [ ] Test mapping/count rules and verify signed-in popup and layout.
+- [x] Add direct reportee card and names/status popup for every dashboard role; retain existing access restrictions per user decision.
+- [x] Test mapping/count rules and verify signed-in admin view-as-manager popup and layout (22 reportees, four inactive); direct-manager authentication not exercised.
