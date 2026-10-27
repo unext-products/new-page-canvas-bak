@@ -33,6 +33,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { calculateDurationMinutes } from "@/lib/timesheetUtils";
 import { calculateUserTotalDailyTargetMinutes } from "@/lib/targets";
 import { formatLocalDate } from "@/lib/dateUtils";
+import { useDashboardReportees } from "@/hooks/useDashboardReportees";
+import { YourReporteesCard } from "@/components/dashboard/YourReporteesCard";
 
 // Helper to get duration from entry
 const getEntryDuration = (e: { start_time: string; end_time: string }) =>
@@ -43,6 +45,8 @@ export default function Dashboard() {
   const { impersonatedUser } = useImpersonation();
   const navigate = useNavigate();
   const effectiveUserId = impersonatedUser?.userId || userWithRole?.user?.id;
+  const reportees = useDashboardReportees(effectiveUserId);
+  const metricsGridClass = `grid gap-4 grid-cols-1 sm:grid-cols-2 ${reportees.length > 0 ? "lg:grid-cols-5" : "lg:grid-cols-4"}`;
   const [stats, setStats] = useState({
     todayMinutes: 0,
     targetMinutes: 480,
@@ -846,7 +850,8 @@ export default function Dashboard() {
 
         {isRole(userWithRole.role, "l1", "member", "faculty") && (
           <>
-            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+            <div className={metricsGridClass}>
+              <YourReporteesCard key={effectiveUserId} reportees={reportees} />
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">Today's Hours</CardTitle>
@@ -958,7 +963,8 @@ export default function Dashboard() {
             ) : (
               <>
                 {/* Key Metrics Cards */}
-                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+                <div className={metricsGridClass}>
+                  <YourReporteesCard key={effectiveUserId} reportees={reportees} />
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                       <CardTitle className="text-sm font-medium text-muted-foreground">Team Members</CardTitle>
@@ -1218,7 +1224,8 @@ export default function Dashboard() {
             ) : (
               <>
                 {/* Super Admin Key Metrics */}
-                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                <div className={`grid gap-4 grid-cols-1 sm:grid-cols-2 ${reportees.length > 0 ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
+                  <YourReporteesCard key={effectiveUserId} reportees={reportees} />
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                       <CardTitle className="text-sm font-medium text-muted-foreground">Organizations</CardTitle>
@@ -1344,7 +1351,8 @@ export default function Dashboard() {
             ) : (
               <>
                 {/* Key Metrics Cards */}
-                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+                <div className={metricsGridClass}>
+                  <YourReporteesCard key={effectiveUserId} reportees={reportees} />
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                       <CardTitle className="text-sm font-medium text-muted-foreground">Total Faculty</CardTitle>
