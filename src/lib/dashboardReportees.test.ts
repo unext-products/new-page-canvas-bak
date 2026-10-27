@@ -1,8 +1,21 @@
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
-import { resolveDashboardReportees } from "./dashboardReportees";
+import { getDashboardReporteesForUser, resolveDashboardReportees } from "./dashboardReportees";
 
 describe("dashboard direct reportees", () => {
+  it("returns an empty list before both the user and reportees have loaded", () => {
+    assert.deepEqual(getDashboardReporteesForUser(null, undefined), []);
+    assert.deepEqual(getDashboardReporteesForUser(null, "manager"), []);
+  });
+
+  it("does not show stale reportees when the effective user changes or signs out", () => {
+    const reportees = [{ id: "direct", full_name: "Direct", is_active: true }];
+    const result = { userId: "manager", reportees };
+    assert.deepEqual(getDashboardReporteesForUser(result, "other-manager"), []);
+    assert.deepEqual(getDashboardReporteesForUser(result, undefined), []);
+    assert.equal(getDashboardReporteesForUser(result, "manager"), reportees);
+  });
+
   it("includes inactive users who remain mapped to the same manager", () => {
     const result = resolveDashboardReportees(
       [{ manager_id: "manager", user_id: "inactive" }, { manager_id: "manager", user_id: "active" }],
