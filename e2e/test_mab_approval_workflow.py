@@ -55,6 +55,45 @@ class MabApprovalWorkflowTest(unittest.TestCase):
             with self.subTest(reportee=name):
                 self.assertGreater(self.page.get_by_text(name, exact=True).count(), 0)
 
+    def test_ramya_data_access_is_direct_only(self):
+        access = self.page.evaluate("""async () => {
+            const {supabase} = await import('/src/integrations/supabase/client.ts');
+            const out = {};
+            for (const table of ['profiles','user_roles','timesheet_entries','leave_days',
+                'user_verticals','user_programs','user_departments','user_batches','user_subjects','user_settings']) {
+                const column = table === 'profiles' ? 'id' : 'user_id';
+                const {data, error} = await supabase.from(table).select(column).limit(1000);
+                if (error) throw new Error(error.message);
+                out[table] = [...new Set(data.map(row => row[column]))];
+            }
+            const {data, error} = await supabase.from('profiles').select('id')
+                .eq('id','3c4f91d3-ef37-4719-b3d4-31c4bf57f149');
+            if (error) throw new Error(error.message);
+            out.indirectLookup = data.map(row => row.id);
+            return out;
+        }""")
+        allowed = {
+            '973ba34f-8703-4224-874c-e235050eb4d6',
+            '8e44bffa-6233-41fc-9e94-9c72862b8914',
+            '2adc6890-abb7-4d2c-8ef3-85b5be1a78b5',
+            '7372f1cd-c6c2-4dfe-8cb6-64a39e0668d7',
+        }
+        self.assertEqual(set(access['profiles']), allowed)
+        self.assertEqual(access.pop('indirectLookup'), [])
+        for table, ids in access.items():
+            with self.subTest(table=table):
+                self.assertTrue(set(ids).issubset(allowed))
+
+    def test_ramya_selectors_exclude_indirect_reportees(self):
+        self.page.goto('http://localhost:8080/approvals')
+        self.page.get_by_text('Rajagopal A', exact=True).first.wait_for(timeout=30000)
+        self.page.get_by_role('combobox').first.click()
+        options = self.page.get_by_role('option').all_text_contents()
+        self.assertEqual(len(options), 4)
+        self.assertTrue(any('Kusuma S' in option for option in options))
+        self.assertFalse(any('Freena Lobo' in option for option in options))
+        self.page.keyboard.press('Escape')
+
 
 if __name__ == "__main__":
     unittest.main()

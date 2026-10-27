@@ -798,6 +798,7 @@ export default function Reports() {
                       <DepartmentCalendar
                         departmentId={selectedDepartment}
                         month={calendarMonth}
+                        memberIds={departmentReport?.facultyBreakdown.map(member => member.userId)}
                       />
                     </>
                   )}
