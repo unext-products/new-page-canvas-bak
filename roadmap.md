@@ -14,4 +14,4 @@
 
 # Ramya approval visibility
 - [x] Identify why mapped L1 reportees were excluded and enable MAB L3 approval of L1 while retaining L2 access.
-- [ ] Verify the approval workflow setting and Ramya's three reportees in the signed-in Approvals view.
+- [x] Verify the approval workflow setting and Ramya's three reportees in the signed-in Approvals view; retain a live regression test.
