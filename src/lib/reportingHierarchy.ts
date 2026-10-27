@@ -1,19 +1,15 @@
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/lib/reportQueries";
 
 /**
  * Fetch direct reportee IDs for a manager from the reporting_hierarchy table.
  */
 export async function fetchDirectReportees(managerId: string): Promise<string[]> {
-  const { data, error } = await supabase
+  const data = await fetchAllRows<{ user_id: string }>(supabase
     .from("reporting_hierarchy")
     .select("user_id")
-    .eq("manager_id", managerId);
-
-  if (error) {
-    console.error("Error fetching direct reportees:", error);
-    return [];
-  }
-  return data?.map((r) => r.user_id) || [];
+    .eq("manager_id", managerId));
+  return [...new Set(data.map((r) => r.user_id))];
 }
 
 /**
@@ -48,26 +44,12 @@ export async function hasReportingHierarchy(managerId: string): Promise<boolean>
 }
 
 /**
- * Get the list of user IDs visible to a manager, with fallback to legacy vertical/program logic.
- * Returns null if the caller should use the legacy logic (no hierarchy configured).
+ * Every manager view is direct-only. An empty mapping never grants fallback access.
  */
 export async function getVisibleUserIds(
   managerId: string,
-  role: string
-): Promise<string[] | null> {
-  const hasHierarchy = await hasReportingHierarchy(managerId);
-
-  if (!hasHierarchy) {
-    return null; // Signal caller to use legacy logic
-  }
-
-  const isL3 = role === "l3" || role === "manager";
-
-  if (isL3) {
-    return fetchAllReportees(managerId);
-  }
-
-  // L2 - direct reportees only
+  _role: string
+): Promise<string[]> {
   return fetchDirectReportees(managerId);
 }
 

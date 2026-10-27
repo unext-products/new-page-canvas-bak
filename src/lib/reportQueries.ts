@@ -470,7 +470,8 @@ export async function fetchFacultyReport(
 
 export async function fetchVerticalReport(
   verticalId: string,
-  period: ReportPeriod
+  period: ReportPeriod,
+  scopeUserIds?: string[]
 ): Promise<VerticalReportData> {
   const dateFrom = format(period.dateFrom, "yyyy-MM-dd");
   const dateTo = format(period.dateTo, "yyyy-MM-dd");
@@ -536,7 +537,9 @@ export async function fetchVerticalReport(
   }
 
   // Merge current + historical user IDs
-  const userIds = [...new Set([...currentUserIds, ...historicalUserIds])];
+  const scopeSet = scopeUserIds ? new Set(scopeUserIds) : null;
+  const userIds = [...new Set([...currentUserIds, ...historicalUserIds])]
+    .filter(id => !scopeSet || scopeSet.has(id));
 
   let entries: any[] = [];
   if (userIds.length > 0) {
@@ -820,8 +823,8 @@ export async function fetchAllMembersReport(
     .lte("entry_date", dateTo)
     .order("entry_date", { ascending: false });
 
-  if (scopeUserIds && scopeUserIds.length > 0) {
-    entriesQuery = entriesQuery.in("user_id", scopeUserIds);
+  if (scopeUserIds) {
+    entriesQuery = entriesQuery.in("user_id", scopeUserIds.length ? scopeUserIds : ["00000000-0000-0000-0000-000000000000"]);
   }
 
   const entries = await fetchAllRows(entriesQuery);

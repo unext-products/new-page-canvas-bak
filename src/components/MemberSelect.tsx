@@ -18,6 +18,8 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { getVisibleUserIds } from "@/lib/reportingHierarchy";
+import { useAuth } from "@/contexts/AuthContext";
+import { isRole } from "@/lib/roleMapping";
 
 interface Member {
   id: string;
@@ -36,21 +38,31 @@ interface MemberSelectProps {
 }
 
 export function MemberSelect({ value, onValueChange, includeAll = false, departmentIds, includeInactive = false }: MemberSelectProps) {
+  const { userWithRole } = useAuth();
   const [open, setOpen] = useState(false);
   const [members, setMembers] = useState<Member[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     fetchMembers();
-  }, [departmentIds, includeInactive]);
+  }, [departmentIds, includeInactive, userWithRole?.user.id]);
 
   const fetchMembers = async () => {
     try {
+      const isManager = isRole(userWithRole?.role, "l2", "l3");
+      const scopeIds = isManager && userWithRole?.user.id
+        ? await getVisibleUserIds(userWithRole.user.id, userWithRole.role || "") : undefined;
+      if (scopeIds && scopeIds.length === 0) {
+        setMembers([]);
+        return;
+      }
       // Get profiles (optionally include inactive)
       let profilesQuery = supabase
         .from("profiles")
         .select("id, full_name, is_active")
         .order("full_name");
+
+      if (scopeIds) profilesQuery = profilesQuery.in("id", scopeIds);
 
       if (!includeInactive) {
         profilesQuery = profilesQuery.eq("is_active", true);
@@ -69,7 +81,7 @@ export function MemberSelect({ value, onValueChange, includeAll = false, departm
         .from("user_roles")
         .select("user_id")
         .in("user_id", userIds)
-        .in("role", ["l1", "l2", "faculty"]);
+        .in("role", ["l1", "l2", "l3", "faculty", "program_manager", "hod"]);
 
       if (rolesError) throw rolesError;
 
@@ -110,7 +122,7 @@ export function MemberSelect({ value, onValueChange, includeAll = false, departm
 
       // Filter users by departmentIds (which now represent verticalIds) if provided
       let filteredFacultyIds = Array.from(facultyIds);
-      if (departmentIds && departmentIds.length > 0) {
+      if (!isManager && departmentIds && departmentIds.length > 0) {
         filteredFacultyIds = filteredFacultyIds.filter(userId => {
           const userVerts = userVertMap.get(userId) || [];
           return userVerts.some(vertId => departmentIds.includes(vertId));

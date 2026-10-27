@@ -42,6 +42,7 @@ import { formatDuration } from "@/lib/exportUtils";
 import { calculateDurationMinutes, formatActivityLabel } from "@/lib/timesheetUtils";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfDay, endOfDay } from "date-fns";
 import { getUserErrorMessage } from "@/lib/errorHandler";
+import { getVisibleUserIds } from "@/lib/reportingHierarchy";
 
 type ReportViewType = "member" | "department";
 
@@ -207,18 +208,18 @@ export default function Reports() {
         dateTo,
       };
 
+      const managerScope = isHod && userWithRole?.user.id
+        ? await getVisibleUserIds(userWithRole.user.id, userWithRole.role || "") : undefined;
+      if (managerScope && selectedFaculty !== "all" && !managerScope.includes(selectedFaculty)) {
+        throw new Error("This member is not directly assigned to you.");
+      }
+
       if (reportType === "member") {
         if (selectedFaculty === "all") {
           // For non-admin roles, scope "All Members" to users in their verticals
           let scopeUserIds: string[] | undefined;
           const isAdmin = isRole(userWithRole?.role, "admin", "org_admin", "super_admin");
-          if (!isAdmin && hodDepartmentIds.length > 0) {
-            const { data: vertUsers } = await supabase
-              .from("user_verticals")
-              .select("user_id")
-              .in("vertical_id", hodDepartmentIds);
-            scopeUserIds = [...new Set(vertUsers?.map(u => u.user_id) || [])];
-          }
+          if (!isAdmin) scopeUserIds = managerScope || [];
           const report = await fetchAllMembersReport(reportPeriod, scopeUserIds);
           setFacultyReport(report);
         } else {
@@ -226,7 +227,7 @@ export default function Reports() {
           setFacultyReport(report);
         }
       } else {
-        const report = await fetchDepartmentReport(selectedDepartment, reportPeriod);
+        const report = await fetchDepartmentReport(selectedDepartment, reportPeriod, managerScope);
         setDepartmentReport(report);
       }
     } catch (error: any) {
