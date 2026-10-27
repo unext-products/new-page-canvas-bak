@@ -535,7 +535,7 @@ export default function Reports() {
                                   </TableCell>
                                   <TableCell>{formatDuration(calculateDurationMinutes(entry.start_time, entry.end_time))}</TableCell>
                                   <TableCell>
-                                    <StatusBadge status={entry.status} />
+                                    <StatusBadge status={entry.status} approvedAt={entry.approved_at} />
                                   </TableCell>
                                   <TableCell className="text-sm">
                                     {entry._approvedByName || "-"}

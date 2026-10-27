@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { ApprovalTimestamp } from "@/components/ApprovalTimestamp";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -22,6 +23,7 @@ export interface MatrixTimesheetEntry {
   activity_subtype: string | null;
   notes: string | null;
   status: string;
+  approved_at?: string | null;
   vertical_code?: string | null;
   program_code?: string | null;
   batch_name?: string | null;
@@ -300,6 +302,7 @@ export function DayMatrixView({
                                       <span className="text-[10px] text-muted-foreground leading-tight truncate">
                                         {entry.start_time} - {entry.end_time}
                                       </span>
+                                      <ApprovalTimestamp status={entry.status} approvedAt={entry.approved_at} className="text-[10px] break-words" />
                                     </div>
                                   </TooltipTrigger>
                                   <TooltipContent side="top" className="max-w-xs">
@@ -321,6 +324,7 @@ export function DayMatrixView({
                                           entry.status === "rejected" && "text-red-600"
                                         )}>{entry.status}</span>
                                       </p>
+                                      <ApprovalTimestamp status={entry.status} approvedAt={entry.approved_at} />
                                       {entry.notes && (
                                         <p className="text-xs mt-1 text-muted-foreground line-clamp-2">
                                           {entry.notes}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ApprovalTimestamp } from "@/components/ApprovalTimestamp";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -41,6 +42,7 @@ interface TimesheetEntry {
   start_time: string;
   end_time: string;
   status: string;
+  approved_at?: string | null;
   activity_type: string;
   notes?: string;
 }
@@ -165,7 +167,7 @@ export function MemberCalendar({ memberId, month }: MemberCalendarProps) {
     const [entriesResult, leaveResult] = await Promise.all([
       supabase
         .from("timesheet_entries")
-        .select("id, entry_date, start_time, end_time, status, activity_type, notes")
+        .select("id, entry_date, start_time, end_time, status, approved_at, activity_type, notes")
         .eq("user_id", memberId)
         .eq("entry_date", dateStr)
         .order("start_time", { ascending: true }),
@@ -446,6 +448,7 @@ export function MemberCalendar({ memberId, month }: MemberCalendarProps) {
                               {entry.start_time} - {entry.end_time}
                             </span>
                           </div>
+                          <div className="flex flex-col items-end gap-0.5">
                           <Badge
                             variant="outline"
                             className={cn(
@@ -457,6 +460,8 @@ export function MemberCalendar({ memberId, month }: MemberCalendarProps) {
                           >
                             {entry.status}
                           </Badge>
+                          <ApprovalTimestamp status={entry.status} approvedAt={entry.approved_at} className="text-right" />
+                          </div>
                         </div>
                       ))}
                     </div>

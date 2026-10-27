@@ -929,7 +929,7 @@ export default function Dashboard() {
                             {entry.activity_type} • {formatMinutes(getEntryDuration(entry))}
                           </p>
                         </div>
-                        <StatusBadge status={entry.status} />
+                        <StatusBadge status={entry.status} approvedAt={entry.approved_at} />
                       </div>
                     ))}
                   </div>

@@ -40,6 +40,7 @@ interface TimesheetEntry {
   activity_subtype: string | null;
   notes: string | null;
   status: string;
+  approved_at?: string | null;
   source?: string;
 }
 
