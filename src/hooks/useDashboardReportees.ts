@@ -16,17 +16,25 @@ export function useDashboardReportees(userId: string | undefined) {
         );
         const ids = [...new Set(mappings.map(row => row.user_id))];
         const profiles: DashboardReportee[] = [];
+        const roleByUser = new Map<string, string>();
         // Bounded, paginated batches: never one network request per reportee.
         for (let offset = 0; offset < ids.length; offset += 800) {
           const chunks = [];
           for (let index = offset; index < Math.min(offset + 800, ids.length); index += 200) {
             chunks.push(ids.slice(index, index + 200));
           }
-          const rows = await Promise.all(chunks.map(chunk => fetchAllRows<DashboardReportee>(
-            supabase.from("profiles").select("id, full_name, is_active").in("id", chunk),
-          )));
-          profiles.push(...rows.flat());
+          const [profileRows, roleRows] = await Promise.all([
+            Promise.all(chunks.map(chunk => fetchAllRows<DashboardReportee>(
+              supabase.from("profiles").select("id, full_name, is_active").in("id", chunk),
+            ))),
+            Promise.all(chunks.map(chunk => fetchAllRows<{ user_id: string; role: string }>(
+              supabase.from("user_roles").select("user_id, role").in("user_id", chunk),
+            ))),
+          ]);
+          profiles.push(...profileRows.flat());
+          for (const row of roleRows.flat()) roleByUser.set(row.user_id, row.role);
         }
+        for (const profile of profiles) profile.role = roleByUser.get(profile.id) ?? null;
         if (!cancelled) setResult({ userId, reportees: resolveDashboardReportees(mappings, profiles, userId) });
       } catch (error) {
         console.error("Unable to load dashboard reportees", error);
