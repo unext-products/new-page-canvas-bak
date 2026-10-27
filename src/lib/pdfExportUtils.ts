@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { format } from "date-fns";
+import { formatApprovalTimestamp } from "./approvalTimestamp";
 import { formatDuration } from "./exportUtils";
 import { calculateDurationMinutes, formatActivityLabel } from "./timesheetUtils";
 
@@ -13,6 +14,7 @@ interface TimesheetEntry {
   start_time: string;
   end_time: string;
   status: string;
+  approved_at?: string | null;
 }
 
 export function exportToPDF(
@@ -55,7 +57,7 @@ export function exportToPDF(
   // Add table
   autoTable(doc, {
     startY: 90,
-    head: [["Date", "Member", "Department", "Activity", "Duration", "Status"]],
+    head: [["Date", "Member", "Department", "Activity", "Duration", "Status", "Approved At"]],
     body: entries.map((entry) => [
       format(new Date(entry.entry_date), "MMM dd, yyyy"),
       entry.profiles?.full_name || "N/A",
@@ -63,6 +65,7 @@ export function exportToPDF(
       `${formatActivityLabel(entry.activity_type)}${entry.activity_subtype ? ` - ${formatActivityLabel(entry.activity_subtype)}` : ""}`,
       formatDuration(calculateDurationMinutes(entry.start_time, entry.end_time)),
       entry.status,
+      formatApprovalTimestamp(entry.status, entry.approved_at),
     ]),
     theme: "striped",
     styles: { fontSize: 8, cellPadding: 3 },
@@ -100,7 +103,7 @@ export function exportMemberReportPDF(
   generatedBy: string,
   period: string
 ) {
-  const doc = new jsPDF();
+  const doc = new jsPDF({ orientation: "landscape" });
 
   // Header
   doc.setFontSize(20);
@@ -152,7 +155,7 @@ export function exportMemberReportPDF(
   // Detailed Table
   autoTable(doc, {
     startY: yPos + 10,
-    head: [["Program", "Vertical", "Name", "Level", "Date", "Activity", "Time", "Duration", "Status", "Approved By"]],
+    head: [["Program", "Vertical", "Name", "Level", "Date", "Activity", "Time", "Duration", "Status", "Approved By", "Approved At"]],
     body: report.entries.map((entry: any) => [
       entry._programName || "N/A",
       entry._verticalName || "N/A",
@@ -164,6 +167,7 @@ export function exportMemberReportPDF(
       formatDuration(calculateDurationMinutes(entry.start_time, entry.end_time)),
       entry.status,
       entry._approvedByName || "",
+      formatApprovalTimestamp(entry.status, entry.approved_at),
     ]),
     theme: "striped",
     styles: { fontSize: 7, cellPadding: 2 },
