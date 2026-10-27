@@ -15,3 +15,8 @@
 # Ramya approval visibility
 - [x] Identify why mapped L1 reportees were excluded and enable MAB L3 approval of L1 while retaining L2 access.
 - [x] Verify the approval workflow setting and Ramya's three reportees in the signed-in Approvals view; retain a live regression test.
+
+# Direct manager scope
+- [ ] Limit manager views to direct mappings, removing indirect and program/vertical fallback visibility.
+- [ ] Enforce direct-only, same-organization access for manager data reads and entry updates.
+- [ ] Test Ramya's three-person scope across Approvals, Team, Reports and Dashboard; verify unrelated data stays hidden.
