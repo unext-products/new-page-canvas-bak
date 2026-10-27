@@ -11,3 +11,7 @@
 # Dashboard reportees
 - [x] Add direct reportee card and names/status popup for every dashboard role; retain existing access restrictions per user decision.
 - [x] Test mapping/count rules and verify signed-in admin view-as-manager popup and layout (22 reportees, four inactive); direct-manager authentication not exercised.
+
+# Ramya approval visibility
+- [x] Identify why mapped L1 reportees were excluded and enable MAB L3 approval of L1 while retaining L2 access.
+- [ ] Verify the approval workflow setting and Ramya's three reportees in the signed-in Approvals view.
