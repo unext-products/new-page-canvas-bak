@@ -1120,6 +1120,7 @@ export type Database = {
         Args: { p_manager_id: string }
         Returns: string[]
       }
+      get_manager_direct_reportees: { Args: never; Returns: string[] }
       get_role_level: {
         Args: { p_role: Database["public"]["Enums"]["app_role"] }
         Returns: number
