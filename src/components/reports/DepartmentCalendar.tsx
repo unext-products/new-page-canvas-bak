@@ -14,6 +14,7 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 interface DepartmentCalendarProps {
   departmentId: string;
   month: Date;
+  memberIds?: string[];
 }
 
 interface DepartmentDayData {
@@ -28,7 +29,7 @@ interface DepartmentDayData {
 
 import { FacultyData, MatrixTimesheetEntry } from "@/components/calendar/DayMatrixView";
 
-export function DepartmentCalendar({ departmentId, month }: DepartmentCalendarProps) {
+export function DepartmentCalendar({ departmentId, month, memberIds: scopedMemberIds }: DepartmentCalendarProps) {
   const [calendarData, setCalendarData] = useState<DepartmentDayData[]>([]);
   const [totalMembersCount, setTotalMembersCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -39,13 +40,13 @@ export function DepartmentCalendar({ departmentId, month }: DepartmentCalendarPr
 
   useEffect(() => {
     loadCalendarData();
-  }, [departmentId, month]);
+  }, [departmentId, month, scopedMemberIds]);
 
   useEffect(() => {
     if (viewMode === "day") {
       loadDayData();
     }
-  }, [departmentId, selectedDay, viewMode]);
+  }, [departmentId, selectedDay, viewMode, scopedMemberIds]);
 
   const loadCalendarData = async () => {
     setIsLoading(true);
@@ -60,10 +61,11 @@ export function DepartmentCalendar({ departmentId, month }: DepartmentCalendarPr
       .eq("role", "faculty")
       .eq("department_id", departmentId);
 
-    const memberIds = memberList?.map(f => f.user_id) || [];
+    const memberIds = scopedMemberIds ?? memberList?.map(f => f.user_id) ?? [];
     setTotalMembersCount(memberIds.length);
 
     if (memberIds.length === 0) {
+      setCalendarData([]);
       setIsLoading(false);
       return;
     }
@@ -143,7 +145,7 @@ export function DepartmentCalendar({ departmentId, month }: DepartmentCalendarPr
       .eq("role", "faculty")
       .eq("department_id", departmentId);
 
-    const memberIds = memberList?.map(f => f.user_id) || [];
+    const memberIds = scopedMemberIds ?? memberList?.map(f => f.user_id) ?? [];
 
     if (memberIds.length === 0) {
       setFacultyEntries([]);
