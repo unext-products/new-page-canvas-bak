@@ -1,4 +1,5 @@
 import { format } from "date-fns";
+import { formatApprovalTimestamp } from "./approvalTimestamp";
 import { calculateDurationMinutes, formatActivityLabel } from "./timesheetUtils";
 
 export function formatDuration(minutes: number): string {
@@ -29,6 +30,7 @@ export function exportToCSV(data: any[], filename: string) {
     "End Time",
     "Duration",
     "Status",
+    "Approved At",
     "Notes",
   ];
 
@@ -43,6 +45,7 @@ export function exportToCSV(data: any[], filename: string) {
     entry.end_time,
     formatDuration(calculateDurationMinutes(entry.start_time, entry.end_time)),
     entry.status,
+    formatApprovalTimestamp(entry.status, entry.approved_at),
     entry.notes || "",
   ]);
 
@@ -96,6 +99,7 @@ export function exportToCSVWithMetadata(
     "End Time",
     "Duration",
     "Status",
+    "Approved At",
     "Notes",
   ];
 
@@ -110,6 +114,7 @@ export function exportToCSVWithMetadata(
     entry.end_time,
     formatDuration(calculateDurationMinutes(entry.start_time, entry.end_time)),
     entry.status,
+    formatApprovalTimestamp(entry.status, entry.approved_at),
     entry.notes || "",
   ]);
 
@@ -177,6 +182,7 @@ export function exportMemberReportCSV(
     "Duration",
     "Status",
     "Approved By",
+    "Approved At",
     "Notes",
   ];
 
@@ -193,6 +199,7 @@ export function exportMemberReportCSV(
     formatDuration(calculateDurationMinutes(entry.start_time, entry.end_time)),
     entry.status,
     entry._approvedByName || "",
+    formatApprovalTimestamp(entry.status, entry.approved_at),
     entry.notes || "",
   ]);
 

@@ -1224,7 +1224,7 @@ export default function Timesheet() {
                             <p className="font-medium">
                               {formatDisplayDate(item.entry_date)}
                             </p>
-                            <StatusBadge status={item.status} />
+                            <StatusBadge status={item.status} approvedAt={item.approved_at} />
                             {item.source === "bulk_upload" && (
                               <Badge variant="outline" className="text-xs">
                                 <Upload className="h-3 w-3 mr-1" />

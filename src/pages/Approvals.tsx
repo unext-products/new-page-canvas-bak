@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { ApprovalTimestamp } from "@/components/ApprovalTimestamp";
 import { getVisibleUserIds } from "@/lib/reportingHierarchy";
 import { useAuth } from "@/contexts/AuthContext";
 import { Layout } from "@/components/Layout";
@@ -832,6 +833,7 @@ export default function Approvals() {
         activity_subtype: entry.activity_subtype,
         notes: entry.notes,
         status: entry.status, // Use actual status
+        approved_at: entry.approved_at,
         vertical_code: entry.vertical_code || entry.department_code || null,
         batch_name: entry.batch_name || null,
       };
@@ -1567,10 +1569,11 @@ export default function Approvals() {
                                   Rejected
                                 </Badge>
                               )}
+                              <ApprovalTimestamp status={item.status} approvedAt={item.approved_at} className="text-right" />
                               {(item.status === "approved" || item.status === "rejected") && item.approver_profile && (
                                 <span className="text-xs text-muted-foreground">
                                   by {item.approver_profile.full_name}
-                                  {item.approved_at && (
+                                  {item.status === "rejected" && item.approved_at && (
                                     <> on {format(new Date(item.approved_at), "MMM d, yyyy")}</>
                                   )}
                                 </span>

@@ -1,4 +1,6 @@
 import { useMemo } from "react";
+import { ApprovalTimestamp } from "@/components/ApprovalTimestamp";
+import { formatApprovalTimestamp } from "@/lib/approvalTimestamp";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -18,6 +20,7 @@ interface TimesheetEntry {
   activity_subtype: string | null;
   notes: string | null;
   status: string;
+  approved_at?: string | null;
 }
 
 interface LeaveEntry {
@@ -217,6 +220,7 @@ export function DayHourlyView({ date, entries, leaveEntry, onSlotClick, readOnly
                             <p className="text-xs text-muted-foreground">
                               {entry.start_time} - {entry.end_time} ({entry.status})
                             </p>
+                            <ApprovalTimestamp status={entry.status} approvedAt={entry.approved_at} />
                           </div>
                         ))
                       ) : (
@@ -230,6 +234,17 @@ export function DayHourlyView({ date, entries, leaveEntry, onSlotClick, readOnly
                 );
               })}
             </div>
+
+            {entries.some(entry => formatApprovalTimestamp(entry.status, entry.approved_at)) && (
+              <div className="space-y-1 border-t pt-2">
+                {entries.filter(entry => formatApprovalTimestamp(entry.status, entry.approved_at)).map(entry => (
+                  <div key={entry.id} className="flex flex-wrap items-baseline gap-x-2 text-xs text-muted-foreground">
+                    <span className="capitalize">{entry.activity_type.replace(/_/g, " ")} · {entry.start_time}–{entry.end_time}</span>
+                    <ApprovalTimestamp status={entry.status} approvedAt={entry.approved_at} />
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* Legend */}
             <div className="flex flex-wrap gap-4 mt-2 text-xs justify-center border-t pt-3">
