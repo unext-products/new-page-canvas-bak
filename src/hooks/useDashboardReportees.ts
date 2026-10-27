@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/lib/reportQueries";
-import { resolveDashboardReportees, type DashboardReportee } from "@/lib/dashboardReportees";
+import { getDashboardReporteesForUser, resolveDashboardReportees, type DashboardReportee } from "@/lib/dashboardReportees";
 
 export function useDashboardReportees(userId: string | undefined) {
   const [result, setResult] = useState<{ userId: string; reportees: DashboardReportee[] } | null>(null);
@@ -37,5 +37,5 @@ export function useDashboardReportees(userId: string | undefined) {
     return () => { cancelled = true; };
   }, [userId]);
 
-  return result?.userId === userId ? result.reportees : [];
+  return getDashboardReporteesForUser(result, userId);
 }

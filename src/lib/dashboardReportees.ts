@@ -4,6 +4,15 @@ export interface DashboardReportee {
   is_active: boolean;
 }
 
+/** Loading and user transitions must never expose another user's cached reportees. */
+export function getDashboardReporteesForUser(
+  result: { userId: string; reportees: DashboardReportee[] } | null,
+  userId: string | undefined,
+): DashboardReportee[] {
+  if (!result || !userId || result.userId !== userId) return [];
+  return result.reportees;
+}
+
 /** Direct assignments only; inactive profiles still belong to their manager. */
 export function resolveDashboardReportees(
   mappings: { manager_id: string; user_id: string }[],
