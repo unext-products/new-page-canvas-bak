@@ -42,7 +42,7 @@ import { formatDuration } from "@/lib/exportUtils";
 import { calculateDurationMinutes, formatActivityLabel } from "@/lib/timesheetUtils";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfDay, endOfDay } from "date-fns";
 import { getUserErrorMessage } from "@/lib/errorHandler";
-import { getVisibleUserIds } from "@/lib/reportingHierarchy";
+import { getReportingUserIds } from "@/lib/reportingHierarchy";
 import { canExportReport } from "@/lib/reportExportAccess";
 
 type ReportViewType = "member" | "department";
@@ -210,9 +210,9 @@ export default function Reports() {
       };
 
       const managerScope = isHod && userWithRole?.user.id
-        ? await getVisibleUserIds(userWithRole.user.id, userWithRole.role || "") : undefined;
+        ? await getReportingUserIds(userWithRole.user.id, userWithRole.role || "") : undefined;
       if (managerScope && selectedFaculty !== "all" && !managerScope.includes(selectedFaculty)) {
-        throw new Error("This member is not directly assigned to you.");
+        throw new Error("This member is not in your reporting hierarchy.");
       }
 
       if (reportType === "member") {
@@ -371,6 +371,7 @@ export default function Reports() {
                 <div>
                   <Label>Team Member</Label>
                   <MemberSelect
+                    reportingScope
                     value={selectedFaculty}
                     onValueChange={setSelectedFaculty}
                     includeAll={true}

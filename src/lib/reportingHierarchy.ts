@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/lib/reportQueries";
+import { usesExpandedReportingScope } from "./reportingScopeMode";
 
 /**
  * Fetch direct reportee IDs for a manager from the reporting_hierarchy table.
@@ -44,13 +45,21 @@ export async function hasReportingHierarchy(managerId: string): Promise<boolean>
 }
 
 /**
- * Every manager view is direct-only. An empty mapping never grants fallback access.
+ * Approval and dashboard views remain direct-only, without membership fallback.
  */
 export async function getVisibleUserIds(
   managerId: string,
   _role: string
 ): Promise<string[]> {
   return fetchDirectReportees(managerId);
+}
+
+/** Reports and Team include mapped L1s beneath an L3's directly mapped L2s. */
+export async function getReportingUserIds(managerId: string, role: string): Promise<string[]> {
+  if (!usesExpandedReportingScope(role)) return fetchDirectReportees(managerId);
+  const { data, error } = await supabase.rpc("get_reporting_scope", { p_manager_id: managerId });
+  if (error) throw error;
+  return data || [];
 }
 
 /**
