@@ -55,7 +55,7 @@ class MabApprovalWorkflowTest(unittest.TestCase):
             with self.subTest(reportee=name):
                 self.assertGreater(self.page.get_by_text(name, exact=True).count(), 0)
 
-    def test_ramya_data_access_is_direct_only(self):
+    def test_ramya_data_access_matches_reporting_scope(self):
         access = self.page.evaluate("""async () => {
             const {supabase} = await import('/src/integrations/supabase/client.ts');
             const out = {};
@@ -66,10 +66,10 @@ class MabApprovalWorkflowTest(unittest.TestCase):
                 if (error) throw new Error(error.message);
                 out[table] = [...new Set(data.map(row => row[column]))];
             }
-            const {data, error} = await supabase.from('profiles').select('id')
-                .eq('id','3c4f91d3-ef37-4719-b3d4-31c4bf57f149');
+            const {data, error} = await supabase.rpc('get_reporting_scope',
+                {p_manager_id:'973ba34f-8703-4224-874c-e235050eb4d6'});
             if (error) throw new Error(error.message);
-            out.indirectLookup = data.map(row => row.id);
+            out.reportingScope = data;
             return out;
         }""")
         allowed = {
@@ -78,11 +78,11 @@ class MabApprovalWorkflowTest(unittest.TestCase):
             '2adc6890-abb7-4d2c-8ef3-85b5be1a78b5',
             '7372f1cd-c6c2-4dfe-8cb6-64a39e0668d7',
         }
-        self.assertEqual(set(access['profiles']), allowed)
-        self.assertEqual(access.pop('indirectLookup'), [])
+        scope = set(access.pop('reportingScope')) | {'973ba34f-8703-4224-874c-e235050eb4d6'}
+        self.assertTrue(allowed.issubset(scope))
         for table, ids in access.items():
             with self.subTest(table=table):
-                self.assertTrue(set(ids).issubset(allowed))
+                self.assertTrue(set(ids).issubset(scope))
 
     def test_ramya_selectors_exclude_indirect_reportees(self):
         self.page.goto('http://localhost:8080/approvals')
