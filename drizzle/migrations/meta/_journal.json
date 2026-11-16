@@ -15,6 +15,13 @@
       "when": 1794810935497,
       "tag": "0001_l3_report_team_read_scope",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794814456386,
+      "tag": "0002_team_hierarchy_presentation_links",
+      "breakpoints": true
     }
   ]
 }
