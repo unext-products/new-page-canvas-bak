@@ -485,7 +485,7 @@ export default function Team() {
             description={searchQuery ? "Try adjusting your search query." : "There are no team members in your department yet."}
           />
         ) : (
-          <TeamHierarchyView members={filteredTeamMembers} allMembers={teamMembers} links={reportingLinks} viewerId={userWithRole?.user.id || ""} searching={!!searchQuery.trim()} renderMember={(member) => (
+          <TeamHierarchyView organizationView={isRole(userWithRole?.role, "admin")} members={filteredTeamMembers} allMembers={teamMembers} links={reportingLinks} viewerId={userWithRole?.user.id || ""} searching={!!searchQuery.trim()} renderMember={(member) => (
               <Card key={member.id} variant="interactive" className="overflow-hidden">
                 <CardContent className="p-5">
                   <div className="flex items-start gap-4">
@@ -512,7 +512,7 @@ export default function Team() {
                       <p className="text-sm text-muted-foreground">
                         {member.isActive ? "Active" : "Inactive"}
                       </p>
-                      <p className="mt-1 text-xs text-primary">{hierarchy.directIds.has(member.id) ? "Direct reportee" : "Indirect reportee"}</p>
+                      <p className="mt-1 text-xs text-primary">{hierarchy.directIds.has(member.id) ? "Direct reportee" : isRole(userWithRole?.role, "admin") ? "Organization member" : "Indirect reportee"}</p>
                     </div>
                   </div>
 

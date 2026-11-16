@@ -11,9 +11,10 @@ interface Props<T extends HierarchyMember> {
   viewerId: string;
   renderMember: (member: T) => ReactNode;
   searching: boolean;
+  organizationView?: boolean;
 }
 
-export function TeamHierarchyView<T extends HierarchyMember>({ members, allMembers, links, viewerId, renderMember, searching }: Props<T>) {
+export function TeamHierarchyView<T extends HierarchyMember>({ members, allMembers, links, viewerId, renderMember, searching, organizationView = false }: Props<T>) {
   const hierarchy = buildTeamHierarchy(allMembers, links, viewerId);
   const visible = new Set(members.map(member => member.id));
   const direct = hierarchy.direct.filter(member => visible.has(member.id));
@@ -29,7 +30,7 @@ export function TeamHierarchyView<T extends HierarchyMember>({ members, allMembe
       return <Collapsible key={`${managerId}-${searching}`} defaultOpen className="border-t border-border pt-4">
         <CollapsibleTrigger asChild>
           <Button variant="ghost" className="group h-auto w-full justify-between whitespace-normal px-0 py-2 text-left" aria-label={`Toggle ${manager?.fullName || "Other team members"} reportees`}>
-            <span className="flex min-w-0 items-start gap-3"><GitBranch className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" /><span><span className="block font-semibold break-words">{manager?.fullName || "Other team members"}</span><span className="block text-xs font-normal text-muted-foreground">{manager ? "Indirect reportees" : "Other visible members"} · {shown.length}</span></span></span>
+            <span className="flex min-w-0 items-start gap-3"><GitBranch className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" /><span><span className="block font-semibold break-words">{manager?.fullName || "Other team members"}</span><span className="block text-xs font-normal text-muted-foreground">{manager ? (organizationView ? "Mapped reportees" : "Indirect reportees") : "Other visible members"} · {shown.length}</span></span></span>
             <ChevronDown className="h-4 w-4 shrink-0 transition-transform group-data-[state=closed]:-rotate-90" />
           </Button>
         </CollapsibleTrigger>
