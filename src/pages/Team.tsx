@@ -23,6 +23,8 @@ import { calculateUserTotalDailyTargetMinutes } from "@/lib/targets";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { buildTeamHierarchy, TeamReportingLink } from "@/lib/teamHierarchy";
+import { TeamHierarchyView } from "@/components/team/TeamHierarchyView";
 
 interface TeamMember {
   id: string;
@@ -53,6 +55,7 @@ export default function Team() {
   const [isLoading, setIsLoading] = useState(true);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [teamStats, setTeamStats] = useState<TeamStats | null>(null);
+  const [reportingLinks, setReportingLinks] = useState<TeamReportingLink[]>([]);
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
   const [showCalendarDialog, setShowCalendarDialog] = useState(false);
   
@@ -121,7 +124,7 @@ export default function Team() {
       const userOrgId = roleData?.organization_id;
 
       // Fetch profiles, entries, today's leaves, month's leaves, this week's leaves, and holidays in parallel
-      const [profilesRes, entriesRes, leavesRes, monthLeavesRes, weekLeavesRes, weekHolidaysRes] = await Promise.all([
+      const [profilesRes, entriesRes, leavesRes, monthLeavesRes, weekLeavesRes, weekHolidaysRes, linksRes] = await Promise.all([
         supabase
           .from("profiles")
           .select("id, full_name, avatar_url, is_active")
@@ -157,7 +160,11 @@ export default function Team() {
               .gte("holiday_date", format(weekStart, "yyyy-MM-dd"))
               .lte("holiday_date", format(weekFriday, "yyyy-MM-dd"))
           : Promise.resolve({ data: [] }),
+        supabase.rpc("get_team_reporting_links", { p_manager_id: userWithRole.user.id }),
       ]);
+
+      if (linksRes.error) throw linksRes.error;
+      setReportingLinks(linksRes.data || []);
 
       const profiles = profilesRes.data || [];
       const entries = entriesRes;
@@ -231,6 +238,7 @@ export default function Team() {
   };
 
   // Filter team members by search query
+  const hierarchy = useMemo(() => buildTeamHierarchy(teamMembers, reportingLinks, userWithRole?.user.id || ""), [teamMembers, reportingLinks, userWithRole?.user.id]);
   const filteredTeamMembers = useMemo(() => {
     if (!searchQuery.trim()) return teamMembers;
     const query = searchQuery.toLowerCase();
@@ -405,7 +413,7 @@ export default function Team() {
 
         {/* Team Summary Cards */}
         {teamStats && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
@@ -415,6 +423,7 @@ export default function Team() {
                   <div>
                     <p className="text-2xl font-bold">{teamStats.totalMembers}</p>
                     <p className="text-sm text-muted-foreground">Team Members</p>
+                    <p className="mt-2 text-xs text-muted-foreground" data-testid="team-relationship-counts"><span className="font-semibold text-primary">{hierarchy.direct.length} direct</span><span className="mx-1">·</span>{hierarchy.other.length} {isRole(userWithRole?.role, "admin") ? "other" : "indirect"}</p>
                   </div>
                 </div>
               </CardContent>
@@ -476,8 +485,7 @@ export default function Team() {
             description={searchQuery ? "Try adjusting your search query." : "There are no team members in your department yet."}
           />
         ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredTeamMembers.map((member) => (
+          <TeamHierarchyView members={filteredTeamMembers} allMembers={teamMembers} links={reportingLinks} viewerId={userWithRole?.user.id || ""} searching={!!searchQuery.trim()} renderMember={(member) => (
               <Card key={member.id} variant="interactive" className="overflow-hidden">
                 <CardContent className="p-5">
                   <div className="flex items-start gap-4">
@@ -494,7 +502,7 @@ export default function Team() {
                     </Avatar>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <h3 className="font-semibold truncate">{member.fullName}</h3>
+                        <h3 className="font-semibold break-words">{member.fullName}</h3>
                         {member.isOnLeaveToday && (
                           <Badge variant="secondary" className="text-xs shrink-0">
                             On Leave
@@ -504,6 +512,7 @@ export default function Team() {
                       <p className="text-sm text-muted-foreground">
                         {member.isActive ? "Active" : "Inactive"}
                       </p>
+                      <p className="mt-1 text-xs text-primary">{hierarchy.directIds.has(member.id) ? "Direct reportee" : "Indirect reportee"}</p>
                     </div>
                   </div>
 
@@ -565,8 +574,7 @@ export default function Team() {
                   </div>
                 </CardContent>
               </Card>
-            ))}
-          </div>
+            )} />
         )}
 
         {/* Member Calendar Dialog */}

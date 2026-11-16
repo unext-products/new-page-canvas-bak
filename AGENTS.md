@@ -7,4 +7,5 @@
 - Authentication emails use the scaffolded managed email SDK handler; do not add queues or custom delivery infrastructure because this project uses platform-managed sending.
 - Dashboard reportee cards use a separate effective-user-scoped, paginated direct-mapping lookup and shared card across all roles, so they do not change team metrics or approval scopes.
 - Approvals and dashboard mappings use the direct-reportee resolver; Reports and Team use a separate server-validated reporting scope. Read policies allow reporting scope while restrictive write policies stay direct-only; explicit frontend scopes preserve separation during admin impersonation.
+- Team hierarchy presentation uses scoped manager-link metadata and a deduplicated grouping helper; links never expand the existing visible member set and direct mappings take precedence for counts.
 - Keep the text Bun lockfile's public package tarballs on registry.npmjs.org and omit the legacy binary lockfile so hosted installs do not depend on sandbox-only download hosts.
