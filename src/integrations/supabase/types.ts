@@ -1126,6 +1126,13 @@ export type Database = {
         Args: { p_role: Database["public"]["Enums"]["app_role"] }
         Returns: number
       }
+      get_team_reporting_links: {
+        Args: { p_manager_id: string }
+        Returns: {
+          manager_id: string
+          user_id: string
+        }[]
+      }
       get_transitive_reportees: {
         Args: { p_manager_id: string }
         Returns: string[]

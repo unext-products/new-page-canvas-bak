@@ -25,3 +25,8 @@
 - [x] Include same-organization indirect faculty through mapped L2 managers in L3 Reports and Team only.
 - [x] Preserve direct-only Approvals, dashboard mappings, and manager write access.
 - [x] Verify Boby's actual signed-in October CSV (4,793 entries), 84-member team, and six-person approval scope.
+
+# Team hierarchy presentation
+- [x] Group visible team members by reporting manager and mark direct/indirect relationships.
+- [x] Show reconciled direct/indirect counts under total members without changing visibility.
+- [x] Test deduplication and verify Boby's own account (6 direct, 78 indirect), search, expandable groups, desktop/tablet/mobile layouts and unchanged approval scope.
