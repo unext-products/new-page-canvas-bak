@@ -43,6 +43,7 @@ import { calculateDurationMinutes, formatActivityLabel } from "@/lib/timesheetUt
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfDay, endOfDay } from "date-fns";
 import { getUserErrorMessage } from "@/lib/errorHandler";
 import { getVisibleUserIds } from "@/lib/reportingHierarchy";
+import { canExportReport } from "@/lib/reportExportAccess";
 
 type ReportViewType = "member" | "department";
 
@@ -269,11 +270,7 @@ export default function Reports() {
   };
 
   const currentReport = reportType === "member" ? facultyReport : departmentReport;
-  const hasData = currentReport && (
-    reportType === "member" 
-      ? facultyReport?.entries.length > 0 
-      : (departmentReport?.facultyBreakdown.length > 0 || (departmentReport?.nonStarters?.length ?? 0) > 0)
-  );
+  const exportEnabled = canExportReport(userWithRole?.role, currentReport, isLoading);
 
   if (loading) {
     return (
@@ -293,7 +290,7 @@ export default function Reports() {
           actions={
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button disabled={!hasData}>
+                <Button disabled={!exportEnabled} title={!currentReport ? "Submit your report filters to enable export" : undefined}>
                   <Download className="mr-2 h-4 w-4" />
                   Export
                   <ChevronDown className="ml-2 h-4 w-4" />

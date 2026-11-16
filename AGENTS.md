@@ -2,6 +2,7 @@
 - Report aggregation batches and paginates member-related lookups, with bounded concurrency, to avoid per-member network waterfalls while preserving target-resolution fallbacks.
 - Reports use the shared report-level resolver for member levels so on-screen tables and CSV/PDF exports agree, including legacy roles.
 - Detailed report tables paginate rendering only; summary metrics and downloads always use the full fetched report.
+- Report export availability depends on authorized report access and a completed report, not entry counts, so empty reports remain downloadable without changing manual Submit-based fetching.
 - Entry approval timestamps use the shared formatter and display component across views and exports; only approved statuses expose approved_at as an approval time because rejections share that field.
 - Authentication emails use the scaffolded managed email SDK handler; do not add queues or custom delivery infrastructure because this project uses platform-managed sending.
 - Dashboard reportee cards use a separate effective-user-scoped, paginated direct-mapping lookup and shared card across all roles, so they do not change team metrics or approval scopes.
