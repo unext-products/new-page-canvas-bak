@@ -27,6 +27,6 @@
 - [x] Verify Boby's actual signed-in October CSV (4,793 entries), 84-member team, and six-person approval scope.
 
 # Team hierarchy presentation
-- [ ] Group visible team members by reporting manager and mark direct/indirect relationships.
-- [ ] Show reconciled direct/indirect counts under total members without changing visibility.
-- [ ] Test deduplication and verify Boby's hierarchy on desktop and smaller screens.
+- [x] Group visible team members by reporting manager and mark direct/indirect relationships.
+- [x] Show reconciled direct/indirect counts under total members without changing visibility.
+- [x] Test deduplication and verify Boby's own account (6 direct, 78 indirect), search, expandable groups, desktop/tablet/mobile layouts and unchanged approval scope.
