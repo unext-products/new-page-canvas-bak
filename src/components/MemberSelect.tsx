@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
-import { getVisibleUserIds } from "@/lib/reportingHierarchy";
+import { getVisibleUserIds, getReportingUserIds } from "@/lib/reportingHierarchy";
 import { useAuth } from "@/contexts/AuthContext";
 import { isRole } from "@/lib/roleMapping";
 
@@ -35,9 +35,10 @@ interface MemberSelectProps {
   includeAll?: boolean;
   departmentIds?: string[]; // Filter members by these department IDs
   includeInactive?: boolean; // Include inactive users for historical data access
+  reportingScope?: boolean;
 }
 
-export function MemberSelect({ value, onValueChange, includeAll = false, departmentIds, includeInactive = false }: MemberSelectProps) {
+export function MemberSelect({ value, onValueChange, includeAll = false, departmentIds, includeInactive = false, reportingScope = false }: MemberSelectProps) {
   const { userWithRole } = useAuth();
   const [open, setOpen] = useState(false);
   const [members, setMembers] = useState<Member[]>([]);
@@ -45,13 +46,13 @@ export function MemberSelect({ value, onValueChange, includeAll = false, departm
 
   useEffect(() => {
     fetchMembers();
-  }, [departmentIds, includeInactive, userWithRole?.user.id]);
+  }, [departmentIds, includeInactive, userWithRole?.user.id, reportingScope]);
 
   const fetchMembers = async () => {
     try {
       const isManager = isRole(userWithRole?.role, "l2", "l3");
       const scopeIds = isManager && userWithRole?.user.id
-        ? await getVisibleUserIds(userWithRole.user.id, userWithRole.role || "") : undefined;
+        ? await (reportingScope ? getReportingUserIds : getVisibleUserIds)(userWithRole.user.id, userWithRole.role || "") : undefined;
       if (scopeIds && scopeIds.length === 0) {
         setMembers([]);
         return;

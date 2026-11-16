@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
-import { getVisibleUserIds } from "@/lib/reportingHierarchy";
+import { getReportingUserIds } from "@/lib/reportingHierarchy";
+import { isRole } from "@/lib/roleMapping";
+import { fetchAllRows } from "@/lib/reportQueries";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -76,14 +78,14 @@ export default function Team() {
       const weekEnd = endOfWeek(new Date(), { weekStartsOn: 1 });
       const today = format(new Date(), "yyyy-MM-dd");
       const currentRole = userWithRole.role;
-      const isL3 = currentRole === "l3" || currentRole === "manager";
-      const isL2 = currentRole === "l2" || currentRole === "program_manager";
-      const isAdmin = currentRole === "org_admin" || currentRole === "admin";
+      const isL3 = isRole(currentRole, "l3");
+      const isL2 = isRole(currentRole, "l2");
+      const isAdmin = isRole(currentRole, "admin");
 
       let userIds: string[] = [];
 
       if (isL3 || isL2) {
-        userIds = await getVisibleUserIds(userWithRole.user.id, currentRole);
+        userIds = await getReportingUserIds(userWithRole.user.id, currentRole || "");
       } else if (isAdmin) {
         const { data: roleData } = await supabase.from("user_roles")
           .select("organization_id").eq("user_id", userWithRole.user.id).single();
@@ -124,12 +126,12 @@ export default function Team() {
           .from("profiles")
           .select("id, full_name, avatar_url, is_active")
           .in("id", userIds),
-        supabase
+        fetchAllRows(supabase
           .from("timesheet_entries")
-          .select("user_id, start_time, end_time")
+          .select("id, user_id, start_time, end_time")
           .in("user_id", userIds)
           .gte("entry_date", format(weekStart, "yyyy-MM-dd"))
-          .lte("entry_date", format(weekEnd, "yyyy-MM-dd")),
+          .lte("entry_date", format(weekEnd, "yyyy-MM-dd"))),
         supabase
           .from("leave_days")
           .select("user_id, leave_date")
@@ -158,7 +160,7 @@ export default function Team() {
       ]);
 
       const profiles = profilesRes.data || [];
-      const entries = entriesRes.data || [];
+      const entries = entriesRes;
       const todayLeaves = leavesRes.data || [];
       const monthLeaves = monthLeavesRes.data || [];
       const weekLeaves = weekLeavesRes.data || [];

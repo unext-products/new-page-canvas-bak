@@ -6,5 +6,5 @@
 - Entry approval timestamps use the shared formatter and display component across views and exports; only approved statuses expose approved_at as an approval time because rejections share that field.
 - Authentication emails use the scaffolded managed email SDK handler; do not add queues or custom delivery infrastructure because this project uses platform-managed sending.
 - Dashboard reportee cards use a separate effective-user-scoped, paginated direct-mapping lookup and shared card across all roles, so they do not change team metrics or approval scopes.
-- Manager views use the shared direct-reportee resolver with no membership fallback, and restrictive per-user RLS enforces the same scope; explicit frontend scope also preserves isolation during admin impersonation.
+- Approvals and dashboard mappings use the direct-reportee resolver; Reports and Team use a separate server-validated reporting scope. Read policies allow reporting scope while restrictive write policies stay direct-only; explicit frontend scopes preserve separation during admin impersonation.
 - Keep the text Bun lockfile's public package tarballs on registry.npmjs.org and omit the legacy binary lockfile so hosted installs do not depend on sandbox-only download hosts.

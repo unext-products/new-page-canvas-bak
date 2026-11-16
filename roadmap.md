@@ -20,3 +20,8 @@
 - [x] Limit manager views to direct mappings, removing indirect and program/vertical fallback visibility.
 - [x] Enforce direct-only, same-organization access for manager data reads and entry updates.
 - [x] Test Ramya's three-person scope across Approvals, Team, Reports and Dashboard; verify unrelated data stays hidden.
+
+# L3 reporting hierarchy
+- [ ] Include same-organization indirect faculty through mapped L2 managers in L3 Reports and Team only.
+- [ ] Preserve direct-only Approvals, dashboard mappings, and manager write access.
+- [ ] Verify Boby's populated reports, downloads, and access isolation.

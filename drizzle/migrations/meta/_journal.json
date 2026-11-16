@@ -8,6 +8,13 @@
       "when": 1793097344584,
       "tag": "0000_enforce_direct_manager_scope",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794810935497,
+      "tag": "0001_l3_report_team_read_scope",
+      "breakpoints": true
     }
   ]
 }
