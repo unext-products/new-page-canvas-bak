@@ -51,9 +51,12 @@ class MabApprovalWorkflowTest(unittest.TestCase):
         self.assertEqual(self.settings["l3_approved_by"], ["org_admin"])
 
     def test_ramya_can_read_all_three_mapped_reportees(self):
+        self.page.get_by_role('combobox').first.click()
+        options = self.page.get_by_role('option').all_text_contents()
         for name in ["Latha Ub", "Rajagopal A", "Kusuma S"]:
             with self.subTest(reportee=name):
-                self.assertGreater(self.page.get_by_text(name, exact=True).count(), 0)
+                self.assertTrue(any(name in option for option in options))
+        self.page.keyboard.press('Escape')
 
     def test_ramya_data_access_matches_reporting_scope(self):
         access = self.page.evaluate("""async () => {
